@@ -88,18 +88,14 @@ func (h *Handler) onMacvlanSubnetChanged(
 	}
 
 	switch subnet.Status.Phase {
-	case macvlanSubnetInitPhase,
-		macvlanSubnetPendingPhase,
-		macvlanSubnetFailedPhase:
-		return h.createSubnet(subnet)
 	case macvlanSubnetActivePhase:
-		return h.updateSubnet(subnet)
+		return h.updateMacvlanSubnet(subnet)
+	default:
+		return h.createMacvlanSubnet(subnet)
 	}
-
-	return nil, nil
 }
 
-func (h *Handler) createSubnet(subnet *macvlanv1.MacvlanSubnet) (*macvlanv1.MacvlanSubnet, error) {
+func (h *Handler) createMacvlanSubnet(subnet *macvlanv1.MacvlanSubnet) (*macvlanv1.MacvlanSubnet, error) {
 	// Update macvlan subnet labels and set status phase to pending.
 	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		result, err := h.macvlanSubnets.Get(macvlanv1.MacvlanSubnetNamespace, subnet.Name, metav1.GetOptions{})
@@ -178,7 +174,7 @@ func (h *Handler) createSubnet(subnet *macvlanv1.MacvlanSubnet) (*macvlanv1.Macv
 	return subnet, nil
 }
 
-func (h *Handler) updateSubnet(subnet *macvlanv1.MacvlanSubnet) (*macvlanv1.MacvlanSubnet, error) {
+func (h *Handler) updateMacvlanSubnet(subnet *macvlanv1.MacvlanSubnet) (*macvlanv1.MacvlanSubnet, error) {
 	// Update macvlanip count of the subnet by updating the subnet label.
 	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		result, err := h.macvlanSubnets.Get(macvlanv1.MacvlanSubnetNamespace, subnet.Name, metav1.GetOptions{})
@@ -218,6 +214,6 @@ func (h *Handler) updateSubnet(subnet *macvlanv1.MacvlanSubnet) (*macvlanv1.Macv
 	}
 
 	// Sync the subnet every 10 secs.
-	h.subnetEnqueueAfter(subnet.Namespace, subnet.Name, time.Second*10)
+	h.macvlansubnetEnqueueAfter(subnet.Namespace, subnet.Name, time.Second*10)
 	return subnet, nil
 }

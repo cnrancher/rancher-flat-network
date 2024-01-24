@@ -27,7 +27,7 @@ func Test_MacvlanIP(t *testing.T) {
 	}
 
 	b, _ := json.MarshalIndent(ip, "", "  ")
-	err := os.WriteFile("tmp/ip-create.yaml", b, 0644)
+	err := os.WriteFile("../../../../docs/ip-example.yaml", b, 0644)
 	if err != nil {
 		t.Error(err)
 	}
@@ -40,7 +40,11 @@ func Test_MacvlanSubnet(t *testing.T) {
 			Kind:       "MacvlanSubnet",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "example-subnet",
+			Name:      "example-subnet",
+			Namespace: macvlanv1.MacvlanSubnetNamespace,
+			Labels: map[string]string{
+				"project": "",
+			},
 		},
 		Spec: macvlanv1.MacvlanSubnetSpec{
 			Master:  "eth0",
@@ -64,7 +68,7 @@ func Test_MacvlanSubnet(t *testing.T) {
 	}
 
 	b, _ := json.MarshalIndent(subnet, "", "  ")
-	err := os.WriteFile("tmp/subnet-create.yaml", b, 0644)
+	err := os.WriteFile("../../../../docs/subnet-example.yaml", b, 0644)
 	if err != nil {
 		t.Error(err)
 	}

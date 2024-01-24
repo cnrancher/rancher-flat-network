@@ -36,12 +36,12 @@ type Handler struct {
 	cronjobs       batchcontroller.CronJobClient
 	jobs           batchcontroller.JobClient
 
-	ipEnqueueAfter     func(namespace, name string, duration time.Duration)
-	ipEnqueue          func(namespace, name string)
-	subnetEnqueueAfter func(namespace, name string, duration time.Duration)
-	subnetEnqueue      func(namespace, name string)
-	podEnqueueAfter    func(namespace, name string, duration time.Duration)
-	podEnqueue         func(namespace, name string)
+	macvlanipEnqueueAfter     func(namespace, name string, duration time.Duration)
+	macvlanipEnqueue          func(namespace, name string)
+	macvlansubnetEnqueueAfter func(namespace, name string, duration time.Duration)
+	macvlansubnetEnqueue      func(namespace, name string)
+	podEnqueueAfter           func(namespace, name string, duration time.Duration)
+	podEnqueue                func(namespace, name string)
 
 	inUsedIPs        *sync.Map
 	inUsedMacForAuto *sync.Map
@@ -80,12 +80,12 @@ func Register(
 		cronjobs:       opts.Cronjobs,
 		jobs:           opts.Jobs,
 
-		ipEnqueueAfter:     opts.MacvlanIPs.EnqueueAfter,
-		ipEnqueue:          opts.MacvlanIPs.Enqueue,
-		subnetEnqueueAfter: opts.MacvlanSubnets.EnqueueAfter,
-		subnetEnqueue:      opts.MacvlanSubnets.Enqueue,
-		podEnqueueAfter:    opts.Pods.EnqueueAfter,
-		podEnqueue:         opts.Pods.Enqueue,
+		macvlanipEnqueueAfter:     opts.MacvlanIPs.EnqueueAfter,
+		macvlanipEnqueue:          opts.MacvlanIPs.Enqueue,
+		macvlansubnetEnqueueAfter: opts.MacvlanSubnets.EnqueueAfter,
+		macvlansubnetEnqueue:      opts.MacvlanSubnets.Enqueue,
+		podEnqueueAfter:           opts.Pods.EnqueueAfter,
+		podEnqueue:                opts.Pods.Enqueue,
 
 		inUsedIPs:        &sync.Map{},
 		inUsedMacForAuto: &sync.Map{},
@@ -96,20 +96,29 @@ func Register(
 	// Register handlers.
 	logrus.Info("Setting up event handlers")
 	opts.MacvlanIPs.OnChange(ctx, controllerName, h.handleMacvlanIPError(h.onMacvlanIPChanged))
-	opts.MacvlanIPs.OnRemove(ctx, controllerName, h.onMacvlanIPRemoved)
+	opts.MacvlanIPs.OnRemove(ctx, controllerRemoveName, h.onMacvlanIPRemoved)
 
 	opts.MacvlanSubnets.OnChange(ctx, controllerName, h.handleMacvlanSubnetError(h.onMacvlanSubnetChanged))
-	opts.MacvlanSubnets.OnRemove(ctx, controllerName, h.onMacvlanSubnetRemove)
+	opts.MacvlanSubnets.OnRemove(ctx, controllerRemoveName, h.onMacvlanSubnetRemove)
 
 	opts.Pods.OnChange(ctx, controllerName, h.handlePodError(h.onPodChanged))
-	opts.Pods.OnRemove(ctx, controllerName, h.onPodRemoved)
+	opts.Pods.OnRemove(ctx, controllerRemoveName, h.onPodRemoved)
+
+	opts.Services.OnChange(ctx, controllerName, h.handleServiceError(h.onServiceChanged))
+	opts.Services.OnRemove(ctx, controllerRemoveName, h.onServiceRemoved)
+
+	opts.Namespaces.OnChange(ctx, controllerName, h.handleNamespaceError(h.onNamespaceChanged))
+	opts.Namespaces.OnRemove(ctx, controllerRemoveName, h.onNamespaceRemoved)
 
 	opts.Deployments.OnChange(ctx, controllerName, h.handleDeploymentError(h.onDeploymentChanged))
-	opts.Deployments.OnRemove(ctx, controllerName, h.onDeploymentRemoved)
+	opts.Deployments.OnRemove(ctx, controllerRemoveName, h.onDeploymentRemoved)
 
 	opts.Statefulsets.OnChange(ctx, controllerName, h.handleStatefulSetError(h.onStatefulSetChanged))
-	opts.Statefulsets.OnRemove(ctx, controllerName, h.onStatefulSetRemoved)
+	opts.Statefulsets.OnRemove(ctx, controllerRemoveName, h.onStatefulSetRemoved)
 
 	opts.Cronjobs.OnChange(ctx, controllerName, h.handleCronJobError(h.onCronJobChanged))
-	opts.Cronjobs.OnRemove(ctx, controllerName, h.onCronJobRemoved)
+	opts.Cronjobs.OnRemove(ctx, controllerRemoveName, h.onCronJobRemoved)
+
+	opts.Jobs.OnChange(ctx, controllerName, h.handleJobsError(h.onJobsChanged))
+	opts.Jobs.OnRemove(ctx, controllerRemoveName, h.onJobsRemoved)
 }

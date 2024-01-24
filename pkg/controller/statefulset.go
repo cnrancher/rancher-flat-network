@@ -33,13 +33,12 @@ func (h *Handler) onStatefulSetChanged(s string, statefulset *appsv1.StatefulSet
 		return statefulset, nil
 	}
 
-	h.syncWorkload(statefulset)
-
-	return statefulset, nil
+	obj, err := h.syncWorkload(statefulset)
+	return obj.(*appsv1.StatefulSet), err
 }
 
 func (h *Handler) onStatefulSetRemoved(s string, statefulset *appsv1.StatefulSet) (*appsv1.StatefulSet, error) {
-	if statefulset == nil || statefulset.Name == "" || statefulset.DeletionTimestamp != nil {
+	if statefulset == nil || statefulset.Name == "" {
 		return statefulset, nil
 	}
 

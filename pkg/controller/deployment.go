@@ -33,13 +33,12 @@ func (h *Handler) onDeploymentChanged(s string, deployment *appsv1.Deployment) (
 		return deployment, nil
 	}
 
-	h.syncWorkload(deployment)
-
-	return deployment, nil
+	obj, err := h.syncWorkload(deployment)
+	return obj.(*appsv1.Deployment), err
 }
 
 func (h *Handler) onDeploymentRemoved(s string, deployment *appsv1.Deployment) (*appsv1.Deployment, error) {
-	if deployment == nil || deployment.Name == "" || deployment.DeletionTimestamp != nil {
+	if deployment == nil || deployment.Name == "" {
 		return deployment, nil
 	}
 

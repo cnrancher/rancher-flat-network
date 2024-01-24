@@ -132,7 +132,7 @@ func (c *Handler) syncFixedIPsCache() {
 	}
 }
 
-func (c *Handler) syncWorkload(obj interface{}) {
+func (c *Handler) syncWorkload(obj any) (any, error) {
 	c.syncFixedIPsCache()
 	var err error
 	switch workload := obj.(type) {
@@ -188,8 +188,10 @@ func (c *Handler) syncWorkload(obj interface{}) {
 		}
 	}
 	if err != nil {
-		logrus.Warnf("syncWorkload: failed to update workload label, %v", err)
+		logrus.Warnf("syncWorkload: failed to update workload label: %v", err)
+		return obj, fmt.Errorf("failed to update workload label: %w", err)
 	}
+	return obj, nil
 }
 
 func needUpdateWorkloadMacvlanLabel(podMeta, workloadMeta metav1.ObjectMeta) (bool, string, string) {

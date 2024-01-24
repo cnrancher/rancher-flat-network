@@ -306,7 +306,7 @@ func getPotentialIPInAutoMode(
 
 func getUsedIPsInSyncmap(ips *sync.Map, subnetName string) []net.IP {
 	used := []net.IP{}
-	ips.Range(func(k, v interface{}) bool {
+	ips.Range(func(k, v any) bool {
 		temp := strings.SplitN(k.(string), ":", 2)
 		ip := net.ParseIP(temp[0])
 		if ip != nil && subnetName == temp[1] {
