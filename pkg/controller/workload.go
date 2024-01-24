@@ -20,7 +20,6 @@ func (c *Handler) checkFixedIPsFromWorkloadInformer(ip, subnet string) error {
 		var usedInfo string
 		switch w := obj.(type) {
 		case *appsv1.Deployment:
-			// newobj, _ := c.deploymentLister.Deployments(w.Namespace).Get(w.Name)
 			newobj, _ := c.deployments.Get(w.Namespace, w.Name, metav1.GetOptions{})
 			if newobj != nil && newobj.DeletionTimestamp == nil {
 				annotationIP := newobj.Spec.Template.Annotations[macvlanv1.AnnotationIP]
@@ -29,7 +28,6 @@ func (c *Handler) checkFixedIPsFromWorkloadInformer(ip, subnet string) error {
 				}
 			}
 		case *appsv1.StatefulSet:
-			// newobj, _ := c.statefulsetLister.StatefulSets(w.Namespace).Get(w.Name)
 			newobj, _ := c.statefulsets.Get(w.Namespace, w.Name, metav1.GetOptions{})
 			if newobj != nil && newobj.DeletionTimestamp == nil {
 				annotationIP := newobj.Spec.Template.Annotations[macvlanv1.AnnotationIP]
@@ -38,7 +36,6 @@ func (c *Handler) checkFixedIPsFromWorkloadInformer(ip, subnet string) error {
 				}
 			}
 		case *batchv1.CronJob:
-			// newobj, _ := c.cronjobLister.CronJobs(w.Namespace).Get(w.Name)
 			newobj, _ := c.cronjobs.Get(w.Namespace, w.Name, metav1.GetOptions{})
 			if newobj != nil && newobj.DeletionTimestamp == nil {
 				annotationIP := newobj.Spec.JobTemplate.Spec.Template.Annotations[macvlanv1.AnnotationIP]
@@ -47,7 +44,6 @@ func (c *Handler) checkFixedIPsFromWorkloadInformer(ip, subnet string) error {
 				}
 			}
 		case *batchv1.Job:
-			// newobj, _ := c.jobLister.Jobs(w.Namespace).Get(w.Name)
 			newobj, _ := c.jobs.Get(w.Namespace, w.Name, metav1.GetOptions{})
 			if newobj != nil && newobj.DeletionTimestamp == nil {
 				annotationIP := newobj.Spec.Template.Annotations[macvlanv1.AnnotationIP]
@@ -68,7 +64,6 @@ func (c *Handler) checkFixedIPsFromWorkloadInformer(ip, subnet string) error {
 
 func (c *Handler) syncFixedIPsCache() {
 	// list fixed IPs from deployment/statefulset/cronjob/job
-	// dps, _ := c.deploymentLister.List(labels.Everything())
 	dps, err := c.deployments.List("", metav1.ListOptions{
 		LabelSelector: labels.Everything().String(),
 	})
@@ -87,8 +82,6 @@ func (c *Handler) syncFixedIPsCache() {
 			}
 		}
 	}
-	// sfs, _ := c.statefulsetLister.List(labels.Everything())
-	// sfs, err := c.statefulsetLister.List(labels.Everything())
 	sfs, err := c.statefulsets.List("", metav1.ListOptions{})
 	if err != nil {
 		logrus.Warnf("syncFixedIPsCache: failed to list statefulsets: %v", err)
@@ -105,7 +98,6 @@ func (c *Handler) syncFixedIPsCache() {
 			}
 		}
 	}
-	// cronjobs, _ := c.cronjobLister.List(labels.Everything())
 	cronjobs, err := c.cronjobs.List("", metav1.ListOptions{})
 	if err != nil {
 		logrus.Warnf("syncFixedIPsCache: failed to list cronjobs: %v", err)
@@ -122,7 +114,6 @@ func (c *Handler) syncFixedIPsCache() {
 			}
 		}
 	}
-	// jobs, _ := c.jobLister.List(labels.Everything())
 	jobs, err := c.jobs.List("", metav1.ListOptions{})
 	if err != nil {
 		logrus.Warnf("syncFixedIPsCache: failed to list jobs: %v", err)
@@ -153,7 +144,6 @@ func (c *Handler) syncWorkload(obj interface{}) {
 			}
 			w.Labels[macvlanv1.LabelMacvlanIPType] = iptype
 			w.Labels[macvlanv1.LabelSubnet] = subnet
-			// _, err = c.kubeClientset.AppsV1().Deployments(w.Namespace).Update(context.TODO(), w, metav1.UpdateOptions{})
 			_, err = c.deployments.Update(w)
 		}
 	case *appsv1.DaemonSet:
@@ -164,7 +154,6 @@ func (c *Handler) syncWorkload(obj interface{}) {
 			}
 			w.Labels[macvlanv1.LabelMacvlanIPType] = iptype
 			w.Labels[macvlanv1.LabelSubnet] = subnet
-			// _, err = c.kubeClientset.AppsV1().DaemonSets(w.Namespace).Update(context.TODO(), w, metav1.UpdateOptions{})
 			_, err = c.daemonsets.Update(w)
 		}
 	case *appsv1.StatefulSet:
@@ -175,7 +164,6 @@ func (c *Handler) syncWorkload(obj interface{}) {
 			}
 			w.Labels[macvlanv1.LabelMacvlanIPType] = iptype
 			w.Labels[macvlanv1.LabelSubnet] = subnet
-			// _, err = c.kubeClientset.AppsV1().StatefulSets(w.Namespace).Update(context.TODO(), w, metav1.UpdateOptions{})
 			_, err = c.statefulsets.Update(w)
 		}
 	case *batchv1.CronJob:
@@ -186,7 +174,6 @@ func (c *Handler) syncWorkload(obj interface{}) {
 			}
 			w.Labels[macvlanv1.LabelMacvlanIPType] = iptype
 			w.Labels[macvlanv1.LabelSubnet] = subnet
-			// _, err = c.kubeClientset.BatchV1().CronJobs(w.Namespace).Update(context.TODO(), w, metav1.UpdateOptions{})
 			_, err = c.cronjobs.Update(w)
 		}
 	case *batchv1.Job:
@@ -197,7 +184,6 @@ func (c *Handler) syncWorkload(obj interface{}) {
 			}
 			w.Labels[macvlanv1.LabelMacvlanIPType] = iptype
 			w.Labels[macvlanv1.LabelSubnet] = subnet
-			// _, err = c.kubeClientset.BatchV1().Jobs(w.Namespace).Update(context.TODO(), w, metav1.UpdateOptions{})
 			_, err = c.jobs.Update(w)
 		}
 	}

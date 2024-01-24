@@ -40,6 +40,7 @@ type MacvlanSubnetsGetter interface {
 type MacvlanSubnetInterface interface {
 	Create(ctx context.Context, macvlanSubnet *v1.MacvlanSubnet, opts metav1.CreateOptions) (*v1.MacvlanSubnet, error)
 	Update(ctx context.Context, macvlanSubnet *v1.MacvlanSubnet, opts metav1.UpdateOptions) (*v1.MacvlanSubnet, error)
+	UpdateStatus(ctx context.Context, macvlanSubnet *v1.MacvlanSubnet, opts metav1.UpdateOptions) (*v1.MacvlanSubnet, error)
 	Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error
 	Get(ctx context.Context, name string, opts metav1.GetOptions) (*v1.MacvlanSubnet, error)
@@ -128,6 +129,22 @@ func (c *macvlanSubnets) Update(ctx context.Context, macvlanSubnet *v1.MacvlanSu
 		Namespace(c.ns).
 		Resource("macvlansubnets").
 		Name(macvlanSubnet.Name).
+		VersionedParams(&opts, scheme.ParameterCodec).
+		Body(macvlanSubnet).
+		Do(ctx).
+		Into(result)
+	return
+}
+
+// UpdateStatus was generated because the type contains a Status member.
+// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
+func (c *macvlanSubnets) UpdateStatus(ctx context.Context, macvlanSubnet *v1.MacvlanSubnet, opts metav1.UpdateOptions) (result *v1.MacvlanSubnet, err error) {
+	result = &v1.MacvlanSubnet{}
+	err = c.client.Put().
+		Namespace(c.ns).
+		Resource("macvlansubnets").
+		Name(macvlanSubnet.Name).
+		SubResource("status").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(macvlanSubnet).
 		Do(ctx).

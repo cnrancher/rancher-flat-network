@@ -20,18 +20,22 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var (
+const (
+	messageNoEnoughIP = "no enough ip resouce in subnet: %s"
 	k8sCNINetworksKey = "k8s.v1.cni.cncf.io/networks"
 	netAttatchDefName = "static-macvlan-cni-attach"
-	netAttatchDef     = schema.GroupVersionResource{
+	cniARPPolicyEnv   = "PANDARIA_MACVLAN_CNI_ARP_POLICY"
+	cniProxyARPEnv    = "PANDARIA_MACVLAN_CNI_PROXY_ARP"
+
+	defaultARPPolicy = "arping"
+)
+
+var (
+	netAttatchDef = schema.GroupVersionResource{
 		Group:    "k8s.cni.cncf.io",
 		Version:  "v1",
 		Resource: "network-attachment-definitions",
 	}
-	cniARPPolicyEnv = "PANDARIA_MACVLAN_CNI_ARP_POLICY"
-	cniProxyARPEnv  = "PANDARIA_MACVLAN_CNI_PROXY_ARP"
-
-	defaultARPPolicy = "arping"
 )
 
 func (h *Handler) allocateAutoIP(pod *corev1.Pod, subnet *v1.MacvlanSubnet, annotationMac string) (net.IP, string, string, error) {
@@ -40,7 +44,6 @@ func (h *Handler) allocateAutoIP(pod *corev1.Pod, subnet *v1.MacvlanSubnet, anno
 
 	hosts, err := CalcSubnetHosts(subnet)
 	if err != nil {
-		// h.eventMacvlanSubnetError(pod, err)
 		return nil, "", "", err
 	}
 

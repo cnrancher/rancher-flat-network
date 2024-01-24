@@ -28,29 +28,50 @@ func isMacvlanPod(pod *corev1.Pod) bool {
 	return true
 }
 
-func (h *Handler) onPodUpdate(_ string, pod *corev1.Pod) (*corev1.Pod, error) {
-	if pod == nil || pod.Name == "" {
+func (h *Handler) handlePodError(
+	onChange func(string, *corev1.Pod) (*corev1.Pod, error),
+) func(string, *corev1.Pod) (*corev1.Pod, error) {
+	return func(key string, pod *corev1.Pod) (*corev1.Pod, error) {
+		var err error
+		pod, err = onChange(key, pod)
+		if pod == nil {
+			return pod, err
+		}
+		if err != nil {
+			// Avoid trigger the rate limit.
+			logrus.Warnf("%v", err)
+			time.Sleep(time.Second * 1)
+
+			// TODO: handle error event here.
+		}
+
+		return pod, err
+	}
+}
+
+func (h *Handler) onPodChanged(s string, pod *corev1.Pod) (*corev1.Pod, error) {
+	if pod == nil || pod.Name == "" || pod.DeletionTimestamp != nil {
 		return pod, nil
 	}
 	if !isMacvlanPod(pod) {
-		logrus.Infof("XXXX ignore non-macvlan pod: %v", pod.Name)
-		return pod, nil
-	}
-	// Ignore the failed status pod
-	if pod.Status.Phase == corev1.PodFailed {
-		logrus.Debugf("Ignore pod %q as it is on the failed status or deleting.", pod.Name)
 		return pod, nil
 	}
 
-	return h.doAddMacvlanIP(pod)
+	switch pod.Status.Phase {
+	case corev1.PodFailed:
+		logrus.Infof("Ignore to sync the failed pod [%v/%v]",
+			pod.Namespace, pod.Name)
+		return pod, nil
+	default:
+		return h.syncMacvlanPodIP(s, pod)
+	}
 }
 
-func (h *Handler) onPodRemove(_ string, pod *corev1.Pod) (*corev1.Pod, error) {
-	// Do nothing...
+func (h *Handler) onPodRemoved(_ string, pod *corev1.Pod) (*corev1.Pod, error) {
 	return pod, nil
 }
 
-func (h *Handler) doAddMacvlanIP(pod *corev1.Pod) (*corev1.Pod, error) {
+func (h *Handler) syncMacvlanPodIP(s string, pod *corev1.Pod) (*corev1.Pod, error) {
 	if err := h.checkMacvlanServiceDisabled(pod); err != nil {
 		return pod, err
 	}
@@ -59,56 +80,56 @@ func (h *Handler) doAddMacvlanIP(pod *corev1.Pod) (*corev1.Pod, error) {
 		selectedIP := pod.Labels[macvlanv1.LabelSelectedIP]
 		// macvlanip, err := c.macvlanipsLister.MacvlanIPs(pod.Namespace).Get(pod.Name)
 		macvlanip, err := h.macvlanIPs.Get(pod.Namespace, pod.Name, metav1.GetOptions{})
-		if err == nil {
-			match := strings.SplitN(macvlanip.Spec.CIDR, "/", 2)[0] == selectedIP
-			if match {
-				logrus.Infof("doAddMacvlanIP: macvlanip [%s] exist, cidr [%s], selectedip [%s]",
-					macvlanip.Name, macvlanip.Spec.CIDR, selectedIP)
-				return pod, nil
-			}
-			logrus.Warnf("doAddMacvlanIP: macvlanip [%s] mismatch, cidr [%s], selectedip [%s]",
-				macvlanip.Name, macvlanip.Spec.CIDR, selectedIP)
-			// c.kubeClientset.CoreV1().Pods(pod.Namespace).Delete(context.TODO(), pod.Name, metav1.DeleteOptions{})
-			if err := h.pods.Delete(pod.Namespace, pod.Name, &metav1.DeleteOptions{}); err != nil {
-				logrus.Warnf("doAddMacvlanIP: failed to delete pod [%v]: %v", pod.Name, err)
-				return pod, err
-			}
+		if err != nil {
+			// itemKey, err := cache.MetaNamespaceKeyFunc(pod)
+			// if err != nil {
+			// 	return err
+			// }
+			// if c.workqueue.NumRequeues(itemKey) > maxRetrySelectedIPPod {
+			// 	logrus.Warnf("syncMacvlanPodIP: data of the pod and macvlanip is not synchronized, delete the pod %s", itemKey)
+			// 	c.kubeClientset.CoreV1().Pods(pod.Namespace).Delete(context.TODO(), pod.Name, metav1.DeleteOptions{})
+			// }
+			// return fmt.Errorf("macvlanip %s cannot be found, will try on next queue item", pod.Name)
 
-			// c.macvlanClientset.MacvlanV1().MacvlanIPs(pod.Namespace).Delete(context.TODO(), pod.Name, metav1.DeleteOptions{})
-			if err := h.macvlanIPs.Delete(pod.Namespace, pod.Name, &metav1.DeleteOptions{}); err != nil {
-				logrus.Warnf("doAddMacvlanIP: failed to delete macvlan ip [%v]: %v", pod.Name, err)
-				return pod, err
-			}
-			return pod, fmt.Errorf("macvlanip [%s] mismatch, will try on next queue item", pod.Name)
+			logrus.Infof("syncMacvlanPodIP: Already selected ip [%s] for pod [%s/%s], waiting for macvlanip resource created",
+				selectedIP, pod.Namespace, pod.Name)
+			h.podEnqueueAfter(pod.Namespace, pod.Name, time.Second)
+			return pod, nil
 		}
-		logrus.Infof("doAddMacvlanIP: Already selected ip [%s] for pod [%s/%s], waiting for macvlanip created",
-			selectedIP, pod.Namespace, pod.Name)
-		// itemKey, err := cache.MetaNamespaceKeyFunc(pod)
-		// if err != nil {
-		// 	return err
-		// }
-		// if c.workqueue.NumRequeues(itemKey) > maxRetrySelectedIPPod {
-		// 	logrus.Warnf("doAddMacvlanIP: data of the pod and macvlanip is not synchronized, delete the pod %s", itemKey)
-		// 	c.kubeClientset.CoreV1().Pods(pod.Namespace).Delete(context.TODO(), pod.Name, metav1.DeleteOptions{})
-		// }
-		// return fmt.Errorf("macvlanip %s cannot be found, will try on next queue item", pod.Name)
-		h.podEnqueueAfter(pod.Namespace, pod.Name, time.Second)
-		return pod, nil
+		match := strings.SplitN(macvlanip.Spec.CIDR, "/", 2)[0] == selectedIP
+		if match {
+			logrus.Infof("syncMacvlanPodIP: macvlanip [%s] exist, cidr [%s], selected ip [%s]",
+				macvlanip.Name, macvlanip.Spec.CIDR, selectedIP)
+			return pod, nil
+		}
+		logrus.Warnf("syncMacvlanPodIP: macvlanip [%s] mismatch: cidr [%s], selected ip [%s]",
+			macvlanip.Name, macvlanip.Spec.CIDR, selectedIP)
+
+		// TODO: Delete the pod directly is not recommended.
+		if err := h.pods.Delete(pod.Namespace, pod.Name, &metav1.DeleteOptions{}); err != nil {
+			logrus.Warnf("syncMacvlanPodIP: failed to delete pod [%v]: %v", pod.Name, err)
+			return pod, err
+		}
+		logrus.Infof("Request to delete the IP mismatch pod %q", pod.Name)
+		if err := h.macvlanIPs.Delete(pod.Namespace, pod.Name, &metav1.DeleteOptions{}); err != nil {
+			logrus.Warnf("syncMacvlanPodIP: failed to delete macvlan ip [%v]: %v", pod.Name, err)
+			return pod, err
+		}
+		logrus.Infof("Request to delete the mismatch macvlanip resource %q", pod.Name)
+		return pod, fmt.Errorf("macvlanip [%s] mismatch, will try on next queue item", pod.Name)
 	}
 
 	annotationIP := pod.Annotations[macvlanv1.AnnotationIP]
 	annotationSubnet := pod.Annotations[macvlanv1.AnnotationSubnet]
 	annotationMac := pod.Annotations[macvlanv1.AnnotationMac]
-	// subnet, err := c.macvlansubnetsLister.MacvlanSubnets(macvlanv1.MacvlanSubnetNamespace).Get(annotationSubnet)
 	subnet, err := h.macvlanSubnets.Get(macvlanv1.MacvlanSubnetNamespace, annotationSubnet, metav1.GetOptions{})
 	if err != nil {
-		// c.eventMacvlanSubnetError(pod, err)
-		return pod, err
+		return pod, fmt.Errorf("syncMacvlanPodIP: failed to get subnet %q of pod [%v]: %w",
+			annotationSubnet, s)
 	}
-
 	if err := h.validateSubnetProject(subnet, pod); err != nil {
-		// h.eventMacvlanSubnetError(pod, err)
-		return pod, err
+		return pod, fmt.Errorf("syncMacvlanPodIP: failed to validate the subnet %q of pod [%v]: %w",
+			annotationSubnet, s)
 	}
 
 	// allocate ip in subnet
@@ -116,12 +137,10 @@ func (h *Handler) doAddMacvlanIP(pod *corev1.Pod) (*corev1.Pod, error) {
 	var macvlanipCIDR string
 	var macvlanipMac string
 	macvlanipType := "specific"
-
 	if annotationMac == "auto" {
 		annotationMac = ""
 	}
 
-	// existMacvlanIP, _ := c.macvlanipsLister.MacvlanIPs(pod.Namespace).Get(pod.Name)
 	existMacvlanIP, _ := h.macvlanIPs.Get(pod.Namespace, pod.Name, metav1.GetOptions{})
 	if annotationIP == "auto" {
 		logrus.Infof("Alloate ip mode auto for pod [%s/%s]", pod.Namespace, pod.Name)
@@ -135,43 +154,37 @@ func (h *Handler) doAddMacvlanIP(pod *corev1.Pod) (*corev1.Pod, error) {
 			allocatedIP, macvlanipCIDR, macvlanipMac, err = h.allocateAutoIP(pod, subnet, annotationMac)
 		}
 	} else if isSingleIP(annotationIP) {
-		logrus.Infof("Alloate ip mode single for pod [%s/%s]", pod.Namespace, pod.Name)
+		logrus.Infof("Alloate single macvlan IP for pod [%v]", s)
 		allocatedIP, macvlanipCIDR, macvlanipMac, err = h.allocateSingleIP(pod, subnet, annotationIP, annotationMac)
 	} else if isMultipleIP(annotationIP) {
-		logrus.Infof("alloate ip mode multiple for pod [%s/%s]", pod.Namespace, pod.Name)
+		logrus.Infof("Alloate multiple macvlan IP for pod [%v]", s)
 		allocatedIP, macvlanipCIDR, macvlanipMac, err = h.allocateMultipleIP(pod, subnet, annotationIP, annotationMac)
 	} else {
-		// h.eventMacvlanIPError(pod, fmt.Errorf("annotation ip invalid: %s", annotationIP))
-		return pod, fmt.Errorf("annotation ip invalid: %s", annotationIP)
+		return pod, fmt.Errorf("syncMacvlanPodIP: the ip value %q of annotation %q on pod %q is invalid",
+			annotationIP, macvlanv1.AnnotationIP, s)
 	}
-
 	if err != nil {
-		logrus.Errorf("doAddMacvlanIP: failed to allocate IP, %v", err)
-		// c.eventMacvlanIPError(pod, err)
-		return pod, err
+		return pod, fmt.Errorf("syncMacvlanPodIP: failed to allocate IP for pod %q: %w", s, err)
 	}
-
 	if allocatedIP == nil {
-		logrus.Error("doAddMacvlanIP: allocatedIP is nil")
-		return pod, fmt.Errorf("allocatedIP invalid")
+		return pod, fmt.Errorf("syncMacvlanPodIP: failed to allocate IP for pod %q: allocated IP is nil", s)
 	}
 
 	key := fmt.Sprintf("%s:%s", allocatedIP.String(), subnet.Name)
 	owner := fmt.Sprintf("%s:%s", pod.Namespace, pod.Name)
-	logrus.Infof("doAddMacvlanIP: finished to allocate IP : %s %s %s", macvlanipCIDR, macvlanipMac, owner)
+	logrus.Infof("syncMacvlanPodIP: finished to allocate IP: CIDR[%s] MAC[%s] OWNER[%s]", macvlanipCIDR, macvlanipMac, owner)
 	h.inUsedIPs.Store(key, owner)
-	logrus.Infof("doAddMacvlanIP: set syncmap cache, key: %s, value: %s", key, owner)
+	logrus.Debugf("syncMacvlanPodIP: set syncmap cache, key: %s, value: %s", key, owner)
 	if macvlanipMac != "" && macvlanipType == "auto" && annotationMac != "" {
 		h.inUsedMacForAuto.Store(macvlanipMac, owner)
-		logrus.Infof("doAddMacvlanIP: set inUsedMacForAuto cache, key: %s, value: %s", macvlanipMac, owner)
+		logrus.Debugf("syncMacvlanPodIP: set inUsedMacForAuto cache, key: %s, value: %s", macvlanipMac, owner)
 	}
 
-	// update macvlanip label(ip, selectedip)
-	retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		// result, getErr := h.kubeClientset.CoreV1().Pods(pod.Namespace).Get(context.TODO(), pod.Name, metav1.GetOptions{})
+	// Update the label of macvlanip (ip, selectedip).
+	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		result, err := h.pods.Get(pod.Namespace, pod.Name, metav1.GetOptions{})
 		if err != nil {
-			logrus.Warnf("doAddMacvlanIP: failed to get latest version of Pod: %v", err)
+			logrus.Warnf("syncMacvlanPodIP: failed to get latest version of Pod: %v", err)
 			return err
 		}
 
@@ -187,63 +200,59 @@ func (h *Handler) doAddMacvlanIP(pod *corev1.Pod) (*corev1.Pod, error) {
 		result.Labels[macvlanv1.LabelMacvlanIPType] = macvlanipType
 		result.Labels[macvlanv1.LabelSubnet] = annotationSubnet
 
-		// _, updateErr := c.kubeClientset.CoreV1().Pods(result.Namespace).Update(context.TODO(), result, metav1.UpdateOptions{})
 		_, err = h.pods.Update(result)
 		if err != nil {
-			logrus.Warnf("doAddMacvlanIP: pod update labels error: %v %v", result.Labels, err)
+			logrus.Warnf("syncMacvlanPodIP: failed to update pod IP: %v %v", result.Labels, err)
 			return err
 		}
 		return nil
 	})
-	if retryErr != nil {
+	if err != nil {
 		if h.deleteKeyFromInUsedIPCache(key, owner) {
-			logrus.Infof("doAddMacvlanIP: done to delete key %s from syncmap", key)
+			logrus.Infof("syncMacvlanPodIP: delete key %s from syncmap", key)
 		}
 		if h.deleteKeyFromInUsedMacCache(macvlanipMac, owner) {
-			logrus.Infof("doAddMacvlanIP: done to delete key %s from inUsedMacForAuto", macvlanipMac)
+			logrus.Infof("syncMacvlanPodIP: delete key %q from inUsedMacForAuto", macvlanipMac)
 		}
-		logrus.Errorf("doAddMacvlanIP: pod update labels retry error: %v", retryErr)
-		return pod, retryErr
+		logrus.Errorf("syncMacvlanPodIP: pod update labels retry error: %v", err)
+		return pod, fmt.Errorf("syncMacvlanPodIP: failed to update pod label")
 	}
 
-	// create macvlanip
+	// Create macvlanip resource.
 	macvlanip := makeMacvlanIP(pod, subnet, macvlanipCIDR, macvlanipMac, macvlanipType)
-	// add statefulset support
+	// Add statefulset support.
 	h.setIfStatefulSetOwnerRef(macvlanip, pod)
-	// set workload/project label
+	// Set workload/project label.
 	h.setWorkloadAndProjectLabel(macvlanip, pod)
-	// add finalizer
+	// Add finalizer.
 	if macvlanipType == "auto" && subnet.Spec.IPDelayReuse != 0 {
 		macvlanip = addMacvlanIPDelayReuseFinalizer(macvlanip)
 	}
 
 	if existMacvlanIP != nil {
-		// for statefulset pod
+		// For statefulset pod
+		// TODO: need enhancement here instead of edit the resource version directly.
 		macvlanip.ResourceVersion = existMacvlanIP.ResourceVersion
-		// _, err = c.macvlanClientset.MacvlanV1().MacvlanIPs(pod.Namespace).Update(context.TODO(), macvlanip, metav1.UpdateOptions{})
 		_, err = h.macvlanIPs.Update(macvlanip)
 	} else {
-		// _, err = c.macvlanClientset.MacvlanV1().MacvlanIPs(pod.Namespace).Create(context.TODO(), macvlanip, metav1.CreateOptions{})
 		_, err = h.macvlanIPs.Create(macvlanip)
 	}
 	if err != nil {
-		// c.eventMacvlanIPError(pod, err)
 		if h.deleteKeyFromInUsedIPCache(key, owner) {
-			logrus.Infof("doAddMacvlanIP: done to delete key %s from syncmap", key)
+			logrus.Infof("syncMacvlanPodIP: done to delete key %s from syncmap", key)
 		}
 		if h.deleteKeyFromInUsedMacCache(macvlanipMac, owner) {
-			logrus.Infof("doAddMacvlanIP: done to delete key %s from inUsedMacForAuto", macvlanipMac)
+			logrus.Infof("syncMacvlanPodIP: done to delete key %s from inUsedMacForAuto", macvlanipMac)
 		}
-		logrus.Errorf("doAddMacvlanIP: failed to sync macvlanip CRD: %v", err)
+		logrus.Errorf("syncMacvlanPodIP: failed to sync macvlanip CRD: %v", err)
 		return pod, err
 	}
-	logrus.Infof("doAddMacvlanIP: sync macvlanIP %s %s", macvlanipCIDR, owner)
+	logrus.Infof("syncMacvlanPodIP: sync macvlanIP %s %s", macvlanipCIDR, owner)
 
-	// auto sync svc
+	// Auto sync service
 	if err = h.syncService(pod); err != nil {
-		logrus.Errorf("doAddMacvlanIP: sync service error: %v", err)
+		logrus.Errorf("syncMacvlanPodIP: sync service error: %v", err)
 	}
-
 	return pod, nil
 }
 
@@ -260,7 +269,6 @@ func (h *Handler) checkMacvlanServiceDisabled(pod *corev1.Pod) error {
 		}
 
 		macvlanSvcName := fmt.Sprintf("%s-macvlan", ownerName)
-		// _, err = c.serviceLister.Services(pod.Namespace).Get(macvlanSvcName)
 		_, err = h.services.Get(pod.Namespace, macvlanSvcName, metav1.GetOptions{})
 		if err != nil {
 			// TODO: CHECK ERROR TYPE
@@ -318,7 +326,6 @@ func (h *Handler) setWorkloadAndProjectLabel(macvlanip *macvlanv1.MacvlanIP, pod
 }
 
 func (h *Handler) validateSubnetProject(subnet *macvlanv1.MacvlanSubnet, pod *corev1.Pod) error {
-	// ns, err := c.namespaceLister.Get(pod.Namespace)
 	ns, err := h.namespaces.Get(pod.Namespace, metav1.GetOptions{})
 	if err != nil {
 		return err
@@ -332,9 +339,12 @@ func (h *Handler) validateSubnetProject(subnet *macvlanv1.MacvlanSubnet, pod *co
 		// Not in rancher project.
 		return nil
 	}
-	subnetProjectLabel, exist := subnet.Labels["project"]
-	if !exist {
-		return fmt.Errorf("subnet %s is not own by rancher project", subnet.Name)
+	if subnet.Labels == nil {
+		return fmt.Errorf("subnet %q is not owned by rancher project", subnet.Name)
+	}
+	subnetProjectLabel, ok := subnet.Labels["project"]
+	if !ok {
+		return fmt.Errorf("subnet %q is not owned by rancher project", subnet.Name)
 	}
 	if subnetProjectLabel == "" {
 		// All Projects

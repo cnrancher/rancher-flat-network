@@ -7,7 +7,6 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	macvlanv1 "github.com/cnrancher/macvlan-operator/pkg/apis/macvlan.cluster.cattle.io/v1"
 	appscontroller "github.com/cnrancher/macvlan-operator/pkg/generated/controllers/apps/v1"
 	batchcontroller "github.com/cnrancher/macvlan-operator/pkg/generated/controllers/batch/v1"
 	corecontroller "github.com/cnrancher/macvlan-operator/pkg/generated/controllers/core/v1"
@@ -17,6 +16,11 @@ import (
 const (
 	controllerName       = "macvlan-operator"
 	controllerRemoveName = "macvlan-operator-remove"
+)
+
+const (
+	eventMacvlanSubnetError = "MacvlanSubnetError"
+	eventMacvlanIPError     = "MacvlanIPError"
 )
 
 type Handler struct {
@@ -89,36 +93,23 @@ func Register(
 		mux:              &sync.Mutex{},
 	}
 
-	// Register handlers
+	// Register handlers.
 	logrus.Info("Setting up event handlers")
+	opts.MacvlanIPs.OnChange(ctx, controllerName, h.handleMacvlanIPError(h.onMacvlanIPChanged))
+	opts.MacvlanIPs.OnRemove(ctx, controllerName, h.onMacvlanIPRemoved)
 
-	opts.MacvlanIPs.OnChange(ctx, controllerName, func(s string, mi *macvlanv1.MacvlanIP) (*macvlanv1.MacvlanIP, error) {
-		if mi == nil {
-			return nil, nil
-		}
-		logrus.Infof("XXXX macvlanip change: %v", mi.Name)
-		return mi, nil
-	})
-	opts.MacvlanIPs.OnRemove(ctx, controllerName, func(s string, mi *macvlanv1.MacvlanIP) (*macvlanv1.MacvlanIP, error) {
-		if mi == nil {
-			return nil, nil
-		}
-		logrus.Infof("XXXX macvlanip remove: %v", mi.Name)
-		return mi, nil
-	})
+	opts.MacvlanSubnets.OnChange(ctx, controllerName, h.handleMacvlanSubnetError(h.onMacvlanSubnetChanged))
+	opts.MacvlanSubnets.OnRemove(ctx, controllerName, h.onMacvlanSubnetRemove)
 
-	opts.MacvlanSubnets.OnChange(ctx, controllerName, tmp_subnets)
-	opts.MacvlanSubnets.OnRemove(ctx, controllerName, tmp_subnets)
+	opts.Pods.OnChange(ctx, controllerName, h.handlePodError(h.onPodChanged))
+	opts.Pods.OnRemove(ctx, controllerName, h.onPodRemoved)
 
-	opts.Pods.OnChange(ctx, controllerName, h.onPodUpdate)
-	opts.Pods.OnRemove(ctx, controllerName, h.onPodRemove)
+	opts.Deployments.OnChange(ctx, controllerName, h.handleDeploymentError(h.onDeploymentChanged))
+	opts.Deployments.OnRemove(ctx, controllerName, h.onDeploymentRemoved)
 
-	opts.Deployments.OnChange(ctx, controllerName, tmp_deployments)
-	opts.Deployments.OnRemove(ctx, controllerName, tmp_deployments)
+	opts.Statefulsets.OnChange(ctx, controllerName, h.handleStatefulSetError(h.onStatefulSetChanged))
+	opts.Statefulsets.OnRemove(ctx, controllerName, h.onStatefulSetRemoved)
 
-	opts.Statefulsets.OnChange(ctx, controllerName, tmp_statefulsets)
-	opts.Statefulsets.OnRemove(ctx, controllerName, tmp_statefulsets)
-
-	opts.Cronjobs.OnChange(ctx, controllerName, tmp_cronJobs)
-	opts.Cronjobs.OnRemove(ctx, controllerName, tmp_cronJobs)
+	opts.Cronjobs.OnChange(ctx, controllerName, h.handleCronJobError(h.onCronJobChanged))
+	opts.Cronjobs.OnRemove(ctx, controllerName, h.onCronJobRemoved)
 }

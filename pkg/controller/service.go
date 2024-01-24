@@ -21,9 +21,9 @@ var svcGetRetryBackoff = wait.Backoff{
 	Cap:      1 * time.Second,
 }
 
-// syncService auto create/delete svc for macvlan pod
+// syncService will auto create/delete service for macvlan pod.
 func (h *Handler) syncService(pod *corev1.Pod) error {
-	// do nothing if pod has no owner
+	// Do nothing if the pod do not have owner reference.
 	if pod.OwnerReferences == nil || len(pod.OwnerReferences) == 0 {
 		return nil
 	}
@@ -35,44 +35,51 @@ func (h *Handler) syncService(pod *corev1.Pod) error {
 	logrus.Debugf("syncService: %s is own by workload %s/%s", pod.Name, pod.Namespace, ownerName)
 
 	var svc *corev1.Service
-	retryErr := retry.OnError(svcGetRetryBackoff, apierrors.IsNotFound, func() error {
-		var stepErr error
-		// svc, stepErr = h.kubeClientset.CoreV1().Services(pod.Namespace).Get(context.TODO(), ownerName, metav1.GetOptions{})
-		svc, stepErr = h.services.Get(pod.Namespace, ownerName, metav1.GetOptions{})
-		logrus.Debugf("syncService: get svc err %v", stepErr)
-		return stepErr
+	err = retry.OnError(svcGetRetryBackoff, apierrors.IsNotFound, func() error {
+		svc, err = h.services.Get(pod.Namespace, ownerName, metav1.GetOptions{})
+		logrus.Debugf("syncService: get svc err %v", err)
+		return err
 	})
-	if retryErr != nil {
-		return retryErr
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			logrus.Infof("syncService: Skip to create macvlan service for pod [%v/%v]: %v",
+				pod.Namespace, pod.Name, err)
+			return nil
+		}
+		return err
 	}
 
+	// TODO: Move makeService into separate package.
 	logrus.Debugf("syncService: get origin svc %s/%s", svc.Namespace, svc.Name)
 	macvlanService := makeService(ownerUID, ownerKind, svc)
 	logrus.Debugf("syncService: to create/update new macvlan svc %s/%s", macvlanService.Namespace, macvlanService.Name)
-	err = h.updateService(macvlanService)
-	if err != nil {
+	if err := h.updateService(macvlanService); err != nil {
 		return err
 	}
 	return nil
 }
 
 func (c *Handler) updateService(svc *corev1.Service) error {
-	// get, err := c.kubeClientset.CoreV1().Services(svc.Namespace).Get(context.TODO(), svc.Name, metav1.GetOptions{})
 	get, err := c.services.Get(svc.Namespace, svc.Name, metav1.GetOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			// _, err = c.kubeClientset.CoreV1().Services(svc.Namespace).Create(context.TODO(), svc, metav1.CreateOptions{})
-			_, err = c.services.Create(svc)
-			return err
+			if _, err = c.services.Create(svc); err != nil {
+				logrus.Warnf("Failed to create service %q: %v", svc.Name, err)
+				return err
+			}
+			logrus.Infof("Created service %q", svc.Name)
 		}
 		return err
 	}
+
+	// TODO: Use retry
+	// TODO: Do not modify the resourceVersion here directly
 	svc.ResourceVersion = get.ResourceVersion
-	// _, err = c.kubeClientset.CoreV1().Services(svc.Namespace).Update(context.TODO(), svc, metav1.UpdateOptions{})
 	_, err = c.services.Update(svc)
 	return err
 }
 
+// TODO: Move the makeService into separate project
 func makeService(uid types.UID, kind string, svc *corev1.Service) *corev1.Service {
 	ports := []corev1.ServicePort{}
 
@@ -105,6 +112,7 @@ func makeService(uid types.UID, kind string, svc *corev1.Service) *corev1.Servic
 	return s
 }
 
+// TODO: Move the findOwnerWorkload into utils package
 func (h *Handler) findOwnerWorkload(pod *corev1.Pod) (string, string, types.UID, error) {
 	for _, owner := range pod.OwnerReferences {
 		switch owner.Kind {
@@ -142,6 +150,8 @@ func (h *Handler) findOwnerWorkload(pod *corev1.Pod) (string, string, types.UID,
 				return "", "", "", err
 			}
 			return d.GetName(), d.Kind, d.UID, nil
+		default:
+			logrus.Warnf("Failed to get owner name of resource %q", owner.Name)
 		}
 	}
 	return "", "", "", fmt.Errorf("%s owner workload not found", pod.Name)

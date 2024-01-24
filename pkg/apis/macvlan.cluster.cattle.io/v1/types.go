@@ -27,17 +27,14 @@ const (
 
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-// +kubebuilder:printcolumn:name="Subnet",type=string,JSONPath=`.spec.subnet`
-// +kubebuilder:printcolumn:name="PodId",type=string,JSONPath=`.spec.podId`
-// +kubebuilder:printcolumn:name="CIDR",type=string,JSONPath=`.spec.cidr`
-// +kubebuilder:printcolumn:name="MAC",type=string,JSONPath=`.spec.mac`
 
-// MacvlanIP is a specification for a MacvlanIP resource
+// MacvlanIP is a specification for a macvlan IP resource
 type MacvlanIP struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec MacvlanIPSpec `json:"spec"`
+	Spec   MacvlanIPSpec   `json:"spec"`
+	Status MacvlanIPStatus `json:"status"`
 }
 
 // MacvlanIPSpec is the spec for a MacvlanIP resource
@@ -48,22 +45,23 @@ type MacvlanIPSpec struct {
 	MAC    string `json:"mac"`
 }
 
+type MacvlanIPStatus struct {
+	Phase          string `json:"phase"`
+	FailureMessage string `json:"failureMessage"`
+}
+
 ////////////////////
 
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-// +kubebuilder:printcolumn:name="Master",type=string,JSONPath=`.spec.master`
-// +kubebuilder:printcolumn:name="VLAN",type=string,JSONPath=`.spec.vlan`
-// +kubebuilder:printcolumn:name="CIDR",type=string,JSONPath=`.spec.cidr`
-// +kubebuilder:printcolumn:name="Mode",type=string,JSONPath=`.spec.mode`
-// +kubebuilder:printcolumn:name="Gateway",type=string,JSONPath=`.spec.gateway`
 
-// MacvlanSubnet is a specification for a MacvlanSubnet resource
+// MacvlanSubnet is a specification for a macvlan Subnet resource
 type MacvlanSubnet struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec MacvlanSubnetSpec `json:"spec"`
+	Spec   MacvlanSubnetSpec   `json:"spec"`
+	Status MacvlanSubnetStatus `json:"status"`
 }
 
 // MacvlanSubnetSpec is the spec for a MacvlanSubnet resource
@@ -77,6 +75,11 @@ type MacvlanSubnetSpec struct {
 	Routes            []Route           `json:"routes,omitempty"`
 	PodDefaultGateway PodDefaultGateway `json:"podDefaultGateway,omitempty"`
 	IPDelayReuse      int64             `json:"ipDelayReuse,omitempty"`
+}
+
+type MacvlanSubnetStatus struct {
+	Phase          string `json:"phase"`
+	FailureMessage string `json:"failureMessage"`
 }
 
 // IPRange is a list of ip start end range

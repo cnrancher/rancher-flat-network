@@ -101,6 +101,18 @@ func (c *FakeMacvlanIPs) Update(ctx context.Context, macvlanIP *v1.MacvlanIP, op
 	return obj.(*v1.MacvlanIP), err
 }
 
+// UpdateStatus was generated because the type contains a Status member.
+// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
+func (c *FakeMacvlanIPs) UpdateStatus(ctx context.Context, macvlanIP *v1.MacvlanIP, opts metav1.UpdateOptions) (*v1.MacvlanIP, error) {
+	obj, err := c.Fake.
+		Invokes(testing.NewUpdateSubresourceAction(macvlanipsResource, "status", c.ns, macvlanIP), &v1.MacvlanIP{})
+
+	if obj == nil {
+		return nil, err
+	}
+	return obj.(*v1.MacvlanIP), err
+}
+
 // Delete takes name of the macvlanIP and deletes it. Returns an error if one occurs.
 func (c *FakeMacvlanIPs) Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error {
 	_, err := c.Fake.

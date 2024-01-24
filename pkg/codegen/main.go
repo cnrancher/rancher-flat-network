@@ -5,7 +5,6 @@ import (
 	"os"
 	"path"
 
-	v12 "github.com/cnrancher/macvlan-operator/pkg/apis/macvlan.cluster.cattle.io/v1"
 	controllergen "github.com/rancher/wrangler/pkg/controller-gen"
 	"github.com/rancher/wrangler/pkg/controller-gen/args"
 	"github.com/rancher/wrangler/pkg/crd"
@@ -78,14 +77,14 @@ func main() {
 
 	var crds []crd.CRD
 
-	ipConfig := newCRD(&v12.MacvlanIP{}, func(c crd.CRD) crd.CRD {
+	ipConfig := newCRD(&macvlanv1.MacvlanIP{}, func(c crd.CRD) crd.CRD {
 		c.ShortNames = []string{
 			"mip",
 			"mips",
 		}
 		return c
 	})
-	subnetConfig := newCRD(&v12.MacvlanSubnet{}, func(c crd.CRD) crd.CRD {
+	subnetConfig := newCRD(&macvlanv1.MacvlanSubnet{}, func(c crd.CRD) crd.CRD {
 		c.ShortNames = []string{
 			"msubnet",
 			"msubnets",

@@ -19,8 +19,18 @@ limitations under the License.
 package v1
 
 import (
+	"context"
+	"time"
+
 	v1 "github.com/cnrancher/macvlan-operator/pkg/apis/macvlan.cluster.cattle.io/v1"
+	"github.com/rancher/wrangler/pkg/apply"
+	"github.com/rancher/wrangler/pkg/condition"
 	"github.com/rancher/wrangler/pkg/generic"
+	"github.com/rancher/wrangler/pkg/kv"
+	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 // MacvlanSubnetController interface for managing MacvlanSubnet resources.
@@ -36,4 +46,116 @@ type MacvlanSubnetClient interface {
 // MacvlanSubnetCache interface for retrieving MacvlanSubnet resources in memory.
 type MacvlanSubnetCache interface {
 	generic.CacheInterface[*v1.MacvlanSubnet]
+}
+
+type MacvlanSubnetStatusHandler func(obj *v1.MacvlanSubnet, status v1.MacvlanSubnetStatus) (v1.MacvlanSubnetStatus, error)
+
+type MacvlanSubnetGeneratingHandler func(obj *v1.MacvlanSubnet, status v1.MacvlanSubnetStatus) ([]runtime.Object, v1.MacvlanSubnetStatus, error)
+
+func RegisterMacvlanSubnetStatusHandler(ctx context.Context, controller MacvlanSubnetController, condition condition.Cond, name string, handler MacvlanSubnetStatusHandler) {
+	statusHandler := &macvlanSubnetStatusHandler{
+		client:    controller,
+		condition: condition,
+		handler:   handler,
+	}
+	controller.AddGenericHandler(ctx, name, generic.FromObjectHandlerToHandler(statusHandler.sync))
+}
+
+func RegisterMacvlanSubnetGeneratingHandler(ctx context.Context, controller MacvlanSubnetController, apply apply.Apply,
+	condition condition.Cond, name string, handler MacvlanSubnetGeneratingHandler, opts *generic.GeneratingHandlerOptions) {
+	statusHandler := &macvlanSubnetGeneratingHandler{
+		MacvlanSubnetGeneratingHandler: handler,
+		apply:                          apply,
+		name:                           name,
+		gvk:                            controller.GroupVersionKind(),
+	}
+	if opts != nil {
+		statusHandler.opts = *opts
+	}
+	controller.OnChange(ctx, name, statusHandler.Remove)
+	RegisterMacvlanSubnetStatusHandler(ctx, controller, condition, name, statusHandler.Handle)
+}
+
+type macvlanSubnetStatusHandler struct {
+	client    MacvlanSubnetClient
+	condition condition.Cond
+	handler   MacvlanSubnetStatusHandler
+}
+
+func (a *macvlanSubnetStatusHandler) sync(key string, obj *v1.MacvlanSubnet) (*v1.MacvlanSubnet, error) {
+	if obj == nil {
+		return obj, nil
+	}
+
+	origStatus := obj.Status.DeepCopy()
+	obj = obj.DeepCopy()
+	newStatus, err := a.handler(obj, obj.Status)
+	if err != nil {
+		// Revert to old status on error
+		newStatus = *origStatus.DeepCopy()
+	}
+
+	if a.condition != "" {
+		if errors.IsConflict(err) {
+			a.condition.SetError(&newStatus, "", nil)
+		} else {
+			a.condition.SetError(&newStatus, "", err)
+		}
+	}
+	if !equality.Semantic.DeepEqual(origStatus, &newStatus) {
+		if a.condition != "" {
+			// Since status has changed, update the lastUpdatedTime
+			a.condition.LastUpdated(&newStatus, time.Now().UTC().Format(time.RFC3339))
+		}
+
+		var newErr error
+		obj.Status = newStatus
+		newObj, newErr := a.client.UpdateStatus(obj)
+		if err == nil {
+			err = newErr
+		}
+		if newErr == nil {
+			obj = newObj
+		}
+	}
+	return obj, err
+}
+
+type macvlanSubnetGeneratingHandler struct {
+	MacvlanSubnetGeneratingHandler
+	apply apply.Apply
+	opts  generic.GeneratingHandlerOptions
+	gvk   schema.GroupVersionKind
+	name  string
+}
+
+func (a *macvlanSubnetGeneratingHandler) Remove(key string, obj *v1.MacvlanSubnet) (*v1.MacvlanSubnet, error) {
+	if obj != nil {
+		return obj, nil
+	}
+
+	obj = &v1.MacvlanSubnet{}
+	obj.Namespace, obj.Name = kv.RSplit(key, "/")
+	obj.SetGroupVersionKind(a.gvk)
+
+	return nil, generic.ConfigureApplyForObject(a.apply, obj, &a.opts).
+		WithOwner(obj).
+		WithSetID(a.name).
+		ApplyObjects()
+}
+
+func (a *macvlanSubnetGeneratingHandler) Handle(obj *v1.MacvlanSubnet, status v1.MacvlanSubnetStatus) (v1.MacvlanSubnetStatus, error) {
+	if !obj.DeletionTimestamp.IsZero() {
+		return status, nil
+	}
+
+	objs, newStatus, err := a.MacvlanSubnetGeneratingHandler(obj, status)
+	if err != nil {
+		return newStatus, err
+	}
+
+	return newStatus, generic.ConfigureApplyForObject(a.apply, obj, &a.opts).
+		WithOwner(obj).
+		WithSetID(a.name).
+		ApplyObjects(objs...)
 }

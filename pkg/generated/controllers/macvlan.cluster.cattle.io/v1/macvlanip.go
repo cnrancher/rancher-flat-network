@@ -19,8 +19,18 @@ limitations under the License.
 package v1
 
 import (
+	"context"
+	"time"
+
 	v1 "github.com/cnrancher/macvlan-operator/pkg/apis/macvlan.cluster.cattle.io/v1"
+	"github.com/rancher/wrangler/pkg/apply"
+	"github.com/rancher/wrangler/pkg/condition"
 	"github.com/rancher/wrangler/pkg/generic"
+	"github.com/rancher/wrangler/pkg/kv"
+	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 // MacvlanIPController interface for managing MacvlanIP resources.
@@ -36,4 +46,116 @@ type MacvlanIPClient interface {
 // MacvlanIPCache interface for retrieving MacvlanIP resources in memory.
 type MacvlanIPCache interface {
 	generic.CacheInterface[*v1.MacvlanIP]
+}
+
+type MacvlanIPStatusHandler func(obj *v1.MacvlanIP, status v1.MacvlanIPStatus) (v1.MacvlanIPStatus, error)
+
+type MacvlanIPGeneratingHandler func(obj *v1.MacvlanIP, status v1.MacvlanIPStatus) ([]runtime.Object, v1.MacvlanIPStatus, error)
+
+func RegisterMacvlanIPStatusHandler(ctx context.Context, controller MacvlanIPController, condition condition.Cond, name string, handler MacvlanIPStatusHandler) {
+	statusHandler := &macvlanIPStatusHandler{
+		client:    controller,
+		condition: condition,
+		handler:   handler,
+	}
+	controller.AddGenericHandler(ctx, name, generic.FromObjectHandlerToHandler(statusHandler.sync))
+}
+
+func RegisterMacvlanIPGeneratingHandler(ctx context.Context, controller MacvlanIPController, apply apply.Apply,
+	condition condition.Cond, name string, handler MacvlanIPGeneratingHandler, opts *generic.GeneratingHandlerOptions) {
+	statusHandler := &macvlanIPGeneratingHandler{
+		MacvlanIPGeneratingHandler: handler,
+		apply:                      apply,
+		name:                       name,
+		gvk:                        controller.GroupVersionKind(),
+	}
+	if opts != nil {
+		statusHandler.opts = *opts
+	}
+	controller.OnChange(ctx, name, statusHandler.Remove)
+	RegisterMacvlanIPStatusHandler(ctx, controller, condition, name, statusHandler.Handle)
+}
+
+type macvlanIPStatusHandler struct {
+	client    MacvlanIPClient
+	condition condition.Cond
+	handler   MacvlanIPStatusHandler
+}
+
+func (a *macvlanIPStatusHandler) sync(key string, obj *v1.MacvlanIP) (*v1.MacvlanIP, error) {
+	if obj == nil {
+		return obj, nil
+	}
+
+	origStatus := obj.Status.DeepCopy()
+	obj = obj.DeepCopy()
+	newStatus, err := a.handler(obj, obj.Status)
+	if err != nil {
+		// Revert to old status on error
+		newStatus = *origStatus.DeepCopy()
+	}
+
+	if a.condition != "" {
+		if errors.IsConflict(err) {
+			a.condition.SetError(&newStatus, "", nil)
+		} else {
+			a.condition.SetError(&newStatus, "", err)
+		}
+	}
+	if !equality.Semantic.DeepEqual(origStatus, &newStatus) {
+		if a.condition != "" {
+			// Since status has changed, update the lastUpdatedTime
+			a.condition.LastUpdated(&newStatus, time.Now().UTC().Format(time.RFC3339))
+		}
+
+		var newErr error
+		obj.Status = newStatus
+		newObj, newErr := a.client.UpdateStatus(obj)
+		if err == nil {
+			err = newErr
+		}
+		if newErr == nil {
+			obj = newObj
+		}
+	}
+	return obj, err
+}
+
+type macvlanIPGeneratingHandler struct {
+	MacvlanIPGeneratingHandler
+	apply apply.Apply
+	opts  generic.GeneratingHandlerOptions
+	gvk   schema.GroupVersionKind
+	name  string
+}
+
+func (a *macvlanIPGeneratingHandler) Remove(key string, obj *v1.MacvlanIP) (*v1.MacvlanIP, error) {
+	if obj != nil {
+		return obj, nil
+	}
+
+	obj = &v1.MacvlanIP{}
+	obj.Namespace, obj.Name = kv.RSplit(key, "/")
+	obj.SetGroupVersionKind(a.gvk)
+
+	return nil, generic.ConfigureApplyForObject(a.apply, obj, &a.opts).
+		WithOwner(obj).
+		WithSetID(a.name).
+		ApplyObjects()
+}
+
+func (a *macvlanIPGeneratingHandler) Handle(obj *v1.MacvlanIP, status v1.MacvlanIPStatus) (v1.MacvlanIPStatus, error) {
+	if !obj.DeletionTimestamp.IsZero() {
+		return status, nil
+	}
+
+	objs, newStatus, err := a.MacvlanIPGeneratingHandler(obj, status)
+	if err != nil {
+		return newStatus, err
+	}
+
+	return newStatus, generic.ConfigureApplyForObject(a.apply, obj, &a.opts).
+		WithOwner(obj).
+		WithSetID(a.name).
+		ApplyObjects(objs...)
 }
