@@ -1,0 +1,15 @@
+kind: "MacvlanSubnet"
+apiVersion: "macvlan.cluster.cattle.io/v1"
+metadata:
+  name: "example-subnet"
+  creationTimestamp: null
+spec:
+  master: "eth0"
+  vlan: 0
+  cidr: "192.168.0.0/24"
+  mode: ""
+  gateway: "192.168.1.1"
+  ranges:
+    - rangeStart: "192.168.1.100"
+      rangeEnd: "192.168.1.200"
+  podDefaultGateway: {}

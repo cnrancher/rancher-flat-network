@@ -1,0 +1,9 @@
+kind: "MacvlanIP"
+apiVersion: "macvlan.cluster.cattle.io/v1"
+metadata:
+  name: "example-ip"
+spec:
+  subnet: ""
+  podId: ""
+  cidr: "192.168.0.0/24"
+  mac: "aa:bb:cc:dd:ee:aa"
