@@ -24,7 +24,13 @@
     "podDefaultGateway": {}
   },
   "status": {
-    "phase": "",
+    "phase": "active",
+    "allocatedIPs": [
+      {
+        "rangeStart": "192.168.1.100",
+        "rangeEnd": "192.168.1.110"
+      }
+    ],
     "failureMessage": ""
   }
 }

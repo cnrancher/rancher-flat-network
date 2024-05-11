@@ -8,6 +8,7 @@ import (
 	"time"
 
 	nested "github.com/antonfisher/nested-logrus-formatter"
+	"github.com/cnrancher/flat-network-operator/pkg/controller/ingress"
 	"github.com/cnrancher/flat-network-operator/pkg/controller/macvlanip"
 	"github.com/cnrancher/flat-network-operator/pkg/controller/macvlansubnet"
 	"github.com/cnrancher/flat-network-operator/pkg/controller/service"
@@ -34,10 +35,9 @@ var (
 
 func init() {
 	logrus.SetFormatter(&nested.Formatter{
-		HideKeys: true,
-		// TimestampFormat: "2006-01-02 15:04:05",
+		HideKeys:        true,
 		TimestampFormat: time.DateTime,
-		FieldsOrder:     []string{"cluster", "phase"},
+		FieldsOrder:     []string{"namespace", "name"},
 	})
 }
 
@@ -85,7 +85,9 @@ func main() {
 	macvlanip.Register(ctx, wctx.Macvlan.MacvlanIP())
 	macvlansubnet.Register(ctx, wctx.Macvlan.MacvlanSubnet(), wctx.Core.Pod().Cache())
 	service.Register(ctx, wctx.Core.Service(), wctx.Core.Pod())
-	workload.Register(ctx, wctx.Apps.Deployment(), wctx.Apps.DaemonSet(), wctx.Apps.ReplicaSet(), wctx.Apps.StatefulSet())
+	ingress.Register(ctx, wctx.Networking.Ingress(), wctx.Core.Service())
+	workload.Register(ctx,
+		wctx.Apps.Deployment(), wctx.Apps.DaemonSet(), wctx.Apps.ReplicaSet(), wctx.Apps.StatefulSet())
 
 	if err := wctx.Start(ctx, worker); err != nil {
 		logrus.Fatalf("Failed to start context: %v", err)

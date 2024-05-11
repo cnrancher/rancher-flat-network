@@ -23,9 +23,9 @@ const (
 )
 
 type handler struct {
-	services     corecontroller.ServiceClient
-	serviceCache corecontroller.ServiceCache
-	podCache     corecontroller.PodCache
+	serviceClient corecontroller.ServiceClient
+	serviceCache  corecontroller.ServiceCache
+	podCache      corecontroller.PodCache
 
 	serviceEnqueueAfter func(string, string, time.Duration)
 	serviceEnqueue      func(string, string)
@@ -37,15 +37,14 @@ func Register(
 	pods corecontroller.PodController,
 ) {
 	h := &handler{
-		services:     services,
-		serviceCache: services.Cache(),
-		podCache:     pods.Cache(),
+		serviceClient: services,
+		serviceCache:  services.Cache(),
+		podCache:      pods.Cache(),
 
 		serviceEnqueueAfter: services.EnqueueAfter,
 		serviceEnqueue:      services.Enqueue,
 	}
 
-	logrus.Info("Setting up Service event handler")
 	services.OnChange(ctx, controllerName, h.handleServiceError(h.syncService))
 	var _ metav1.Object
 }
@@ -128,7 +127,7 @@ func (h *handler) syncService(name string, svc *corev1.Service) (*corev1.Service
 				svc.Namespace, svc.Name)
 			// err := c.kubeClientset.CoreV1().Services(svc.Namespace).
 			// 	Delete(context.TODO(), svc.Name, metav1.DeleteOptions{})
-			err := h.services.Delete(svc.Namespace, svc.Name, &metav1.DeleteOptions{})
+			err := h.serviceClient.Delete(svc.Namespace, svc.Name, &metav1.DeleteOptions{})
 			if err != nil {
 				logrus.Errorf("syncService: failed to delete service [%v/%v]: %v",
 					svc.Namespace, svc.Name, err)
@@ -160,7 +159,7 @@ func (h *handler) syncService(name string, svc *corev1.Service) (*corev1.Service
 				svc.Namespace, expectedMacvlanSvc.Name)
 			// _, err := c.kubeClientset.CoreV1().Services(svc.Namespace).
 			// 	Create(context.TODO(), expectedMacvlanSvc, metav1.CreateOptions{})
-			_, err := h.services.Create(expectedMacvlanSvc)
+			_, err := h.serviceClient.Create(expectedMacvlanSvc)
 			if err != nil {
 				logrus.Errorf("syncService: failed to create macvlan service [%v/%v]: %v",
 					svc.Namespace, expectedMacvlanSvc.Name, err)
@@ -182,7 +181,7 @@ func (h *handler) syncService(name string, svc *corev1.Service) (*corev1.Service
 	// Update the macvlan service with retry to avoid conflict.
 	if err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		logrus.Debugf("Kube apiserver update service [%v/%v] request", svc.Namespace, svc.Name)
-		macvlanSvc, err := h.services.Get(svc.Namespace, expectedMacvlanSvc.Name, metav1.GetOptions{})
+		macvlanSvc, err := h.serviceClient.Get(svc.Namespace, expectedMacvlanSvc.Name, metav1.GetOptions{})
 		if err != nil {
 			logrus.Warnf("syncService: failed to get svc [%v/%v]: %v",
 				svc.Namespace, expectedMacvlanSvc.Name, err)
@@ -193,7 +192,7 @@ func (h *handler) syncService(name string, svc *corev1.Service) (*corev1.Service
 		macvlanSvc.Spec = expectedMacvlanSvc.Spec
 		macvlanSvc.Annotations = expectedMacvlanSvc.Annotations
 		macvlanSvc.OwnerReferences = expectedMacvlanSvc.OwnerReferences
-		_, err = h.services.Update(macvlanSvc)
+		_, err = h.serviceClient.Update(macvlanSvc)
 		if err != nil {
 			logrus.Warnf("syncService: service [%v/%v] update error: %v",
 				svc.Namespace, macvlanSvc.Name, err)

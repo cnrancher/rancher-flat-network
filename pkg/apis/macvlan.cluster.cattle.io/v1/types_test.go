@@ -2,6 +2,7 @@ package v1_test
 
 import (
 	"encoding/json"
+	"net"
 	"os"
 	"testing"
 
@@ -51,11 +52,11 @@ func Test_MacvlanSubnet(t *testing.T) {
 			VLAN:    0,
 			CIDR:    "192.168.0.0/24",
 			Mode:    "",
-			Gateway: "192.168.1.1",
+			Gateway: net.ParseIP("192.168.1.1"),
 			Ranges: []macvlanv1.IPRange{
 				{
-					RangeStart: "192.168.1.100",
-					RangeEnd:   "192.168.1.200",
+					RangeStart: net.ParseIP("192.168.1.100"),
+					RangeEnd:   net.ParseIP("192.168.1.200"),
 				},
 			},
 			Routes: []macvlanv1.Route{},

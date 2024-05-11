@@ -22,8 +22,7 @@ const (
 )
 
 const (
-	macvlanSubnetInitPhase    = ""
-	macvlanSubnetPendingPhase = "Pending"
+	macvlanSubnetPendingPhase = ""
 	macvlanSubnetActivePhase  = "Active"
 	macvlanSubnetFailedPhase  = "Failed"
 
@@ -147,21 +146,19 @@ func (h *handler) createMacvlanSubnet(subnet *macvlanv1.MacvlanSubnet) (*macvlan
 		result.Labels["master"] = result.Spec.Master
 		result.Labels["vlan"] = fmt.Sprintf("%v", result.Spec.VLAN)
 		result.Labels["mode"] = result.Spec.Mode
-		if result.Spec.Gateway == "" {
+		if result.Spec.Gateway == nil {
 			gatewayIP, err := ipcalc.CalcDefaultGateway(result.Spec.CIDR)
 			if err != nil {
 				return fmt.Errorf("failed to get macvlan subnet default gateway IP: %w", err)
 			}
-			result.Spec.Gateway = gatewayIP.String()
+			result.Spec.Gateway = gatewayIP
 		}
-		result.Status.Phase = macvlanSubnetPendingPhase
-
 		result, err = h.macvlanSubnets.Update(result)
 		if err != nil {
 			logrus.Warnf("Failed to update subnet %q: %v", subnet.Name, err)
 			return err
 		}
-		logrus.Infof("Update the label of subnet %q", subnet.Name)
+		logrus.Infof("Updated the label of subnet %q: %v", subnet.Name, subnet.Labels)
 		subnet = result
 		return nil
 	})
@@ -170,7 +167,7 @@ func (h *handler) createMacvlanSubnet(subnet *macvlanv1.MacvlanSubnet) (*macvlan
 	}
 
 	// Add the gateway ip to syncmap.
-	if subnet.Spec.Gateway == "" {
+	if subnet.Spec.Gateway == nil {
 		return subnet, fmt.Errorf("createSubnet: subnet %q gateway should not empty", subnet.Name)
 	}
 	// key := fmt.Sprintf("%s:%s", subnet.Spec.Gateway, subnet.Name)
@@ -197,7 +194,12 @@ func (h *handler) createMacvlanSubnet(subnet *macvlanv1.MacvlanSubnet) (*macvlan
 			logrus.Warnf("Failed to get latest version of subnet: %v", err)
 			return err
 		}
+		result = result.DeepCopy()
 		result.Status.Phase = macvlanSubnetActivePhase
+		result.Status.AllocatedIPs = append(result.Status.AllocatedIPs, macvlanv1.IPRange{
+			RangeStart: result.Spec.Gateway,
+			RangeEnd:   result.Spec.Gateway,
+		})
 		result, err = h.macvlanSubnets.UpdateStatus(result)
 		if err != nil {
 			return err

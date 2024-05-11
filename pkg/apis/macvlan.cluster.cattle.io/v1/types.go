@@ -1,6 +1,8 @@
 package v1
 
 import (
+	"net"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -54,8 +56,8 @@ type MacvlanIPStatus struct {
 
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:subresource:status
 
-// MacvlanSubnet is a specification for a macvlan Subnet resource
 type MacvlanSubnet struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -64,13 +66,12 @@ type MacvlanSubnet struct {
 	Status MacvlanSubnetStatus `json:"status"`
 }
 
-// MacvlanSubnetSpec is the spec for a MacvlanSubnet resource
 type MacvlanSubnetSpec struct {
 	Master            string            `json:"master"`
 	VLAN              int               `json:"vlan"`
 	CIDR              string            `json:"cidr"`
 	Mode              string            `json:"mode"`
-	Gateway           string            `json:"gateway"`
+	Gateway           net.IP            `json:"gateway"`
 	Ranges            []IPRange         `json:"ranges"`
 	Routes            []Route           `json:"routes,omitempty"`
 	PodDefaultGateway PodDefaultGateway `json:"podDefaultGateway,omitempty"`
@@ -78,20 +79,20 @@ type MacvlanSubnetSpec struct {
 }
 
 type MacvlanSubnetStatus struct {
-	Phase          string `json:"phase"`
+	Phase        string    `json:"phase"`
+	AllocatedIPs []IPRange `json:"allocatedIPs"`
+
 	FailureMessage string `json:"failureMessage"`
 }
 
-// IPRange is a list of ip start end range
 type IPRange struct {
-	RangeStart string `json:"rangeStart"`
-	RangeEnd   string `json:"rangeEnd"`
+	RangeStart net.IP `json:"rangeStart"`
+	RangeEnd   net.IP `json:"rangeEnd"`
 }
 
-// Route is route option spec
 type Route struct {
-	Dst   string `json:"dst"`
-	GW    string `json:"gw,omitempty"`
+	Dst   net.IP `json:"dst"`
+	GW    net.IP `json:"gw,omitempty"`
 	Iface string `json:"iface,omitempty"`
 }
 

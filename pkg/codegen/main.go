@@ -17,6 +17,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 )
 
 func main() {
@@ -41,17 +42,10 @@ func main() {
 					corev1.Pod{},
 					corev1.Service{},
 					corev1.Namespace{},
-					// corev1.Event{},
-					// corev1.Node{},
 					// corev1.Secret{},
-					// corev1.ServiceAccount{},
 					// corev1.Endpoints{},
 					// corev1.ConfigMap{},
-					// corev1.PersistentVolumeClaim{},
 				},
-				// InformersPackage: "k8s.io/client-go/informers",
-				// ClientSetPackage: "k8s.io/client-go/kubernetes",
-				// ListersPackage:   "k8s.io/client-go/listers",
 			},
 			appsv1.GroupName: {
 				Types: []any{
@@ -60,18 +54,17 @@ func main() {
 					appsv1.StatefulSet{},
 					appsv1.ReplicaSet{},
 				},
-				// InformersPackage: "k8s.io/client-go/informers",
-				// ClientSetPackage: "k8s.io/client-go/kubernetes",
-				// ListersPackage:   "k8s.io/client-go/listers",
 			},
 			batchv1.GroupName: {
 				Types: []any{
 					batchv1.CronJob{},
 					batchv1.Job{},
 				},
-				// InformersPackage: "k8s.io/client-go/informers",
-				// ClientSetPackage: "k8s.io/client-go/kubernetes",
-				// ListersPackage:   "k8s.io/client-go/listers",
+			},
+			networkingv1.GroupName: {
+				Types: []any{
+					networkingv1.Ingress{},
+				},
 			},
 		},
 	})

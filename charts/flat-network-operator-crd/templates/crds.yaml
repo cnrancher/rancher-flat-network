@@ -129,6 +129,18 @@ spec:
             type: object
           status:
             properties:
+              allocatedIPs:
+                items:
+                  properties:
+                    rangeEnd:
+                      nullable: true
+                      type: string
+                    rangeStart:
+                      nullable: true
+                      type: string
+                  type: object
+                nullable: true
+                type: array
               failureMessage:
                 nullable: true
                 type: string
