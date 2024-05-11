@@ -5,14 +5,15 @@ import (
 	"os"
 	"path"
 
-	controllergen "github.com/rancher/wrangler/pkg/controller-gen"
-	"github.com/rancher/wrangler/pkg/controller-gen/args"
-	"github.com/rancher/wrangler/pkg/crd"
-	"github.com/rancher/wrangler/pkg/yaml"
+	controllergen "github.com/rancher/wrangler/v2/pkg/controller-gen"
+	"github.com/rancher/wrangler/v2/pkg/controller-gen/args"
+	"github.com/rancher/wrangler/v2/pkg/crd"
+	"github.com/rancher/wrangler/v2/pkg/yaml"
+	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	macvlanv1 "github.com/cnrancher/macvlan-operator/pkg/apis/macvlan.cluster.cattle.io/v1"
+	macvlanv1 "github.com/cnrancher/flat-network-operator/pkg/apis/macvlan.cluster.cattle.io/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -22,7 +23,7 @@ func main() {
 	os.Unsetenv("GOPATH")
 
 	controllergen.Run(args.Options{
-		OutputPackage: "github.com/cnrancher/macvlan-operator/pkg/generated",
+		OutputPackage: "github.com/cnrancher/flat-network-operator/pkg/generated",
 		Boilerplate:   "pkg/codegen/boilerplate.go.txt",
 		Groups: map[string]args.Group{
 			"macvlan.cluster.cattle.io": {
@@ -37,10 +38,10 @@ func main() {
 			},
 			corev1.GroupName: {
 				Types: []any{
-					corev1.Namespace{},
-					corev1.Service{},
 					corev1.Pod{},
-					corev1.Event{},
+					corev1.Service{},
+					corev1.Namespace{},
+					// corev1.Event{},
 					// corev1.Node{},
 					// corev1.Secret{},
 					// corev1.ServiceAccount{},
@@ -78,6 +79,9 @@ func main() {
 	var crds []crd.CRD
 
 	ipConfig := newCRD(&macvlanv1.MacvlanIP{}, func(c crd.CRD) crd.CRD {
+		if c.Schema == nil {
+			c.Schema = &v1.JSONSchemaProps{}
+		}
 		c.ShortNames = []string{
 			"mip",
 			"mips",
@@ -85,6 +89,9 @@ func main() {
 		return c
 	})
 	subnetConfig := newCRD(&macvlanv1.MacvlanSubnet{}, func(c crd.CRD) crd.CRD {
+		if c.Schema == nil {
+			c.Schema = &v1.JSONSchemaProps{}
+		}
 		c.ShortNames = []string{
 			"msubnet",
 			"msubnets",
@@ -109,7 +116,7 @@ func main() {
 		data = append(data, []byte("---\n")...)
 		data = append(data, b...)
 	}
-	if err := saveCRDYaml("macvlan-operator-crd", string(data)); err != nil {
+	if err := saveCRDYaml("flat-network-operator-crd", string(data)); err != nil {
 		panic(err)
 	}
 }

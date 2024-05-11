@@ -1,0 +1,19 @@
+global:
+  cattle:
+    systemDefaultRegistry: ""
+
+flatNetworkOperator:
+  image:
+    repository: cnrancher/flat-network-operator
+    tag: v0.0.0
+
+additionalTrustedCAs: false
+## Node labels for pod assignment
+## Ref: https://kubernetes.io/docs/user-guide/node-selection/
+##
+nodeSelector: {}
+## List of node taints to tolerate (requires Kubernetes >= 1.6)
+tolerations: []
+
+## PriorityClassName assigned to deployment.
+priorityClassName: ""

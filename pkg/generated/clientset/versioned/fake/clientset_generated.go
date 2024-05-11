@@ -19,9 +19,9 @@ limitations under the License.
 package fake
 
 import (
-	clientset "github.com/cnrancher/macvlan-operator/pkg/generated/clientset/versioned"
-	macvlanv1 "github.com/cnrancher/macvlan-operator/pkg/generated/clientset/versioned/typed/macvlan.cluster.cattle.io/v1"
-	fakemacvlanv1 "github.com/cnrancher/macvlan-operator/pkg/generated/clientset/versioned/typed/macvlan.cluster.cattle.io/v1/fake"
+	clientset "github.com/cnrancher/flat-network-operator/pkg/generated/clientset/versioned"
+	macvlanv1 "github.com/cnrancher/flat-network-operator/pkg/generated/clientset/versioned/typed/macvlan.cluster.cattle.io/v1"
+	fakemacvlanv1 "github.com/cnrancher/flat-network-operator/pkg/generated/clientset/versioned/typed/macvlan.cluster.cattle.io/v1/fake"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"

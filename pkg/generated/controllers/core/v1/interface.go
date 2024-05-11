@@ -20,8 +20,8 @@ package v1
 
 import (
 	"github.com/rancher/lasso/pkg/controller"
-	"github.com/rancher/wrangler/pkg/generic"
-	"github.com/rancher/wrangler/pkg/schemes"
+	"github.com/rancher/wrangler/v2/pkg/generic"
+	"github.com/rancher/wrangler/v2/pkg/schemes"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
@@ -31,7 +31,6 @@ func init() {
 }
 
 type Interface interface {
-	Event() EventController
 	Namespace() NamespaceController
 	Pod() PodController
 	Service() ServiceController
@@ -45,10 +44,6 @@ func New(controllerFactory controller.SharedControllerFactory) Interface {
 
 type version struct {
 	controllerFactory controller.SharedControllerFactory
-}
-
-func (v *version) Event() EventController {
-	return generic.NewController[*v1.Event, *v1.EventList](schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Event"}, "events", true, v.controllerFactory)
 }
 
 func (v *version) Namespace() NamespaceController {

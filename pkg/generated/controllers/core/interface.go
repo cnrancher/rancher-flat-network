@@ -19,7 +19,7 @@ limitations under the License.
 package core
 
 import (
-	v1 "github.com/cnrancher/macvlan-operator/pkg/generated/controllers/core/v1"
+	v1 "github.com/cnrancher/flat-network-operator/pkg/generated/controllers/core/v1"
 	"github.com/rancher/lasso/pkg/controller"
 )
 

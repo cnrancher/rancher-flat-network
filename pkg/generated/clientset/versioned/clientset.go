@@ -22,7 +22,7 @@ import (
 	"fmt"
 	"net/http"
 
-	macvlanv1 "github.com/cnrancher/macvlan-operator/pkg/generated/clientset/versioned/typed/macvlan.cluster.cattle.io/v1"
+	macvlanv1 "github.com/cnrancher/flat-network-operator/pkg/generated/clientset/versioned/typed/macvlan.cluster.cattle.io/v1"
 	discovery "k8s.io/client-go/discovery"
 	rest "k8s.io/client-go/rest"
 	flowcontrol "k8s.io/client-go/util/flowcontrol"

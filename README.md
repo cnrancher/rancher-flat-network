@@ -1,8 +1,6 @@
-# macvlan-operator
+# flat-network-operator
 
-> Working in progress...
-
-Refactor [network-controller](https://github.com/cnrancher/network-controller) project with Wrangler.
+Rancher Flat-Network Operator based on [Wrangler](https://github.com/rancher/wrangler/).
 
 ## License
 

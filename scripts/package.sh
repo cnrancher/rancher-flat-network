@@ -7,6 +7,6 @@ cd $(dirname $0)/..
 WORKINGDIR=$(pwd)
 
 mkdir -p dist/artifacts
-cp bin/macvlan-operator dist/artifacts/macvlan-operator${SUFFIX}
+cp bin/flat-network-operator dist/artifacts/flat-network-operator${SUFFIX}
 
 ./scripts/package-helm.sh

@@ -23,9 +23,9 @@ import (
 	sync "sync"
 	time "time"
 
-	versioned "github.com/cnrancher/macvlan-operator/pkg/generated/clientset/versioned"
-	internalinterfaces "github.com/cnrancher/macvlan-operator/pkg/generated/informers/externalversions/internalinterfaces"
-	macvlanclustercattleio "github.com/cnrancher/macvlan-operator/pkg/generated/informers/externalversions/macvlan.cluster.cattle.io"
+	versioned "github.com/cnrancher/flat-network-operator/pkg/generated/clientset/versioned"
+	internalinterfaces "github.com/cnrancher/flat-network-operator/pkg/generated/informers/externalversions/internalinterfaces"
+	macvlanclustercattleio "github.com/cnrancher/flat-network-operator/pkg/generated/informers/externalversions/macvlan.cluster.cattle.io"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
@@ -166,7 +166,7 @@ func (f *sharedInformerFactory) WaitForCacheSync(stopCh <-chan struct{}) map[ref
 	return res
 }
 
-// InternalInformerFor returns the SharedIndexInformer for obj using an internal
+// InformerFor returns the SharedIndexInformer for obj using an internal
 // client.
 func (f *sharedInformerFactory) InformerFor(obj runtime.Object, newFunc internalinterfaces.NewInformerFunc) cache.SharedIndexInformer {
 	f.lock.Lock()
@@ -239,7 +239,7 @@ type SharedInformerFactory interface {
 	// ForResource gives generic access to a shared informer of the matching type.
 	ForResource(resource schema.GroupVersionResource) (GenericInformer, error)
 
-	// InternalInformerFor returns the SharedIndexInformer for obj using an internal
+	// InformerFor returns the SharedIndexInformer for obj using an internal
 	// client.
 	InformerFor(obj runtime.Object, newFunc internalinterfaces.NewInformerFunc) cache.SharedIndexInformer
 

@@ -13,12 +13,12 @@ if [[ -z "${DEBUG:-}" ]]; then
     BUILD_FLAG="-extldflags -static -s -w"
 fi
 if [[ "${COMMIT}" != "UNKNOW" ]]; then
-    BUILD_FLAG="${BUILD_FLAG} -X 'github.com/cnrancher/macvlan-operator/pkg/utils.GitCommit=${COMMIT}'"
+    BUILD_FLAG="${BUILD_FLAG} -X 'github.com/cnrancher/flat-network-operator/pkg/utils.GitCommit=${COMMIT}'"
 fi
-BUILD_FLAG="${BUILD_FLAG} -X 'github.com/cnrancher/macvlan-operator/pkg/utils.Version=${VERSION}'"
+BUILD_FLAG="${BUILD_FLAG} -X 'github.com/cnrancher/flat-network-operator/pkg/utils.Version=${VERSION}'"
 
 mkdir -p bin && cd bin
-CGO_ENABLED=0 go build -ldflags "${BUILD_FLAG}" -o macvlan-operator ..
+CGO_ENABLED=0 go build -ldflags "${BUILD_FLAG}" -o flat-network-operator ..
 echo "--------------------"
-ls -alh macvlan-operator
+ls -alh flat-network-operator
 echo "--------------------"

@@ -6,7 +6,7 @@ cd $(dirname $0)/../
 WORKINGDIR=$(pwd)
 
 files=(
-    "macvlan-operator"
+    "flat-network-operator"
     "bin/"
     "dist/"
 )

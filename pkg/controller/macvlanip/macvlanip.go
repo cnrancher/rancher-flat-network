@@ -1,14 +1,22 @@
-package controller
+package macvlanip
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
 
-	macvlanv1 "github.com/cnrancher/macvlan-operator/pkg/apis/macvlan.cluster.cattle.io/v1"
 	"github.com/sirupsen/logrus"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/util/retry"
+
+	macvlanv1 "github.com/cnrancher/flat-network-operator/pkg/apis/macvlan.cluster.cattle.io/v1"
+	macvlancontroller "github.com/cnrancher/flat-network-operator/pkg/generated/controllers/macvlan.cluster.cattle.io/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
+
+const (
+	controllerName       = "macvlanip"
+	controllerRemoveName = "macvlanip-remove"
 )
 
 const (
@@ -18,7 +26,30 @@ const (
 	macvlanIPFailedPhase  = "Failed"
 )
 
-func (h *Handler) handleMacvlanIPError(
+type handler struct {
+	macvlanIPs macvlancontroller.MacvlanIPClient
+
+	macvlanipEnqueueAfter func(string, string, time.Duration)
+	macvlanipEnqueue      func(string, string)
+}
+
+func Register(
+	ctx context.Context,
+	macvlanIPs macvlancontroller.MacvlanIPController,
+) {
+	h := &handler{
+		macvlanIPs: macvlanIPs,
+
+		macvlanipEnqueueAfter: macvlanIPs.EnqueueAfter,
+		macvlanipEnqueue:      macvlanIPs.Enqueue,
+	}
+
+	logrus.Info("Setting up MacvlanIP event handler")
+	macvlanIPs.OnChange(ctx, controllerName, h.handleMacvlanIPError(h.onMacvlanIPChanged))
+	macvlanIPs.OnRemove(ctx, controllerRemoveName, h.onMacvlanIPRemoved)
+}
+
+func (h *handler) handleMacvlanIPError(
 	onChange func(string, *macvlanv1.MacvlanIP) (*macvlanv1.MacvlanIP, error),
 ) func(string, *macvlanv1.MacvlanIP) (*macvlanv1.MacvlanIP, error) {
 	return func(key string, ip *macvlanv1.MacvlanIP) (*macvlanv1.MacvlanIP, error) {
@@ -69,7 +100,7 @@ func (h *Handler) handleMacvlanIPError(
 	}
 }
 
-func (h *Handler) onMacvlanIPRemoved(s string, ip *macvlanv1.MacvlanIP) (*macvlanv1.MacvlanIP, error) {
+func (h *handler) onMacvlanIPRemoved(s string, ip *macvlanv1.MacvlanIP) (*macvlanv1.MacvlanIP, error) {
 	if ip == nil || ip.Name == "" {
 		return ip, nil
 	}
@@ -77,7 +108,7 @@ func (h *Handler) onMacvlanIPRemoved(s string, ip *macvlanv1.MacvlanIP) (*macvla
 	return ip, nil
 }
 
-func (h *Handler) onMacvlanIPChanged(s string, ip *macvlanv1.MacvlanIP) (*macvlanv1.MacvlanIP, error) {
+func (h *handler) onMacvlanIPChanged(s string, ip *macvlanv1.MacvlanIP) (*macvlanv1.MacvlanIP, error) {
 	if ip == nil || ip.Name == "" || ip.DeletionTimestamp != nil {
 		return ip, nil
 	}
@@ -90,7 +121,7 @@ func (h *Handler) onMacvlanIPChanged(s string, ip *macvlanv1.MacvlanIP) (*macvla
 	}
 }
 
-func (h *Handler) createMacvlanIP(ip *macvlanv1.MacvlanIP) (*macvlanv1.MacvlanIP, error) {
+func (h *handler) createMacvlanIP(ip *macvlanv1.MacvlanIP) (*macvlanv1.MacvlanIP, error) {
 	// Update macvlan IP status to active
 	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		ip, err := h.macvlanIPs.Get(ip.Namespace, ip.Name, metav1.GetOptions{})
@@ -113,21 +144,22 @@ func (h *Handler) createMacvlanIP(ip *macvlanv1.MacvlanIP) (*macvlanv1.MacvlanIP
 	return ip, nil
 }
 
-func (h *Handler) updateMacvlanIP(ip *macvlanv1.MacvlanIP) (*macvlanv1.MacvlanIP, error) {
+func (h *handler) updateMacvlanIP(ip *macvlanv1.MacvlanIP) (*macvlanv1.MacvlanIP, error) {
 	// Re-add missing records in cache
 	// If a Pod was deleted with a duplicate IP in badpods purging process,
 	// it may cause the IP record to be lost in the cache
 	key := fmt.Sprintf("%s:%s", strings.SplitN(ip.Spec.CIDR, "/", 2)[0], ip.Spec.Subnet)
-	if _, ok := h.inUsedIPs.Load(key); !ok {
-		// use api client to get the latest resource version
-		// pod, _ := c.kubeClientset.CoreV1().Pods(ip.Namespace).Get(context.TODO(), ip.Name, metav1.GetOptions{})
-		pod, _ := h.pods.Get(ip.Namespace, ip.Name, metav1.GetOptions{})
-		if pod != nil && pod.DeletionTimestamp == nil && pod.Name != "" {
-			owner := fmt.Sprintf("%s:%s", pod.Namespace, pod.Name)
-			h.inUsedIPs.Store(key, owner)
-			logrus.Infof("updateMacvlanIP: re-add key %s value %s to the syncmap", key, owner)
-		}
-	}
+	_ = key // TODO:
+	// if _, ok := h.inUsedIPs.Load(key); !ok {
+	// 	// use api client to get the latest resource version
+	// 	// pod, _ := c.kubeClientset.CoreV1().Pods(ip.Namespace).Get(context.TODO(), ip.Name, metav1.GetOptions{})
+	// 	pod, _ := h.pods.Get(ip.Namespace, ip.Name, metav1.GetOptions{})
+	// 	if pod != nil && pod.DeletionTimestamp == nil && pod.Name != "" {
+	// 		owner := fmt.Sprintf("%s:%s", pod.Namespace, pod.Name)
+	// 		h.inUsedIPs.Store(key, owner)
+	// 		logrus.Infof("updateMacvlanIP: re-add key %s value %s to the syncmap", key, owner)
+	// 	}
+	// }
 
 	// TODO:
 	// if oldip.ResourceVersion != ip.ResourceVersion && oldip.Spec.CIDR != ip.Spec.CIDR {

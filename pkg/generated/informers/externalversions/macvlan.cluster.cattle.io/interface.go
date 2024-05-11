@@ -19,8 +19,8 @@ limitations under the License.
 package macvlan
 
 import (
-	internalinterfaces "github.com/cnrancher/macvlan-operator/pkg/generated/informers/externalversions/internalinterfaces"
-	v1 "github.com/cnrancher/macvlan-operator/pkg/generated/informers/externalversions/macvlan.cluster.cattle.io/v1"
+	internalinterfaces "github.com/cnrancher/flat-network-operator/pkg/generated/informers/externalversions/internalinterfaces"
+	v1 "github.com/cnrancher/flat-network-operator/pkg/generated/informers/externalversions/macvlan.cluster.cattle.io/v1"
 )
 
 // Interface provides access to each of this group's versions.

@@ -20,13 +20,14 @@ package v1
 
 import (
 	"context"
+	"sync"
 	"time"
 
-	v1 "github.com/cnrancher/macvlan-operator/pkg/apis/macvlan.cluster.cattle.io/v1"
-	"github.com/rancher/wrangler/pkg/apply"
-	"github.com/rancher/wrangler/pkg/condition"
-	"github.com/rancher/wrangler/pkg/generic"
-	"github.com/rancher/wrangler/pkg/kv"
+	v1 "github.com/cnrancher/flat-network-operator/pkg/apis/macvlan.cluster.cattle.io/v1"
+	"github.com/rancher/wrangler/v2/pkg/apply"
+	"github.com/rancher/wrangler/v2/pkg/condition"
+	"github.com/rancher/wrangler/v2/pkg/generic"
+	"github.com/rancher/wrangler/v2/pkg/kv"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -48,10 +49,14 @@ type MacvlanIPCache interface {
 	generic.CacheInterface[*v1.MacvlanIP]
 }
 
+// MacvlanIPStatusHandler is executed for every added or modified MacvlanIP. Should return the new status to be updated
 type MacvlanIPStatusHandler func(obj *v1.MacvlanIP, status v1.MacvlanIPStatus) (v1.MacvlanIPStatus, error)
 
+// MacvlanIPGeneratingHandler is the top-level handler that is executed for every MacvlanIP event. It extends MacvlanIPStatusHandler by a returning a slice of child objects to be passed to apply.Apply
 type MacvlanIPGeneratingHandler func(obj *v1.MacvlanIP, status v1.MacvlanIPStatus) ([]runtime.Object, v1.MacvlanIPStatus, error)
 
+// RegisterMacvlanIPStatusHandler configures a MacvlanIPController to execute a MacvlanIPStatusHandler for every events observed.
+// If a non-empty condition is provided, it will be updated in the status conditions for every handler execution
 func RegisterMacvlanIPStatusHandler(ctx context.Context, controller MacvlanIPController, condition condition.Cond, name string, handler MacvlanIPStatusHandler) {
 	statusHandler := &macvlanIPStatusHandler{
 		client:    controller,
@@ -61,6 +66,8 @@ func RegisterMacvlanIPStatusHandler(ctx context.Context, controller MacvlanIPCon
 	controller.AddGenericHandler(ctx, name, generic.FromObjectHandlerToHandler(statusHandler.sync))
 }
 
+// RegisterMacvlanIPGeneratingHandler configures a MacvlanIPController to execute a MacvlanIPGeneratingHandler for every events observed, passing the returned objects to the provided apply.Apply.
+// If a non-empty condition is provided, it will be updated in the status conditions for every handler execution
 func RegisterMacvlanIPGeneratingHandler(ctx context.Context, controller MacvlanIPController, apply apply.Apply,
 	condition condition.Cond, name string, handler MacvlanIPGeneratingHandler, opts *generic.GeneratingHandlerOptions) {
 	statusHandler := &macvlanIPGeneratingHandler{
@@ -82,6 +89,7 @@ type macvlanIPStatusHandler struct {
 	handler   MacvlanIPStatusHandler
 }
 
+// sync is executed on every resource addition or modification. Executes the configured handlers and sends the updated status to the Kubernetes API
 func (a *macvlanIPStatusHandler) sync(key string, obj *v1.MacvlanIP) (*v1.MacvlanIP, error) {
 	if obj == nil {
 		return obj, nil
@@ -127,8 +135,10 @@ type macvlanIPGeneratingHandler struct {
 	opts  generic.GeneratingHandlerOptions
 	gvk   schema.GroupVersionKind
 	name  string
+	seen  sync.Map
 }
 
+// Remove handles the observed deletion of a resource, cascade deleting every associated resource previously applied
 func (a *macvlanIPGeneratingHandler) Remove(key string, obj *v1.MacvlanIP) (*v1.MacvlanIP, error) {
 	if obj != nil {
 		return obj, nil
@@ -138,12 +148,17 @@ func (a *macvlanIPGeneratingHandler) Remove(key string, obj *v1.MacvlanIP) (*v1.
 	obj.Namespace, obj.Name = kv.RSplit(key, "/")
 	obj.SetGroupVersionKind(a.gvk)
 
+	if a.opts.UniqueApplyForResourceVersion {
+		a.seen.Delete(key)
+	}
+
 	return nil, generic.ConfigureApplyForObject(a.apply, obj, &a.opts).
 		WithOwner(obj).
 		WithSetID(a.name).
 		ApplyObjects()
 }
 
+// Handle executes the configured MacvlanIPGeneratingHandler and pass the resulting objects to apply.Apply, finally returning the new status of the resource
 func (a *macvlanIPGeneratingHandler) Handle(obj *v1.MacvlanIP, status v1.MacvlanIPStatus) (v1.MacvlanIPStatus, error) {
 	if !obj.DeletionTimestamp.IsZero() {
 		return status, nil
@@ -153,9 +168,41 @@ func (a *macvlanIPGeneratingHandler) Handle(obj *v1.MacvlanIP, status v1.Macvlan
 	if err != nil {
 		return newStatus, err
 	}
+	if !a.isNewResourceVersion(obj) {
+		return newStatus, nil
+	}
 
-	return newStatus, generic.ConfigureApplyForObject(a.apply, obj, &a.opts).
+	err = generic.ConfigureApplyForObject(a.apply, obj, &a.opts).
 		WithOwner(obj).
 		WithSetID(a.name).
 		ApplyObjects(objs...)
+	if err != nil {
+		return newStatus, err
+	}
+	a.storeResourceVersion(obj)
+	return newStatus, nil
+}
+
+// isNewResourceVersion detects if a specific resource version was already successfully processed.
+// Only used if UniqueApplyForResourceVersion is set in generic.GeneratingHandlerOptions
+func (a *macvlanIPGeneratingHandler) isNewResourceVersion(obj *v1.MacvlanIP) bool {
+	if !a.opts.UniqueApplyForResourceVersion {
+		return true
+	}
+
+	// Apply once per resource version
+	key := obj.Namespace + "/" + obj.Name
+	previous, ok := a.seen.Load(key)
+	return !ok || previous != obj.ResourceVersion
+}
+
+// storeResourceVersion keeps track of the latest resource version of an object for which Apply was executed
+// Only used if UniqueApplyForResourceVersion is set in generic.GeneratingHandlerOptions
+func (a *macvlanIPGeneratingHandler) storeResourceVersion(obj *v1.MacvlanIP) {
+	if !a.opts.UniqueApplyForResourceVersion {
+		return
+	}
+
+	key := obj.Namespace + "/" + obj.Name
+	a.seen.Store(key, obj.ResourceVersion)
 }

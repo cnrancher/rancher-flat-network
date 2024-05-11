@@ -19,7 +19,7 @@ limitations under the License.
 package batch
 
 import (
-	v1 "github.com/cnrancher/macvlan-operator/pkg/generated/controllers/batch/v1"
+	v1 "github.com/cnrancher/flat-network-operator/pkg/generated/controllers/batch/v1"
 	"github.com/rancher/lasso/pkg/controller"
 )
 
