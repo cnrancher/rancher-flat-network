@@ -1,7 +1,6 @@
 package ipcalc
 
 import (
-	"bytes"
 	"net"
 	"testing"
 )
@@ -18,7 +17,7 @@ func testEq(a, b []net.IP) bool {
 	}
 
 	for i := range a {
-		if bytes.Compare(a[i], b[i]) != 0 {
+		if !a[i].Equal(b[i]) {
 			return false
 		}
 	}
@@ -217,7 +216,7 @@ func Test_CalcDefaultGateway(t *testing.T) {
 
 func Test_ParseIPRange(t *testing.T) {
 
-	hosts := ParseIPRange("192.168.1.10", "192.168.1.15")
+	hosts := ParseIPRange(net.ParseIP("192.168.1.10"), net.ParseIP("192.168.1.15"))
 
 	expect := []net.IP{
 		net.IPv4(192, 168, 1, 10),
@@ -231,7 +230,7 @@ func Test_ParseIPRange(t *testing.T) {
 		t.Errorf("hosts %v , expect %v", hosts, expect)
 	}
 
-	if !testEq(ParseIPRange("", ""), []net.IP{}) {
+	if !testEq(ParseIPRange(nil, nil), []net.IP{}) {
 		t.Errorf("hosts %v , expect %v", hosts, expect)
 	}
 }

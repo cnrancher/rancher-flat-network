@@ -23,10 +23,7 @@ func (p sortedIPList) Len() int {
 }
 
 func (p sortedIPList) Less(i, j int) bool {
-	if bytes.Compare(p[i], p[j]) == -1 {
-		return true
-	}
-	return false
+	return bytes.Compare(p[i], p[j]) == -1
 }
 
 func (p sortedIPList) Swap(i, j int) {
@@ -36,7 +33,7 @@ func (p sortedIPList) Swap(i, j int) {
 func complementip(a, b []net.IP) []net.IP {
 	c := []net.IP{}
 
-	if a == nil || len(a) == 0 {
+	if len(a) == 0 {
 		return c
 	}
 
@@ -137,15 +134,12 @@ func IsInRangeBound(trial net.IP, lower net.IP, upper net.IP) bool {
 }
 
 // ParseIPRange parse ip list from start to end
-func ParseIPRange(start, end string) []net.IP {
-	ip1 := net.ParseIP(start)
-	ip2 := net.ParseIP(end)
-
+func ParseIPRange(start, end net.IP) []net.IP {
 	ips := []net.IP{}
-	if ip1 == nil || ip2 == nil {
+	if start == nil || end == nil {
 		return ips
 	}
-	for ip := ip1; IsInRangeBound(ip, ip1, ip2); incip(ip) {
+	for ip := start; IsInRangeBound(ip, start, end); incip(ip) {
 		a := net.ParseIP(ip.To4().String())
 		ips = append(ips, a)
 	}

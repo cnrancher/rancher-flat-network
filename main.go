@@ -11,6 +11,7 @@ import (
 	"github.com/cnrancher/flat-network-operator/pkg/controller/ingress"
 	"github.com/cnrancher/flat-network-operator/pkg/controller/macvlanip"
 	"github.com/cnrancher/flat-network-operator/pkg/controller/macvlansubnet"
+	"github.com/cnrancher/flat-network-operator/pkg/controller/pod"
 	"github.com/cnrancher/flat-network-operator/pkg/controller/service"
 	"github.com/cnrancher/flat-network-operator/pkg/controller/workload"
 	"github.com/cnrancher/flat-network-operator/pkg/controller/wrangler"
@@ -82,9 +83,10 @@ func main() {
 	}
 
 	// Register handlers
-	macvlanip.Register(ctx, wctx.Macvlan.MacvlanIP())
+	macvlanip.Register(ctx, wctx)
 	macvlansubnet.Register(ctx, wctx.Macvlan.MacvlanSubnet(), wctx.Core.Pod().Cache())
 	service.Register(ctx, wctx.Core.Service(), wctx.Core.Pod())
+	pod.Register(ctx, wctx)
 	ingress.Register(ctx, wctx.Networking.Ingress(), wctx.Core.Service())
 	workload.Register(ctx,
 		wctx.Apps.Deployment(), wctx.Apps.DaemonSet(), wctx.Apps.ReplicaSet(), wctx.Apps.StatefulSet())

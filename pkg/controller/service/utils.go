@@ -8,7 +8,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
-	macvlanv1 "github.com/cnrancher/flat-network-operator/pkg/apis/macvlan.cluster.cattle.io/v1"
 	"github.com/cnrancher/flat-network-operator/pkg/utils"
 	"github.com/sirupsen/logrus"
 )
@@ -17,17 +16,6 @@ const (
 	k8sCNINetworksKey = "k8s.v1.cni.cncf.io/networks"
 	netAttatchDefName = "static-macvlan-cni-attach"
 )
-
-// isMacvlanPod returns true if the pod enables macvlan
-func isMacvlanPod(pod *corev1.Pod) bool {
-	if pod.Annotations == nil {
-		return false
-	}
-	if pod.Annotations[macvlanv1.AnnotationIP] == "" || pod.Annotations[macvlanv1.AnnotationSubnet] == "" {
-		return false
-	}
-	return true
-}
 
 // makeMacvlanService returns a macvlan headless sercive struct based on
 // the provided existing service.

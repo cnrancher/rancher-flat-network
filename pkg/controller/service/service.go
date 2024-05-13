@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cnrancher/flat-network-operator/pkg/utils"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -87,7 +88,7 @@ func (h *handler) syncService(name string, svc *corev1.Service) (*corev1.Service
 				if pod == nil {
 					continue
 				}
-				if isMacvlanPod(pod) {
+				if utils.IsMacvlanPod(pod) {
 					logrus.Debugf("syncService: pod [%v/%v] of service [%v] enabled macvlan",
 						pod.Namespace, pod.Name, svc.Name)
 					isMacvlanPodEnabled = true

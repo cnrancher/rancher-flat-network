@@ -7,11 +7,13 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/util/retry"
 
 	macvlanv1 "github.com/cnrancher/flat-network-operator/pkg/apis/macvlan.cluster.cattle.io/v1"
+	"github.com/cnrancher/flat-network-operator/pkg/controller/wrangler"
+	corecontroller "github.com/cnrancher/flat-network-operator/pkg/generated/controllers/core/v1"
 	macvlancontroller "github.com/cnrancher/flat-network-operator/pkg/generated/controllers/macvlan.cluster.cattle.io/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
@@ -27,7 +29,9 @@ const (
 )
 
 type handler struct {
-	macvlanIPs macvlancontroller.MacvlanIPClient
+	macvlanIPClient    macvlancontroller.MacvlanIPClient
+	macvlanSubnetCache macvlancontroller.MacvlanSubnetCache
+	podCache           corecontroller.PodCache
 
 	macvlanipEnqueueAfter func(string, string, time.Duration)
 	macvlanipEnqueue      func(string, string)
@@ -35,18 +39,19 @@ type handler struct {
 
 func Register(
 	ctx context.Context,
-	macvlanIPs macvlancontroller.MacvlanIPController,
+	wctx *wrangler.Context,
 ) {
 	h := &handler{
-		macvlanIPs: macvlanIPs,
+		macvlanIPClient:    wctx.Macvlan.MacvlanIP(),
+		macvlanSubnetCache: wctx.Macvlan.MacvlanSubnet().Cache(),
+		podCache:           wctx.Core.Pod().Cache(),
 
-		macvlanipEnqueueAfter: macvlanIPs.EnqueueAfter,
-		macvlanipEnqueue:      macvlanIPs.Enqueue,
+		macvlanipEnqueueAfter: wctx.Macvlan.MacvlanIP().EnqueueAfter,
+		macvlanipEnqueue:      wctx.Macvlan.MacvlanSubnet().Enqueue,
 	}
 
-	logrus.Info("Setting up MacvlanIP event handler")
-	macvlanIPs.OnChange(ctx, controllerName, h.handleMacvlanIPError(h.onMacvlanIPChanged))
-	macvlanIPs.OnRemove(ctx, controllerRemoveName, h.onMacvlanIPRemoved)
+	wctx.Macvlan.MacvlanIP().OnChange(ctx, controllerName, h.handleMacvlanIPError(h.onMacvlanIPChanged))
+	wctx.Macvlan.MacvlanIP().OnRemove(ctx, controllerRemoveName, h.onMacvlanIPRemoved)
 }
 
 func (h *handler) handleMacvlanIPError(
@@ -78,7 +83,7 @@ func (h *handler) handleMacvlanIPError(
 		}
 
 		err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-			ip, err := h.macvlanIPs.Get(ip.Namespace, ip.Name, metav1.GetOptions{})
+			ip, err := h.macvlanIPClient.Get(ip.Namespace, ip.Name, metav1.GetOptions{})
 			if err != nil {
 				return err
 			}
@@ -89,7 +94,7 @@ func (h *handler) handleMacvlanIPError(
 			}
 			ip.Status.FailureMessage = message
 
-			_, err = h.macvlanIPs.UpdateStatus(ip)
+			_, err = h.macvlanIPClient.UpdateStatus(ip)
 			return err
 		})
 		if err != nil {
@@ -115,36 +120,45 @@ func (h *handler) onMacvlanIPChanged(s string, ip *macvlanv1.MacvlanIP) (*macvla
 
 	switch ip.Status.Phase {
 	case macvlanIPActivePhase:
-		return h.updateMacvlanIP(ip)
+		return h.onMacvlanIPUpdate(ip)
 	default:
-		return h.createMacvlanIP(ip)
+		return h.onMacvlanIPCreate(ip)
 	}
 }
 
-func (h *handler) createMacvlanIP(ip *macvlanv1.MacvlanIP) (*macvlanv1.MacvlanIP, error) {
-	// Update macvlan IP status to active
-	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		ip, err := h.macvlanIPs.Get(ip.Namespace, ip.Name, metav1.GetOptions{})
-		if err != nil {
-			return err
-		}
-		ip = ip.DeepCopy()
-		// can assume an update is failing
-		ip.Status.Phase = macvlanIPActivePhase
-
-		_, err = h.macvlanIPs.UpdateStatus(ip)
-		return err
-	})
+func (h *handler) onMacvlanIPCreate(ip *macvlanv1.MacvlanIP) (*macvlanv1.MacvlanIP, error) {
+	var err error
+	// Ensure the macvlan subnet resource exists.
+	_, err = h.macvlanSubnetCache.Get(macvlanv1.MacvlanSubnetNamespace, ip.Spec.Subnet)
 	if err != nil {
-		logrus.Errorf("Error recording macvlan IP config [%s] failure message: %v", ip.Name, err)
+		err = fmt.Errorf("onMacvlanIPCreate: failed to get subnet [%v] of ip [%v/%v]: %w",
+			ip.Spec.Subnet, ip.Namespace, ip.Name, err)
+		return ip, err
 	}
-	logrus.Infof("Create macvlan ip Name [%v] Subnet [%v] CIDR [%v]",
-		ip.Name, ip.Spec.Subnet, ip.Spec.CIDR)
+	// Ensure the pod exists.
+	_, err = h.podCache.Get(ip.Namespace, ip.Name)
+	if err != nil {
+		err = fmt.Errorf("onMacvlanIPCreate: failed to get pod [%v/%v]: %w",
+			ip.Namespace, ip.Name, err)
+		return ip, err
+	}
+
+	// Update macvlan IP status to active.
+	ip = ip.DeepCopy()
+	ip.Status.Phase = macvlanIPActivePhase
+	ip, err = h.macvlanIPClient.UpdateStatus(ip)
+	if err != nil {
+		err = fmt.Errorf("onMacvlanIPCreate: failed to update macvlanip [%s/%s] status: %w",
+			ip.Namespace, ip.Name, err)
+		return ip, err
+	}
+	logrus.Infof("Create macvlan ip [%v/%v] Subnet [%v] CIDR [%v] MAC [%v]",
+		ip.Namespace, ip.Name, ip.Spec.Subnet, ip.Spec.CIDR, ip.Spec.MAC)
 
 	return ip, nil
 }
 
-func (h *handler) updateMacvlanIP(ip *macvlanv1.MacvlanIP) (*macvlanv1.MacvlanIP, error) {
+func (h *handler) onMacvlanIPUpdate(ip *macvlanv1.MacvlanIP) (*macvlanv1.MacvlanIP, error) {
 	// Re-add missing records in cache
 	// If a Pod was deleted with a duplicate IP in badpods purging process,
 	// it may cause the IP record to be lost in the cache
