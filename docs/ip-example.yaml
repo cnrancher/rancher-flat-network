@@ -6,10 +6,10 @@
     "creationTimestamp": null
   },
   "spec": {
-    "subnet": "",
-    "podId": "",
+    "subnet": "example-subnet",
+    "podId": "DE6F1529-3C77-4E4E-8D46-8294E025DE80",
     "cidr": "192.168.0.0/24",
-    "mac": "aa:bb:cc:dd:ee:ff"
+    "mac": "qrvM3e7/"
   },
   "status": {
     "phase": "",

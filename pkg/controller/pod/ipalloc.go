@@ -4,108 +4,69 @@ import (
 	"bytes"
 	"fmt"
 	"net"
+	"slices"
 	"strings"
 
 	macvlanv1 "github.com/cnrancher/flat-network-operator/pkg/apis/macvlan.cluster.cattle.io/v1"
+	"github.com/cnrancher/flat-network-operator/pkg/ipcalc"
 	corev1 "k8s.io/api/core/v1"
 )
 
-func ipInRanges(ip net.IP, ipRanges []macvlanv1.IPRange) bool {
-	if len(ipRanges) == 0 {
-		return true
-	}
-	for _, ipRange := range ipRanges {
-		if ipRange.RangeStart == nil || ipRange.RangeEnd == nil {
-			continue
-		}
-		if bytes.Compare(ip, ipRange.RangeStart) >= 0 && bytes.Compare(ip, ipRange.RangeEnd) <= 0 {
-			return true
-		}
-	}
-	return false
-}
+// allocateIPModeAuto allocates IP address & MAC address in auto mode
+func (h *handler) allocateIPModeAuto(
+	subnet *macvlanv1.MacvlanSubnet, annotationMac string,
+) (net.IP, net.HardwareAddr, error) {
+	h.mutex.Lock()
+	defer h.mutex.Unlock()
 
-func ipNotUsed(ip net.IP, usedRanges []macvlanv1.IPRange) bool {
-	if len(usedRanges) == 0 {
-		return true
-	}
-	for _, usedRange := range usedRanges {
-		if usedRange.RangeStart == nil || usedRange.RangeEnd == nil {
-			continue
-		}
-		if bytes.Compare(ip, usedRange.RangeStart) >= 0 && bytes.Compare(ip, usedRange.RangeEnd) <= 0 {
-			return false
-		}
-	}
-	return true
-}
-
-func getAvailableIP(cidr string, ipRanges []macvlanv1.IPRange, usedIPs []macvlanv1.IPRange) (net.IP, error) {
-	ip, ipnet, err := net.ParseCIDR(cidr)
+	ip, err := ipcalc.GetAvailableIP(subnet.Spec.CIDR, subnet.Spec.Ranges, subnet.Status.UsedIP)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-
-	for ip := ip.Mask(ipnet.Mask); ipnet.Contains(ip); incip(ip) {
-		if ip.To4() != nil {
-			// remove network address and broadcast address
-			if ip[3] == 0x00 || ip[3] == 0xff {
-				continue
+	// Empty annotation mac address.
+	if annotationMac == "" {
+		return ip, nil, nil
+	}
+	// Multiple mac address.
+	if strings.Contains(annotationMac, "-") {
+		macs := strings.Split(strings.TrimSpace(annotationMac), "-")
+		for _, v := range macs {
+			mac, err := net.ParseMAC(v)
+			if err != nil {
+				return nil, nil, fmt.Errorf("allocateAutoIP: failed to parse multiple mac addr [%v]: %w", mac, err)
+			}
+			_, ok := slices.BinarySearchFunc(subnet.Status.UsedMac, mac, func(a, b net.HardwareAddr) int {
+				return bytes.Compare(a, b)
+			})
+			if !ok {
+				return ip, mac, nil
 			}
 		}
-		ip = net.IPv4(ip[0], ip[1], ip[2], ip[3])
-		if ipInRanges(ip, ipRanges) && ipNotUsed(ip, usedIPs) {
-			return ip, nil
-		}
+		return nil, nil, fmt.Errorf("allocateAutoIP: no available unused mac address from [%v]", annotationMac)
 	}
-	return nil, fmt.Errorf("TODO: no available ip")
-}
 
-// http://play.golang.org/p/m8TNTtygK0
-func incip(ip net.IP) {
-	for j := len(ip) - 1; j >= 0; j-- {
-		ip[j]++
-		if ip[j] > 0 {
-			break
-		}
-	}
-}
-
-func convertIPtoCIDR(ip net.IP, cidr string) string {
-	nets := strings.Split(cidr, "/")
-	suffix := ""
-	if len(nets) == 2 {
-		suffix = nets[1]
-	}
-	return ip.String() + "/" + suffix
-}
-
-func (h *handler) allocateAutoIP(
-	pod *corev1.Pod, subnet *macvlanv1.MacvlanSubnet, annotationMac string,
-) (allocatedIP net.IP, CIDR string, mac string, err error) {
-	ip, err := getAvailableIP(subnet.Spec.CIDR, subnet.Spec.Ranges, subnet.Status.AllocatedIPs)
+	// Single mac address.
+	mac, err := net.ParseMAC(annotationMac)
 	if err != nil {
-		return nil, "", "", err
+		return nil, nil, fmt.Errorf("allocateAutoIP: failed to parse mac addr [%v]: %w", annotationMac, err)
 	}
-	cidr := convertIPtoCIDR(ip, subnet.Spec.CIDR)
-
-	// empty annotation mac address
-	if annotationMac == "" {
-		return ip, cidr, "", nil
+	_, ok := slices.BinarySearchFunc(subnet.Status.UsedMac, mac, func(a, b net.HardwareAddr) int {
+		return bytes.Compare(a, b)
+	})
+	if ok {
+		return nil, nil, fmt.Errorf("allocateAutoIP: mac address [%v] already in use", annotationMac)
 	}
-
-	// TODO:
-	return ip, cidr, "", nil
+	return ip, mac, nil
 }
 
-func (h *handler) allocateSingleIP(
+func (h *handler) allocateIPModeSingle(
 	pod *corev1.Pod, subnet *macvlanv1.MacvlanSubnet, annotationIP, annotationMac string,
-) (allocatedIP net.IP, CIDR string, mac string, err error) {
+) (allocatedIP net.IP, mac net.HardwareAddr, err error) {
 	return
 }
 
-func (h *handler) allocateMultipleIP(
+func (h *handler) allocateIPModeMultiple(
 	pod *corev1.Pod, subnet *macvlanv1.MacvlanSubnet, annotationIP, annotationMac string,
-) (allocatedIP net.IP, CIDR string, mac string, err error) {
+) (allocatedIP net.IP, mac net.HardwareAddr, err error) {
 	return
 }

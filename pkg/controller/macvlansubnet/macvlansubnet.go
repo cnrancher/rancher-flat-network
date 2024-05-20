@@ -132,6 +132,7 @@ func (h *handler) onMacvlanSubnetChanged(
 }
 
 func (h *handler) createMacvlanSubnet(subnet *macvlanv1.MacvlanSubnet) (*macvlanv1.MacvlanSubnet, error) {
+	logrus.Infof("Create macvlan subnet [%v]", subnet.Name)
 	// Update macvlan subnet labels and set status phase to pending.
 	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		result, err := h.macvlanSubnets.Get(macvlanv1.MacvlanSubnetNamespace, subnet.Name, metav1.GetOptions{})
@@ -147,7 +148,7 @@ func (h *handler) createMacvlanSubnet(subnet *macvlanv1.MacvlanSubnet) (*macvlan
 		result.Labels["vlan"] = fmt.Sprintf("%v", result.Spec.VLAN)
 		result.Labels["mode"] = result.Spec.Mode
 		if result.Spec.Gateway == nil {
-			gatewayIP, err := ipcalc.CalcDefaultGateway(result.Spec.CIDR)
+			gatewayIP, err := ipcalc.GetDefaultGateway(result.Spec.CIDR)
 			if err != nil {
 				return fmt.Errorf("failed to get macvlan subnet default gateway IP: %w", err)
 			}
@@ -158,7 +159,7 @@ func (h *handler) createMacvlanSubnet(subnet *macvlanv1.MacvlanSubnet) (*macvlan
 			logrus.Warnf("Failed to update subnet %q: %v", subnet.Name, err)
 			return err
 		}
-		logrus.Infof("Updated the label of subnet %q: %v", subnet.Name, subnet.Labels)
+		logrus.Infof("Updated macvlan subnet label %q: %v", subnet.Name, result.Labels)
 		subnet = result
 		return nil
 	})
@@ -170,22 +171,8 @@ func (h *handler) createMacvlanSubnet(subnet *macvlanv1.MacvlanSubnet) (*macvlan
 	if subnet.Spec.Gateway == nil {
 		return subnet, fmt.Errorf("createSubnet: subnet %q gateway should not empty", subnet.Name)
 	}
-	// key := fmt.Sprintf("%s:%s", subnet.Spec.Gateway, subnet.Name)
-	// owner, ok := h.inUsedIPs.Load(key)
-	// if ok && owner != subnetGatewayCacheValue {
-	// 	// Delete the pod who used this gateway ip
-	// 	temp := strings.SplitN(owner.(string), ":", 2) // TODO: remove temp
-	// 	pod, err := h.pods.Get(temp[0], temp[1], metav1.GetOptions{})
 
-	// 	// Do not delete the pod directly, return the subnet gateway IP conflict error.
-	// 	if err == nil && pod != nil && pod.DeletionTimestamp == nil && pod.Annotations[macvlanv1.AnnotationSubnet] == subnet.Name {
-	// 		err := fmt.Errorf("gateway IP %v is used by pod [%v/%v]", subnet.Spec.Gateway, pod.Namespace, pod.Name)
-	// 		logrus.Errorf("Failed to create subnet %q: %v", subnet.Name, err)
-	// 		return subnet, err
-	// 	}
-	// }
-	// h.inUsedIPs.Store(key, subnetGatewayCacheValue)
-	// logrus.Infof("createSubnet: Add gateway %s to syncmap cache", key)
+	// TODO: Gateway IP conflic check.
 
 	// Update the macvlan subnet status phase to active.
 	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
@@ -196,7 +183,7 @@ func (h *handler) createMacvlanSubnet(subnet *macvlanv1.MacvlanSubnet) (*macvlan
 		}
 		result = result.DeepCopy()
 		result.Status.Phase = macvlanSubnetActivePhase
-		result.Status.AllocatedIPs = append(result.Status.AllocatedIPs, macvlanv1.IPRange{
+		result.Status.UsedIP = append(result.Status.UsedIP, macvlanv1.IPRange{
 			RangeStart: result.Spec.Gateway,
 			RangeEnd:   result.Spec.Gateway,
 		})

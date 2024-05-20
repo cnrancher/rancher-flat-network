@@ -41,10 +41,10 @@ type MacvlanIP struct {
 
 // MacvlanIPSpec is the spec for a MacvlanIP resource
 type MacvlanIPSpec struct {
-	Subnet string `json:"subnet"`
-	PodID  string `json:"podId"`
-	CIDR   string `json:"cidr"`
-	MAC    string `json:"mac"`
+	Subnet string           `json:"subnet"`
+	PodID  string           `json:"podId"`
+	CIDR   string           `json:"cidr"`
+	MAC    net.HardwareAddr `json:"mac"`
 }
 
 type MacvlanIPStatus struct {
@@ -79,8 +79,9 @@ type MacvlanSubnetSpec struct {
 }
 
 type MacvlanSubnetStatus struct {
-	Phase        string    `json:"phase"`
-	AllocatedIPs []IPRange `json:"allocatedIPs"`
+	Phase   string             `json:"phase"`
+	UsedIP  []IPRange          `json:"usedIP"`
+	UsedMac []net.HardwareAddr `json:"usedMac"`
 
 	FailureMessage string `json:"failureMessage"`
 }

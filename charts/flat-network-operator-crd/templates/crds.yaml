@@ -129,7 +129,13 @@ spec:
             type: object
           status:
             properties:
-              allocatedIPs:
+              failureMessage:
+                nullable: true
+                type: string
+              phase:
+                nullable: true
+                type: string
+              usedIP:
                 items:
                   properties:
                     rangeEnd:
@@ -141,12 +147,12 @@ spec:
                   type: object
                 nullable: true
                 type: array
-              failureMessage:
+              usedMac:
+                items:
+                  nullable: true
+                  type: string
                 nullable: true
-                type: string
-              phase:
-                nullable: true
-                type: string
+                type: array
             type: object
         type: object
     served: true

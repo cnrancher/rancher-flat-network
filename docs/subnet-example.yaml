@@ -12,7 +12,7 @@
   "spec": {
     "master": "eth0",
     "vlan": 0,
-    "cidr": "192.168.0.0/24",
+    "cidr": "192.168.1.0/24",
     "mode": "",
     "gateway": "192.168.1.1",
     "ranges": [
@@ -24,13 +24,9 @@
     "podDefaultGateway": {}
   },
   "status": {
-    "phase": "active",
-    "allocatedIPs": [
-      {
-        "rangeStart": "192.168.1.100",
-        "rangeEnd": "192.168.1.110"
-      }
-    ],
+    "phase": "",
+    "usedIP": null,
+    "usedMac": null,
     "failureMessage": ""
   }
 }

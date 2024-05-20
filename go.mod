@@ -9,6 +9,7 @@ require (
 	github.com/rancher/lasso v0.0.0-20240123150939-7055397d6dfa
 	github.com/rancher/wrangler/v2 v2.1.4
 	github.com/sirupsen/logrus v1.9.3
+	gotest.tools/v3 v3.5.1
 	k8s.io/api v0.30.0
 	k8s.io/apiextensions-apiserver v0.28.9
 	k8s.io/apimachinery v0.30.0

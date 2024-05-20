@@ -11,7 +11,8 @@ import (
 )
 
 func Test_MacvlanIP(t *testing.T) {
-	ip := macvlanv1.MacvlanIP{
+	mac, _ := net.ParseMAC("aa:bb:cc:dd:ee:ff")
+	macvlanIP := macvlanv1.MacvlanIP{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "macvlan.cluster.cattle.io/v1",
 			Kind:       "MacvlanIP",
@@ -20,14 +21,14 @@ func Test_MacvlanIP(t *testing.T) {
 			Name: "example-ip",
 		},
 		Spec: macvlanv1.MacvlanIPSpec{
-			Subnet: "",
-			PodID:  "",
+			Subnet: "example-subnet",
+			PodID:  "DE6F1529-3C77-4E4E-8D46-8294E025DE80",
 			CIDR:   "192.168.0.0/24",
-			MAC:    "aa:bb:cc:dd:ee:ff",
+			MAC:    mac,
 		},
 	}
 
-	b, _ := json.MarshalIndent(ip, "", "  ")
+	b, _ := json.MarshalIndent(macvlanIP, "", "  ")
 	err := os.WriteFile("../../../../docs/ip-example.yaml", b, 0644)
 	if err != nil {
 		t.Error(err)
@@ -50,7 +51,7 @@ func Test_MacvlanSubnet(t *testing.T) {
 		Spec: macvlanv1.MacvlanSubnetSpec{
 			Master:  "eth0",
 			VLAN:    0,
-			CIDR:    "192.168.0.0/24",
+			CIDR:    "192.168.1.0/24",
 			Mode:    "",
 			Gateway: net.ParseIP("192.168.1.1"),
 			Ranges: []macvlanv1.IPRange{

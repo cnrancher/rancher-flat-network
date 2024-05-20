@@ -1,12 +1,15 @@
 package pod
 
 import (
+	"net"
+
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	macvlanv1 "github.com/cnrancher/flat-network-operator/pkg/apis/macvlan.cluster.cattle.io/v1"
+	"github.com/cnrancher/flat-network-operator/pkg/ipcalc"
 )
 
 func (h *handler) eventMacvlanIPError(pod *corev1.Pod, err error) {
@@ -18,7 +21,8 @@ func (h *handler) eventMacvlanSubnetError(pod *corev1.Pod, err error) {
 }
 
 func makeMacvlanIP(
-	pod *corev1.Pod, subnet *macvlanv1.MacvlanSubnet, cidr, mac, macvlanipType string,
+	pod *corev1.Pod, subnet *macvlanv1.MacvlanSubnet,
+	ip net.IP, mac net.HardwareAddr, macvlanipType string,
 ) *macvlanv1.MacvlanIP {
 	controller := true
 	macvlanip := &macvlanv1.MacvlanIP{
@@ -40,7 +44,7 @@ func makeMacvlanIP(
 			},
 		},
 		Spec: macvlanv1.MacvlanIPSpec{
-			CIDR:   cidr,
+			CIDR:   ipcalc.AddCIDRSuffix(ip, subnet.Spec.CIDR),
 			MAC:    mac,
 			PodID:  string(pod.GetUID()),
 			Subnet: subnet.Name,

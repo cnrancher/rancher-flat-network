@@ -3,234 +3,230 @@ package ipcalc
 import (
 	"net"
 	"testing"
+
+	macvlanv1 "github.com/cnrancher/flat-network-operator/pkg/apis/macvlan.cluster.cattle.io/v1"
+	"gotest.tools/v3/assert"
 )
 
-func testEq(a, b []net.IP) bool {
-
-	// If one is nil, the other must also be nil.
-	if (a == nil) != (b == nil) {
-		return false
-	}
-
-	if len(a) != len(b) {
-		return false
-	}
-
-	for i := range a {
-		if !a[i].Equal(b[i]) {
-			return false
-		}
-	}
-
-	return true
-}
-
-func Test_incip(t *testing.T) {
+func Test_IPIncrease(t *testing.T) {
 	var ip1, ip2 net.IP
 	ip1 = net.IPv4(192, 168, 1, 1)
 	ip2 = net.IPv4(192, 168, 1, 2)
-	incip(ip1)
-	if !ip2.Equal(ip1) {
-		t.Errorf("ip1 %s , ip2 %s", ip1, ip2)
-	}
+	IPIncrease(ip1)
+	assert.DeepEqual(t, ip1, ip2)
 
 	ip1 = net.IPv4(192, 168, 1, 255)
 	ip2 = net.IPv4(192, 168, 2, 0)
-
-	incip(ip1)
-	if !ip2.Equal(ip1) {
-		t.Errorf("ip1 %s , ip2 %s", ip1, ip2)
-	}
+	IPIncrease(ip1)
+	assert.DeepEqual(t, ip1, ip2)
 }
 
-func Test_complementip(t *testing.T) {
-	var ip1, ip2, diffs, expect []net.IP
-	ip1 = []net.IP{
-		net.IPv4(192, 168, 1, 1),
-	}
-	ip2 = []net.IP{
-		net.IPv4(192, 168, 1, 1),
-	}
-
-	diffs = complementip(ip1, ip2)
-	expect = []net.IP{}
-
-	if !testEq(diffs, expect) {
-		t.Errorf("ip1 %v , ip2 %v", ip1, ip2)
-		t.Errorf("diffs %v , expect %v", diffs, expect)
-	}
-
-	ip1 = []net.IP{
-		net.IPv4(192, 168, 1, 4),
-		net.IPv4(192, 168, 1, 3),
-		net.IPv4(192, 168, 1, 2),
-		net.IPv4(192, 168, 1, 1),
-	}
-	ip2 = []net.IP{
-		net.IPv4(192, 168, 1, 1),
-		net.IPv4(192, 168, 1, 3),
-		net.IPv4(192, 168, 1, 5),
-	}
-
-	diffs = complementip(ip1, ip2)
-	expect = []net.IP{
-		net.IPv4(192, 168, 1, 2),
-		net.IPv4(192, 168, 1, 4),
-	}
-
-	if !testEq(diffs, expect) {
-		t.Errorf("ip1 %v , ip2 %v", ip1, ip2)
-		t.Errorf("diffs %v , expect %v", diffs, expect)
-	}
-
-	ip1 = []net.IP{
-		net.IPv4(192, 168, 1, 4),
-		net.IPv4(192, 168, 1, 3),
-		net.IPv4(192, 168, 1, 2),
-		net.IPv4(192, 168, 1, 1),
-	}
-	ip2 = []net.IP{}
-
-	diffs = complementip(ip1, ip2)
-	expect = []net.IP{
-		net.IPv4(192, 168, 1, 1),
-		net.IPv4(192, 168, 1, 2),
-		net.IPv4(192, 168, 1, 3),
-		net.IPv4(192, 168, 1, 4),
-	}
-
-	if !testEq(diffs, expect) {
-		t.Errorf("ip1 %v , ip2 %v", ip1, ip2)
-		t.Errorf("diffs %v , expect %v", diffs, expect)
-	}
-
-	ip1 = []net.IP{}
-	ip2 = []net.IP{}
-
-	diffs = complementip(ip1, ip2)
-	expect = []net.IP{}
-
-	if !testEq(diffs, expect) {
-		t.Errorf("ip1 %v , ip2 %v", ip1, ip2)
-		t.Errorf("diffs %v , expect %v", diffs, expect)
-	}
-}
-
-func Test_RemoveUsedHosts(t *testing.T) {
-	var ip1, ip2, diffs, expect []net.IP
-	ip1 = []net.IP{
-		net.IPv4(192, 168, 1, 4),
-		net.IPv4(192, 168, 1, 3),
-		net.IPv4(192, 168, 1, 2),
-		net.IPv4(192, 168, 1, 1),
-	}
-	ip2 = []net.IP{
-		net.IPv4(192, 168, 1, 1),
-		net.IPv4(192, 168, 1, 3),
-		net.IPv4(192, 168, 1, 5),
-	}
-
-	diffs = RemoveUsedHosts(ip1, ip2)
-	expect = []net.IP{
-		net.IPv4(192, 168, 1, 2),
-		net.IPv4(192, 168, 1, 4),
-	}
-
-	if !testEq(diffs, expect) {
-		t.Errorf("ip1 %v , ip2 %v", ip1, ip2)
-		t.Errorf("diffs %v , expect %v", diffs, expect)
-	}
-}
-
-func Test_CIDRtoHosts(t *testing.T) {
-	var expect []net.IP
-	hosts, err := CIDRtoHosts("192.168.1.100/30")
-	if err != nil {
-		t.Error(err)
-	}
-	expect = []net.IP{
-		net.IPv4(192, 168, 1, 100),
-		net.IPv4(192, 168, 1, 101),
-		net.IPv4(192, 168, 1, 102),
-		net.IPv4(192, 168, 1, 103),
-	}
-	if !testEq(hosts, expect) {
-		t.Errorf("hosts %v , expect %v", hosts, expect)
-	}
-
-	hosts, err = CIDRtoHosts("192.168.1.255/30")
-	if err != nil {
-		t.Error(err)
-	}
-	expect = []net.IP{
-		net.IPv4(192, 168, 1, 252),
-		net.IPv4(192, 168, 1, 253),
-		net.IPv4(192, 168, 1, 254),
-	}
-	if !testEq(hosts, expect) {
-		t.Errorf("hosts %v , expect %v", hosts, expect)
-	}
-
-	hosts, _ = CIDRtoHosts("")
-	if !testEq(hosts, nil) {
-		t.Errorf("hosts %v , expect %v", hosts, expect)
-	}
-}
-
-func Test_GetUseableHosts(t *testing.T) {
-	var ip1, ip2, hosts, expect []net.IP
-	ip1 = []net.IP{
-		net.IPv4(192, 168, 1, 4),
-		net.IPv4(192, 168, 1, 3),
-		net.IPv4(192, 168, 1, 2),
-		net.IPv4(192, 168, 1, 1),
-	}
-	ip2 = []net.IP{
-		net.IPv4(192, 168, 1, 1),
-		net.IPv4(192, 168, 1, 3),
-		net.IPv4(192, 168, 1, 5),
-	}
-
-	hosts = GetUsableHosts(ip1, ip2)
-
-	expect = []net.IP{
-		net.IPv4(192, 168, 1, 1),
-		net.IPv4(192, 168, 1, 3),
-	}
-	if !testEq(hosts, expect) {
-		t.Errorf("hosts %v , expect %v", hosts, expect)
-	}
-}
 func Test_CalcDefaultGateway(t *testing.T) {
+	ip, _ := GetDefaultGateway("192.168.1.0/24")
+	assert.DeepEqual(t, net.ParseIP("192.168.1.1"), ip)
+	ip, _ = GetDefaultGateway("")
+	assert.Check(t, ip == nil)
+}
 
-	ip, _ := CalcDefaultGateway("192.168.1.0/24")
-	if ip.String() != "192.168.1.1" {
-		t.Errorf("result %v", ip)
+func Test_IPInRanges(t *testing.T) {
+	var ip = net.ParseIP("10.0.0.1")
+	if !IPInRanges(ip, nil) {
+		t.Fatal("failed")
+	}
+	if !IPInRanges(ip, []macvlanv1.IPRange{}) {
+		t.Fatal("failed")
 	}
 
-	ip, _ = CalcDefaultGateway("")
-	if ip != nil {
-		t.Errorf("result %v", ip)
+	var ipRanges = []macvlanv1.IPRange{
+		{
+			RangeStart: net.ParseIP("10.0.0.1"),
+			RangeEnd:   net.ParseIP("10.0.0.1"),
+		},
+	}
+	if !IPInRanges(ip, ipRanges) {
+		t.Fatal("failed")
+	}
+
+	ipRanges = []macvlanv1.IPRange{
+		{
+			RangeStart: net.ParseIP("10.0.0.1"),
+			RangeEnd:   net.ParseIP("10.0.0.255"),
+		},
+	}
+	if !IPInRanges(ip, ipRanges) {
+		t.Fatal("failed")
+	}
+
+	ip = net.ParseIP("10.0.0.100")
+	if !IPInRanges(ip, ipRanges) {
+		t.Fatal("failed")
+	}
+
+	ip = net.ParseIP("192.168.0.1")
+	if IPInRanges(ip, ipRanges) {
+		t.Fatal("failed")
 	}
 }
 
-func Test_ParseIPRange(t *testing.T) {
-
-	hosts := ParseIPRange(net.ParseIP("192.168.1.10"), net.ParseIP("192.168.1.15"))
-
-	expect := []net.IP{
-		net.IPv4(192, 168, 1, 10),
-		net.IPv4(192, 168, 1, 11),
-		net.IPv4(192, 168, 1, 12),
-		net.IPv4(192, 168, 1, 13),
-		net.IPv4(192, 168, 1, 14),
-		net.IPv4(192, 168, 1, 15),
+func Test_IPNotUsed(t *testing.T) {
+	var ip = net.ParseIP("10.0.0.1")
+	if !IPNotUsed(ip, nil) {
+		t.Fatal("failed")
 	}
-	if !testEq(hosts, expect) {
-		t.Errorf("hosts %v , expect %v", hosts, expect)
+	if !IPNotUsed(ip, []macvlanv1.IPRange{}) {
+		t.Fatal("failed")
 	}
 
-	if !testEq(ParseIPRange(nil, nil), []net.IP{}) {
-		t.Errorf("hosts %v , expect %v", hosts, expect)
+	var usedRanges = []macvlanv1.IPRange{
+		{
+			RangeStart: net.ParseIP("10.0.0.1"),
+			RangeEnd:   net.ParseIP("10.0.0.1"),
+		},
 	}
+	if IPNotUsed(ip, usedRanges) {
+		t.Fatal("failed")
+	}
+
+	usedRanges = []macvlanv1.IPRange{
+		{
+			RangeStart: net.ParseIP("10.0.0.100"),
+			RangeEnd:   net.ParseIP("10.0.0.200"),
+		},
+	}
+	if !IPNotUsed(ip, usedRanges) {
+		t.Fatal("failed")
+	}
+	ip = net.ParseIP("10.0.0.110")
+	if IPNotUsed(ip, usedRanges) {
+		t.Fatal("failed")
+	}
+}
+
+func Test_GetAvailableIP(t *testing.T) {
+	ip, err := GetAvailableIP("10.0.0.0/24", nil, nil)
+	assert.NilError(t, err)
+	assert.DeepEqual(t, ip, net.ParseIP("10.0.0.1"))
+
+	ip, err = GetAvailableIP("10.0.0.0/24", []macvlanv1.IPRange{}, []macvlanv1.IPRange{})
+	assert.NilError(t, err)
+	assert.DeepEqual(t, ip, net.ParseIP("10.0.0.1"))
+
+	ip, _ = GetAvailableIP(
+		"10.0.0.0/24",
+		[]macvlanv1.IPRange{
+			{
+				RangeStart: net.ParseIP("10.0.0.100"),
+				RangeEnd:   net.ParseIP("10.0.0.200"),
+			},
+		},
+		[]macvlanv1.IPRange{},
+	)
+	assert.DeepEqual(t, ip, net.ParseIP("10.0.0.100"))
+
+	ip, _ = GetAvailableIP(
+		"10.0.0.0/24",
+		[]macvlanv1.IPRange{
+			{
+				RangeStart: net.ParseIP("10.0.0.100"),
+				RangeEnd:   net.ParseIP("10.0.0.200"),
+			},
+			{
+				RangeStart: net.ParseIP("10.0.0.210"),
+				RangeEnd:   net.ParseIP("10.0.0.220"),
+			},
+		},
+		[]macvlanv1.IPRange{
+			{
+				RangeStart: net.ParseIP("10.0.0.100"),
+				RangeEnd:   net.ParseIP("10.0.0.200"),
+			},
+		},
+	)
+	assert.DeepEqual(t, ip, net.ParseIP("10.0.0.210"))
+
+	ip, _ = GetAvailableIP(
+		"10.0.0.0/24",
+		[]macvlanv1.IPRange{
+			{
+				RangeStart: net.ParseIP("10.0.0.100"),
+				RangeEnd:   net.ParseIP("10.0.0.200"),
+			},
+			{
+				RangeStart: net.ParseIP("10.0.0.210"),
+				RangeEnd:   net.ParseIP("10.0.0.220"),
+			},
+		},
+		[]macvlanv1.IPRange{
+			{
+				RangeStart: net.ParseIP("10.0.0.100"),
+				RangeEnd:   net.ParseIP("10.0.0.200"),
+			},
+			{
+				RangeStart: net.ParseIP("10.0.0.210"),
+				RangeEnd:   net.ParseIP("10.0.0.210"),
+			},
+		},
+	)
+	assert.DeepEqual(t, ip, net.ParseIP("10.0.0.211"))
+
+	ip, _ = GetAvailableIP(
+		"10.0.0.0/8",
+		[]macvlanv1.IPRange{
+			{
+				RangeStart: net.ParseIP("10.255.255.254"),
+				RangeEnd:   net.ParseIP("10.255.255.254"),
+			},
+		},
+		[]macvlanv1.IPRange{},
+	)
+	assert.DeepEqual(t, ip, net.ParseIP("10.255.255.254"))
+
+	ip, err = GetAvailableIP(
+		"10.0.0.0/8",
+		[]macvlanv1.IPRange{
+			{
+				RangeStart: net.ParseIP("10.255.255.254"),
+				RangeEnd:   net.ParseIP("10.255.255.254"),
+			},
+		},
+		[]macvlanv1.IPRange{
+			{
+				RangeStart: net.ParseIP("10.255.255.254"),
+				RangeEnd:   net.ParseIP("10.255.255.254"),
+			},
+		},
+	)
+	assert.ErrorIs(t, err, ErrNoAvailableIP)
+	assert.Equal(t, len(ip), 0)
+
+	ip, err = GetAvailableIP(
+		"10.0.0.0/8",
+		[]macvlanv1.IPRange{},
+		[]macvlanv1.IPRange{
+			{
+				RangeStart: net.ParseIP("10.0.0.0"),
+				RangeEnd:   net.ParseIP("10.255.255.254"),
+			},
+		},
+	)
+	assert.ErrorIs(t, err, ErrNoAvailableIP)
+	assert.Equal(t, len(ip), 0)
+}
+
+func Test_AddCIDRSuffix(t *testing.T) {
+	ip := net.ParseIP("192.168.1.12")
+	c := AddCIDRSuffix(ip, "192.168.1.0/24")
+	assert.Equal(t, "192.168.1.12/24", c)
+
+	ip = net.ParseIP("10.0.0.1")
+	c = AddCIDRSuffix(ip, "10.0.0.0/8")
+	assert.Equal(t, "10.0.0.1/8", c)
+
+	ip = net.ParseIP("172.31.1.100")
+	c = AddCIDRSuffix(ip, "172.16.0.0/16")
+	assert.Equal(t, "172.31.1.100/16", c)
+
+	ip = net.ParseIP("172.31.1.100")
+	c = AddCIDRSuffix(ip, "172.16.0.0")
+	assert.Equal(t, "172.31.1.100/32", c)
 }

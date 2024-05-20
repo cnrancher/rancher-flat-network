@@ -55,7 +55,7 @@ func IsMultipleIP(ip string) bool {
 	if !strings.Contains(ip, "-") {
 		return false
 	}
-	ips := strings.Split(strings.Trim(ip, " "), "-")
+	ips := strings.Split(strings.TrimSpace(ip), "-")
 
 	if len(ips) < 2 {
 		return false
