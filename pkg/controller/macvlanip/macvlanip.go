@@ -152,7 +152,7 @@ func (h *handler) onMacvlanIPCreate(ip *macvlanv1.MacvlanIP) (*macvlanv1.Macvlan
 			ip.Namespace, ip.Name, err)
 		return ip, err
 	}
-	logrus.Infof("Create macvlan ip [%v/%v] Subnet [%v] CIDR [%v] MAC [%v]",
+	logrus.Infof("Create macvlanIP [%v/%v] Subnet [%v] CIDR [%v] MAC [%v]",
 		ip.Namespace, ip.Name, ip.Spec.Subnet, ip.Spec.CIDR, ip.Spec.MAC)
 
 	return ip, nil

@@ -16,8 +16,8 @@ import (
 func (h *handler) allocateIPModeAuto(
 	subnet *macvlanv1.MacvlanSubnet, annotationMac string,
 ) (net.IP, net.HardwareAddr, error) {
-	h.mutex.Lock()
-	defer h.mutex.Unlock()
+	h.IPMutex.Lock()
+	defer h.IPMutex.Unlock()
 
 	ip, err := ipcalc.GetAvailableIP(subnet.Spec.CIDR, subnet.Spec.Ranges, subnet.Status.UsedIP)
 	if err != nil {

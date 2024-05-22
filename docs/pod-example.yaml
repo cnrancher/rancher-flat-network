@@ -1,12 +1,12 @@
 kind: Pod
 apiVersion: v1
 metadata:
-  name: example-pod-2
+  name: example-pod
   namespace: "default"
-  # annotations:
-  #   macvlan.pandaria.cattle.io/ip: "auto"
-  #   macvlan.pandaria.cattle.io/subnet: "example-subnet"
-  #   macvlan.pandaria.cattle.io/mac: ""
+  annotations:
+    macvlan.pandaria.cattle.io/ip: "auto"
+    macvlan.pandaria.cattle.io/subnet: "example-subnet"
+    macvlan.pandaria.cattle.io/mac: ""
 spec:
   containers:
   - name: nginx

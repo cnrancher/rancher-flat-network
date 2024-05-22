@@ -36,9 +36,9 @@ var (
 
 func init() {
 	logrus.SetFormatter(&nested.Formatter{
-		HideKeys:        true,
+		HideKeys:        false,
 		TimestampFormat: time.DateTime,
-		FieldsOrder:     []string{"namespace", "name"},
+		FieldsOrder:     []string{"POD", "SVC", "IP", "SUBNET"},
 	})
 }
 
@@ -49,7 +49,7 @@ func main() {
 	flag.StringVar(&address, "bind-address", "0.0.0.0", "The IP address on which to listen for the --port port.")
 	flag.StringVar(&cert, "tls-cert-file", "/etc/webhook/certs/tls.crt", "File containing the default x509 Certificate for HTTPS.")
 	flag.StringVar(&key, "tls-private-key-file", "/etc/webhook/certs/tls.key", "File containing the default x509 private key matching --tls-cert-file.")
-	flag.BoolVar(&debug, "debug", false, "Enable log debug level.")
+	flag.BoolVar(&debug, "debug", false, "Enable debug log output.")
 	flag.BoolVar(&version, "v", false, "Show version.")
 	flag.IntVar(&worker, "worker", 5, "Worker number (1-50).")
 	flag.Parse()

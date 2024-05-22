@@ -47,7 +47,6 @@ func Register(
 	}
 
 	services.OnChange(ctx, controllerName, h.handleServiceError(h.syncService))
-	var _ metav1.Object
 }
 
 func (h *handler) handleServiceError(

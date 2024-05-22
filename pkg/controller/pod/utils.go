@@ -1,6 +1,8 @@
 package pod
 
 import (
+	"crypto/sha1"
+	"fmt"
 	"net"
 
 	"github.com/sirupsen/logrus"
@@ -20,7 +22,7 @@ func (h *handler) eventMacvlanSubnetError(pod *corev1.Pod, err error) {
 	h.recorder.Event(pod, corev1.EventTypeWarning, "MacvlanSubnetError", err.Error())
 }
 
-func makeMacvlanIP(
+func newMacvlanIP(
 	pod *corev1.Pod, subnet *macvlanv1.MacvlanSubnet,
 	ip net.IP, mac net.HardwareAddr, macvlanipType string,
 ) *macvlanv1.MacvlanIP {
@@ -55,6 +57,10 @@ func makeMacvlanIP(
 		macvlanip.Annotations[macvlanv1.AnnotationsIPv6to4] = "true"
 	}
 	return macvlanip
+}
+
+func calcHash(ip, mac string) string {
+	return fmt.Sprintf("hash-%x", sha1.Sum([]byte(ip+mac)))
 }
 
 func macvlanIPUpdated(a, b *macvlanv1.MacvlanIP) bool {
