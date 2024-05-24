@@ -3,9 +3,7 @@ package pod
 import (
 	"context"
 	"fmt"
-	"net"
 	"strings"
-	"sync"
 	"time"
 
 	macvlanv1 "github.com/cnrancher/flat-network-operator/pkg/apis/macvlan.cluster.cattle.io/v1"
@@ -25,8 +23,7 @@ import (
 )
 
 const (
-	handlerName       = "pod"
-	handlerRemoveName = "pod-remove"
+	handlerName = "flat-network-pod"
 )
 
 type handler struct {
@@ -49,9 +46,6 @@ type handler struct {
 
 	podEnqueueAfter func(string, string, time.Duration)
 	podEnqueue      func(string, string)
-
-	// IPMutex is the mutex for allocating IP address
-	IPMutex sync.Mutex
 }
 
 func Register(
@@ -80,11 +74,11 @@ func Register(
 		podEnqueue:      wctx.Core.Pod().Enqueue,
 	}
 
-	wctx.Core.Pod().OnChange(ctx, handlerName, h.onPodUpdate)
+	wctx.Core.Pod().OnChange(ctx, handlerName, h.sync)
 }
 
-// onPodUpdate ensures macvlanIP resource created &
-func (h *handler) onPodUpdate(name string, pod *corev1.Pod) (*corev1.Pod, error) {
+// sync ensures macvlanIP resource exists.
+func (h *handler) sync(name string, pod *corev1.Pod) (*corev1.Pod, error) {
 	// Skip non-macvlan pods
 	if !utils.IsMacvlanPod(pod) {
 		return pod, nil
@@ -100,7 +94,7 @@ func (h *handler) onPodUpdate(name string, pod *corev1.Pod) (*corev1.Pod, error)
 		h.eventMacvlanIPError(pod, err)
 		return pod, fmt.Errorf("ensureFlatNetworkIP: %w", err)
 	}
-	// Ensure pod label updated with the created FlatNetworkIP.
+	// Ensure Pod label updated with the FlatNetworkIP.
 	if err = h.updatePodLabel(pod, macvlanIP); err != nil {
 		h.eventMacvlanIPError(pod, err)
 		return pod, err
@@ -109,6 +103,7 @@ func (h *handler) onPodUpdate(name string, pod *corev1.Pod) (*corev1.Pod, error)
 	return pod, nil
 }
 
+// ensureFlatNetworkIP ensure the FlatNetworkIP (macvlanIP) resource exists.
 func (h *handler) ensureFlatNetworkIP(pod *corev1.Pod) (*macvlanv1.MacvlanIP, error) {
 	existMacvlanIP, err := h.macvlanIPCache.Get(pod.Namespace, pod.Name)
 	if err != nil {
@@ -118,66 +113,64 @@ func (h *handler) ensureFlatNetworkIP(pod *corev1.Pod) (*macvlanv1.MacvlanIP, er
 			return nil, err
 		}
 	}
-	if existMacvlanIP != nil {
-		// TODO: Check the exist MacvlanIP is valid or not.
 
-		// MacvlanIP already exists, return directly.
+	// // Initialize Pod FlatNetwork IP (macvlanIP) resource.
+	// if pod.Annotations == nil {
+	// 	pod.Annotations = make(map[string]string)
+	// }
+	// annotationIP := pod.Annotations[macvlanv1.AnnotationIP]
+	// annotationSubnet := pod.Annotations[macvlanv1.AnnotationSubnet]
+	// annotationMac := pod.Annotations[macvlanv1.AnnotationMac]
+
+	// subnet, err := h.macvlanSubnetCache.Get(macvlanv1.MacvlanSubnetNamespace, annotationSubnet)
+	// if err != nil {
+	// 	logrus.WithFields(fieldsPod(pod)).
+	// 		Errorf("failed to get subnet [%v]: %v",
+	// 			annotationSubnet, err)
+	// 	return nil, err
+	// }
+
+	// var (
+	// 	allocatedIP   net.IP
+	// 	allocatedMac  net.HardwareAddr
+	// 	allocatedCIDR string
+	// 	macvlanIPType string = "specific"
+	// )
+	// switch {
+	// case annotationIP == "auto":
+	// 	macvlanIPType = "auto"
+	// 	allocatedIP, allocatedMac, err = h.allocateIPModeAuto(subnet, annotationMac)
+	// case utils.IsSingleIP(annotationIP):
+	// 	allocatedIP, allocatedMac, err = h.allocateIPModeSingle(pod, subnet, annotationIP, annotationMac)
+	// case utils.IsMultipleIP(annotationIP):
+	// 	allocatedIP, allocatedMac, err = h.allocateIPModeMultiple(pod, subnet, annotationIP, annotationMac)
+	// default:
+	// 	err = fmt.Errorf("invalid anotation [%v: %v] detected",
+	// 		macvlanv1.AnnotationIP, annotationIP)
+	// }
+	// if err != nil {
+	// 	logrus.WithFields(fieldsPod(pod)).
+	// 		Errorf("failed to allocate IP: %v", err)
+	// 	return nil, err
+	// }
+
+	// if len(allocatedMac) != 0 {
+	// 	logrus.WithFields(fieldsPod(pod)).
+	// 		Infof("Allocate macvlanIP [%v] CIDR [%v] MAC [%v]",
+	// 			allocatedIP.String(), allocatedCIDR, allocatedMac.String())
+	// } else {
+	// 	logrus.WithFields(fieldsPod(pod)).
+	// 		Infof("Allocate macvlanIP [%v] CIDR [%v]",
+	// 			allocatedIP.String(), allocatedCIDR)
+	// }
+
+	expectedIP, err := h.newMacvlanIP(pod)
+	h.setIfStatefulSetOwnerRef(expectedIP, pod)
+	h.setWorkloadAndProjectLabel(expectedIP, pod)
+	if macvlanIPUpdated(existMacvlanIP, expectedIP) {
 		return existMacvlanIP, nil
 	}
 
-	// Initialize Pod FlatNetwork IP (macvlanIP) resource.
-	if pod.Annotations == nil {
-		pod.Annotations = make(map[string]string)
-	}
-	annotationIP := pod.Annotations[macvlanv1.AnnotationIP]
-	annotationSubnet := pod.Annotations[macvlanv1.AnnotationSubnet]
-	annotationMac := pod.Annotations[macvlanv1.AnnotationMac]
-
-	subnet, err := h.macvlanSubnetCache.Get(macvlanv1.MacvlanSubnetNamespace, annotationSubnet)
-	if err != nil {
-		logrus.WithFields(fieldsPod(pod)).
-			Errorf("failed to get subnet [%v]: %v",
-				annotationSubnet, err)
-		return nil, err
-	}
-
-	var (
-		allocatedIP   net.IP
-		allocatedMac  net.HardwareAddr
-		allocatedCIDR string
-		macvlanIPType string = "specific"
-	)
-	switch {
-	case annotationIP == "auto":
-		macvlanIPType = "auto"
-		allocatedIP, allocatedMac, err = h.allocateIPModeAuto(subnet, annotationMac)
-	case utils.IsSingleIP(annotationIP):
-		allocatedIP, allocatedMac, err = h.allocateIPModeSingle(pod, subnet, annotationIP, annotationMac)
-	case utils.IsMultipleIP(annotationIP):
-		allocatedIP, allocatedMac, err = h.allocateIPModeMultiple(pod, subnet, annotationIP, annotationMac)
-	default:
-		err = fmt.Errorf("invalid anotation [%v: %v] detected",
-			macvlanv1.AnnotationIP, annotationIP)
-	}
-	if err != nil {
-		logrus.WithFields(fieldsPod(pod)).
-			Errorf("failed to allocate IP: %v", err)
-		return nil, err
-	}
-
-	if len(allocatedMac) != 0 {
-		logrus.WithFields(fieldsPod(pod)).
-			Infof("Allocate macvlanIP [%v] CIDR [%v] MAC [%v]",
-				allocatedIP.String(), allocatedCIDR, allocatedMac.String())
-	} else {
-		logrus.WithFields(fieldsPod(pod)).
-			Infof("Allocate macvlanIP [%v] CIDR [%v]",
-				allocatedIP.String(), allocatedCIDR)
-	}
-
-	expectedIP := newMacvlanIP(pod, subnet, allocatedIP, allocatedMac, macvlanIPType)
-	h.setIfStatefulSetOwnerRef(expectedIP, pod)
-	h.setWorkloadAndProjectLabel(expectedIP, pod)
 	var createdMacvlanIP *macvlanv1.MacvlanIP
 	if err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		createdMacvlanIP, err = h.macvlanIPClient.Create(expectedIP)
@@ -192,9 +185,8 @@ func (h *handler) ensureFlatNetworkIP(pod *corev1.Pod) (*macvlanv1.MacvlanIP, er
 		return nil, err
 	}
 	logrus.WithFields(fieldsPod(pod)).
-		Infof("Created macvlanIP [%v/%v] addr [%v].",
-			pod.Namespace, pod.Name, expectedIP.Spec.CIDR)
-
+		Infof("Created macvlanIP [%v/%v] IP [%v].",
+			pod.Namespace, pod.Name, createdMacvlanIP.Spec.IP)
 	return createdMacvlanIP, nil
 }
 
@@ -206,9 +198,10 @@ func (h *handler) updatePodLabel(pod *corev1.Pod, macvlanIP *macvlanv1.MacvlanIP
 	annotationSubnet := pod.Annotations[macvlanv1.AnnotationSubnet]
 	annotationMac := pod.Annotations[macvlanv1.AnnotationMac]
 
+	// TODO: should move the updatePodLabel method to the macvlanIP handler.
 	labels := map[string]string{}
 	labels[macvlanv1.LabelMultipleIPHash] = calcHash(annotationIP, annotationMac)
-	labels[macvlanv1.LabelSelectedIP] = strings.SplitN(macvlanIP.Spec.CIDR, "/", 2)[0]
+	labels[macvlanv1.LabelSelectedIP] = macvlanIP.Status.IP.String()
 	labels[macvlanv1.LabelSelectedMac] = strings.ReplaceAll(macvlanIP.Spec.MAC.String(), ":", "_")
 	labels[macvlanv1.LabelSubnet] = annotationSubnet
 	if annotationIP == "auto" {

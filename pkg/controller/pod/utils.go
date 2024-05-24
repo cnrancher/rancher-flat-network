@@ -11,7 +11,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	macvlanv1 "github.com/cnrancher/flat-network-operator/pkg/apis/macvlan.cluster.cattle.io/v1"
-	"github.com/cnrancher/flat-network-operator/pkg/ipcalc"
+	"github.com/cnrancher/flat-network-operator/pkg/utils"
 )
 
 func (h *handler) eventMacvlanIPError(pod *corev1.Pod, err error) {
@@ -22,18 +22,42 @@ func (h *handler) eventMacvlanSubnetError(pod *corev1.Pod, err error) {
 	h.recorder.Event(pod, corev1.EventTypeWarning, "MacvlanSubnetError", err.Error())
 }
 
-func newMacvlanIP(
-	pod *corev1.Pod, subnet *macvlanv1.MacvlanSubnet,
-	ip net.IP, mac net.HardwareAddr, macvlanipType string,
-) *macvlanv1.MacvlanIP {
+// newMacvlanIP returns a new macvlanIP struct object by Pod.
+func (h *handler) newMacvlanIP(pod *corev1.Pod) (*macvlanv1.MacvlanIP, error) {
+	// Valid pod annotation
+	annotationIP := pod.Annotations[macvlanv1.AnnotationIP]
+	annotationSubnet := pod.Annotations[macvlanv1.AnnotationSubnet]
+	annotationMac := pod.Annotations[macvlanv1.AnnotationMac]
+	macvlanIPType := "specific"
+	switch annotationIP {
+	case "auto":
+		macvlanIPType = "auto"
+	default:
+		if !utils.IsSingleIP(annotationIP) && !utils.IsMultipleIP(annotationIP) {
+			return nil, fmt.Errorf("newMacvlanIP: invalid annotation [%v: %v]",
+				macvlanv1.AnnotationIP, annotationIP)
+		}
+	}
+	subnet, err := h.macvlanSubnetCache.Get(macvlanv1.MacvlanSubnetNamespace, annotationSubnet)
+	if err != nil {
+		return nil, fmt.Errorf("newMacvlanIP: failed to get subnet [%v]: %w",
+			annotationSubnet, err)
+	}
+	mac, err := net.ParseMAC(annotationMac)
+	if err != nil {
+		return nil, fmt.Errorf("newMacvlanIP: failed to parse mac [%v]: %w",
+			annotationMac, err)
+	}
+
 	controller := true
-	macvlanip := &macvlanv1.MacvlanIP{
+	macvlanIP := &macvlanv1.MacvlanIP{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      pod.Name,
-			Namespace: pod.Namespace,
+			Name:        pod.Name,
+			Namespace:   pod.Namespace,
+			Annotations: map[string]string{},
 			Labels: map[string]string{
 				"subnet":                     subnet.Name,
-				macvlanv1.LabelMacvlanIPType: macvlanipType,
+				macvlanv1.LabelMacvlanIPType: macvlanIPType,
 			},
 			OwnerReferences: []metav1.OwnerReference{
 				{
@@ -46,17 +70,16 @@ func newMacvlanIP(
 			},
 		},
 		Spec: macvlanv1.MacvlanIPSpec{
-			CIDR:   ipcalc.AddCIDRSuffix(ip, subnet.Spec.CIDR),
+			IP:     annotationIP,
 			MAC:    mac,
 			PodID:  string(pod.GetUID()),
 			Subnet: subnet.Name,
 		},
 	}
 	if subnet.Annotations[macvlanv1.AnnotationsIPv6to4] != "" {
-		macvlanip.Annotations = map[string]string{}
-		macvlanip.Annotations[macvlanv1.AnnotationsIPv6to4] = "true"
+		macvlanIP.Annotations[macvlanv1.AnnotationsIPv6to4] = "true"
 	}
-	return macvlanip
+	return macvlanIP, nil
 }
 
 func calcHash(ip, mac string) string {

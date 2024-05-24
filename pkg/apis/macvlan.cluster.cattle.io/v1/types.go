@@ -41,15 +41,38 @@ type MacvlanIP struct {
 
 // MacvlanIPSpec is the spec for a MacvlanIP resource
 type MacvlanIPSpec struct {
-	Subnet string           `json:"subnet"`
-	PodID  string           `json:"podId"`
-	CIDR   string           `json:"cidr"`
-	MAC    net.HardwareAddr `json:"mac"`
+	// Subnet is the name of the macvlan subnet resource (required).
+	Subnet string `json:"subnet"`
+
+	// CIDR is the macvlanIP CIDR, format '192.168.1.2/24'.
+	//
+	// Deprecated: use the IP parameter instead.
+	CIDR string `json:"cidr"`
+
+	// IP is the address of this macvlanIP.
+	//
+	// Available:
+	//   'auto': Allocate one IP address from subnet automatically (default).
+	//   '<ip-address>': Use one custom IPv4 address, format '192.168.1.2'.
+	//   '<ip1>-<ip2>-...-<ipN>': Use multiple custom IPv4 address.
+	IP string `json:"ip"`
+
+	// MAC is the custom mac address of macvlanIP (optional).
+	MAC net.HardwareAddr `json:"mac"`
+
+	// PodID is the Pod metadata.UID
+	PodID string `json:"podId"`
 }
 
 type MacvlanIPStatus struct {
 	Phase          string `json:"phase"`
 	FailureMessage string `json:"failureMessage"`
+
+	// IP is the allocated IP address.
+	IP net.IP `json:"ip"`
+
+	// Mac is the allocated (user specified only) Mac addr
+	Mac net.HardwareAddr `json:"mac"`
 }
 
 ////////////////////
@@ -79,11 +102,14 @@ type MacvlanSubnetSpec struct {
 }
 
 type MacvlanSubnetStatus struct {
-	Phase   string             `json:"phase"`
-	UsedIP  []IPRange          `json:"usedIP"`
-	UsedMac []net.HardwareAddr `json:"usedMac"`
-
+	Phase          string `json:"phase"`
 	FailureMessage string `json:"failureMessage"`
+
+	// UsedIP is the used IPRange of this subnet.
+	UsedIP []IPRange `json:"usedIP"`
+
+	// UsedMac is the **USER SPECIFIED** used Mac address.
+	UsedMac []net.HardwareAddr `json:"usedMac"`
 }
 
 type IPRange struct {
