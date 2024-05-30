@@ -3,7 +3,6 @@ package macvlanip
 import (
 	"context"
 	"fmt"
-	"strings"
 	"sync"
 	"time"
 
@@ -77,7 +76,7 @@ func (h *handler) handleMacvlanIPError(
 		}
 
 		if err != nil {
-			logrus.Warnf("%v", err)
+			logrus.Errorf("%v", err)
 			message = err.Error()
 		}
 		if ip.Name == "" {
@@ -114,6 +113,10 @@ func (h *handler) handleMacvlanIP(s string, ip *macvlanv1.MacvlanIP) (*macvlanv1
 	if ip == nil || ip.Name == "" || ip.DeletionTimestamp != nil {
 		return ip, nil
 	}
+	ip, err := h.macvlanIPCache.Get(ip.Namespace, ip.Name)
+	if err != nil {
+		return ip, fmt.Errorf("failed to get macvlanIP from cache: %v", err)
+	}
 
 	switch ip.Status.Phase {
 	case macvlanIPActivePhase:
@@ -136,10 +139,25 @@ func (h *handler) onMacvlanIPCreate(ip *macvlanv1.MacvlanIP) (*macvlanv1.Macvlan
 		return ip, fmt.Errorf("onMacvlanIPCreate: failed to get pod [%v/%v]: %w",
 			ip.Namespace, ip.Name, err)
 	}
+
+	if ip.Status.IP.To4() != nil {
+		logrus.WithFields(fieldsIP(ip)).
+			Infof("already allocated IP [%v], update status to active",
+				ip.Status.IP)
+		ip = ip.DeepCopy()
+		ip.Status.Phase = macvlanIPActivePhase
+		ip, err = h.macvlanIPClient.UpdateStatus(ip)
+		if err != nil {
+			err = fmt.Errorf("onMacvlanIPCreate: failed to update macvlanIP [%s/%s] status to active: %w",
+				ip.Namespace, ip.Name, err)
+			return ip, err
+		}
+	}
+
 	// Allocate IP from subnet.
 	switch {
 	case ip.Spec.IP == "auto":
-		err = h.allocateIPModeAuto(ip, pod, subnet)
+		ip, err = h.allocateIPModeAuto(ip, pod, subnet)
 	case utils.IsSingleIP(ip.Spec.IP):
 		err = h.allocateIPModeSingle(ip, pod, subnet)
 	case utils.IsMultipleIP(ip.Spec.IP):
@@ -157,67 +175,23 @@ func (h *handler) onMacvlanIPCreate(ip *macvlanv1.MacvlanIP) (*macvlanv1.Macvlan
 	// Update macvlanIP status to active.
 	ip = ip.DeepCopy()
 	ip.Status.Phase = macvlanIPActivePhase
-	ip, err = h.macvlanIPClient.UpdateStatus(ip)
+	_, err = h.macvlanIPClient.UpdateStatus(ip)
 	if err != nil {
-		err = fmt.Errorf("onMacvlanIPCreate: failed to update macvlanip [%s/%s] status: %w",
+		return ip, fmt.Errorf("onMacvlanIPCreate: failed to update macvlanIP [%s/%s] status to active: %w",
 			ip.Namespace, ip.Name, err)
-		return ip, err
 	}
-	logrus.Infof("Create macvlanIP [%v/%v] Subnet [%vIf a Pod was deleted with a duplicate IP in badpods purging process, CIDR [%v] MAC [%v]",
-		ip.Namespace, ip.Name, ip.Spec.Subnet, ip.Spec.CIDR, ip.Spec.MAC)
+	logrus.WithFields(fieldsIP(ip)).
+		Infof("allocated macvlanIP [%v/%v] subnet [%v] MAC [%v] address [%v]",
+			ip.Namespace, ip.Name, ip.Spec.Subnet, ip.Spec.MAC.String(), ip.Status.IP.String())
 
 	return ip, nil
 }
 
 func (h *handler) onMacvlanIPUpdate(ip *macvlanv1.MacvlanIP) (*macvlanv1.MacvlanIP, error) {
-	// Re-add missing records in cache
-	// If a Pod was deleted with a duplicate IP in badpods purging process,
-	// it may cause the IP record to be lost in the cache
-	key := fmt.Sprintf("%s:%s", strings.SplitN(ip.Spec.CIDR, "/", 2)[0], ip.Spec.Subnet)
-	_ = key // TODO:
-	// if _, ok := h.inUsedIPs.Load(key); !ok {
-	// 	// use api client to get the latest resource version
-	// 	// pod, _ := c.kubeClientset.CoreV1().Pods(ip.Namespace).Get(context.TODO(), ip.Name, metav1.GetOptions{})
-	// 	pod, _ := h.pods.Get(ip.Namespace, ip.Name, metav1.GetOptions{})
-	// 	if pod != nil && pod.DeletionTimestamp == nil && pod.Name != "" {
-	// 		owner := fmt.Sprintf("%s:%s", pod.Namespace, pod.Name)
-	// 		h.inUsedIPs.Store(key, owner)
-	// 		logrus.Infof("updateMacvlanIP: re-add key %s value %s to the syncmap", key, owner)
-	// 	}
-	// }
-
-	// TODO:
-	// if oldip.ResourceVersion != ip.ResourceVersion && oldip.Spec.CIDR != ip.Spec.CIDR {
-	// 	// remove the old record from cache
-	// 	// to address the statfuleset pod case
-	// 	oldkey := fmt.Sprintf("%s:%s", strings.SplitN(oldip.Spec.CIDR, "/", 2)[0], oldip.Spec.Subnet)
-	// 	c.inUsedIPs.Delete(oldkey)
-	// 	log.Infof("onMacvlanIPUpdate: remove key %s from syncmap as macvlanip record %s was updated", oldkey, ip.Name)
-	// }
-
 	// IP delayed release, only in auto mode
 	if ip.Labels[macvlanv1.LabelMacvlanIPType] != "auto" {
 		return ip, nil
 	}
-
-	// subnetName := ip.Labels["subnet"]
-	// subnet, err := h.macvlanSubnets.Get(macvlanv1.MacvlanSubnetNamespace, subnetName, metav1.GetOptions{})
-	// if err != nil {
-	// 	logrus.Errorf("onMacvlanIPUpdate: %s subnet %s not exist", ip.Name, subnetName)
-	// 	subnet = &macvlanv1.MacvlanSubnet{}
-	// }
-	// if ip.DeletionTimestamp != nil {
-	// 	if ip.Annotations[macvlanv1.AnnotationIPDelayReuse] == "" {
-	// 		c.updateDelayReuseTimestamp(ip, subnet.Spec.IPDelayReuse)
-	// 		return
-	// 	}
-	// 	c.calcNeedRemoveDelayReuseMacvlanIP(ip)
-	// 	return
-	// }
-
-	// if subnet.Spec.IPDelayReuse != 0 && !slices.Contains(ip.ObjectMeta.Finalizers, macvlanv1.FinalizerIPDelayReuse) {
-	// 	c.updateIPDelayReuseFinalizer(ip)
-	// }
 
 	return ip, nil
 }

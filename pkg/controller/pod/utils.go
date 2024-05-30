@@ -43,10 +43,13 @@ func (h *handler) newMacvlanIP(pod *corev1.Pod) (*macvlanv1.MacvlanIP, error) {
 		return nil, fmt.Errorf("newMacvlanIP: failed to get subnet [%v]: %w",
 			annotationSubnet, err)
 	}
-	mac, err := net.ParseMAC(annotationMac)
-	if err != nil {
-		return nil, fmt.Errorf("newMacvlanIP: failed to parse mac [%v]: %w",
-			annotationMac, err)
+	var mac net.HardwareAddr
+	if annotationMac != "" {
+		mac, err = net.ParseMAC(annotationMac)
+		if err != nil {
+			return nil, fmt.Errorf("newMacvlanIP: failed to parse mac [%v]: %w",
+				annotationMac, err)
+		}
 	}
 
 	controller := true

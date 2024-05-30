@@ -9,7 +9,9 @@ metadata:
     macvlan.pandaria.cattle.io/mac: ""
 spec:
   containers:
-  - name: nginx
-    image: nginx
-    ports:
-    - containerPort: 80
+  - name: alpine
+    image: alpine
+    command:
+    - "sleep"
+    args:
+    - "infinity"

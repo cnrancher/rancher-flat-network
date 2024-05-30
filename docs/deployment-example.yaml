@@ -4,23 +4,25 @@ metadata:
   name: example-deployment
   namespace: default
   labels:
-    app: nginx
+    app: alpine
 spec:
-  replicas: 3
+  replicas: 5
   selector:
     matchLabels:
-      app: nginx
+      app: alpine
   template:
     metadata:
       labels:
-        app: nginx
+        app: alpine
       annotations:
         macvlan.pandaria.cattle.io/ip: "auto"
         macvlan.pandaria.cattle.io/subnet: "example-subnet"
         macvlan.pandaria.cattle.io/mac: ""
     spec:
       containers:
-      - name: nginx
-        image: nginx
-        ports:
-        - containerPort: 80
+      - name: alpine
+        image: alpine
+        command:
+        - "sleep"
+        args:
+        - "infinity"

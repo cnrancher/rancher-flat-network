@@ -82,6 +82,9 @@ func Register(
 }
 
 func syncWorkload[T Workload](name string, w T) (T, error) {
+	if w == nil || w.GetName() == "" || w.GetDeletionTimestamp() != nil {
+		return w, nil
+	}
 	update, iptype, subnet := needUpdateWorkloadLabel(w)
 	if !update {
 		return w, nil

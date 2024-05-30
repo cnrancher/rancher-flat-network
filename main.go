@@ -4,6 +4,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"time"
 
@@ -90,6 +91,11 @@ func main() {
 	ingress.Register(ctx, wctx.Networking.Ingress(), wctx.Core.Service())
 	workload.Register(ctx,
 		wctx.Apps.Deployment(), wctx.Apps.DaemonSet(), wctx.Apps.ReplicaSet(), wctx.Apps.StatefulSet())
+
+	wctx.OnLeader(func(ctx context.Context) error {
+		logrus.Debugf("TODO: ON LEADER")
+		return nil
+	})
 
 	if err := wctx.Start(ctx, worker); err != nil {
 		logrus.Fatalf("Failed to start context: %v", err)

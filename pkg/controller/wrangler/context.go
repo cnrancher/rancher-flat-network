@@ -15,6 +15,7 @@ import (
 	macvlanv1 "github.com/cnrancher/flat-network-operator/pkg/generated/controllers/macvlan.cluster.cattle.io/v1"
 	"github.com/cnrancher/flat-network-operator/pkg/generated/controllers/networking.k8s.io"
 	networkingv1 "github.com/cnrancher/flat-network-operator/pkg/generated/controllers/networking.k8s.io/v1"
+	"github.com/rancher/wrangler/v2/pkg/leader"
 	"github.com/rancher/wrangler/v2/pkg/start"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
@@ -36,7 +37,8 @@ type Context struct {
 	Batch      batchv1.Interface
 	Recorder   record.EventRecorder
 
-	starters []start.Starter
+	leadership *leader.Manager
+	starters   []start.Starter
 }
 
 func NewContext(
@@ -60,6 +62,12 @@ func NewContext(
 	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: clientSet.CoreV1().Events("")})
 	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: "flat-network-operarto"})
 
+	k8s, err := kubernetes.NewForConfig(restCfg)
+	if err != nil {
+		return nil, err
+	}
+	leadership := leader.NewManager("", "flat-network-operator", k8s)
+
 	c := &Context{
 		RESTConfig: restCfg,
 		Macvlan:    macvlan.Macvlan().V1(),
@@ -68,11 +76,19 @@ func NewContext(
 		Networking: networking.Networking().V1(),
 		Batch:      batch.Batch().V1(),
 		Recorder:   recorder,
+
+		leadership: leadership,
 	}
 	c.starters = append(c.starters, macvlan, core, apps, networking, batch)
 	return c, nil
 }
 
+func (w *Context) OnLeader(f func(ctx context.Context) error) {
+	w.leadership.OnLeader(f)
+}
+
 func (c *Context) Start(ctx context.Context, worker int) error {
+	c.leadership.Start(ctx)
+
 	return start.All(ctx, worker, c.starters...)
 }
