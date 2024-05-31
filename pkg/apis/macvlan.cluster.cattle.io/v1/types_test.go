@@ -11,7 +11,6 @@ import (
 )
 
 func Test_MacvlanIP(t *testing.T) {
-	mac, _ := net.ParseMAC("aa:bb:cc:dd:ee:ff")
 	macvlanIP := macvlanv1.MacvlanIP{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "macvlan.cluster.cattle.io/v1",
@@ -23,8 +22,8 @@ func Test_MacvlanIP(t *testing.T) {
 		Spec: macvlanv1.MacvlanIPSpec{
 			Subnet: "example-subnet",
 			PodID:  "DE6F1529-3C77-4E4E-8D46-8294E025DE80",
-			CIDR:   "192.168.0.0/24",
-			MAC:    mac,
+			// CIDR:   "192.168.0.0/24",
+			MAC: "aa:bb:cc:dd:ee:ff",
 		},
 	}
 

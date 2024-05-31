@@ -37,9 +37,10 @@ var (
 
 func init() {
 	logrus.SetFormatter(&nested.Formatter{
-		HideKeys:        false,
-		TimestampFormat: time.DateTime,
-		FieldsOrder:     []string{"POD", "SVC", "IP", "SUBNET"},
+		HideKeys: false,
+		// TimestampFormat: time.DateTime,
+		TimestampFormat: time.RFC3339Nano,
+		FieldsOrder:     []string{"GID", "POD", "SVC", "IP", "SUBNET"},
 	})
 }
 
@@ -85,7 +86,7 @@ func main() {
 
 	// Register handlers
 	macvlanip.Register(ctx, wctx)
-	macvlansubnet.Register(ctx, wctx.Macvlan.MacvlanSubnet(), wctx.Core.Pod().Cache())
+	macvlansubnet.Register(ctx, wctx)
 	service.Register(ctx, wctx.Core.Service(), wctx.Core.Pod())
 	pod.Register(ctx, wctx)
 	ingress.Register(ctx, wctx.Networking.Ingress(), wctx.Core.Service())
@@ -93,7 +94,7 @@ func main() {
 		wctx.Apps.Deployment(), wctx.Apps.DaemonSet(), wctx.Apps.ReplicaSet(), wctx.Apps.StatefulSet())
 
 	wctx.OnLeader(func(ctx context.Context) error {
-		logrus.Debugf("TODO: ON LEADER")
+		logrus.Infof("TODO: ON LEADER")
 		return nil
 	})
 

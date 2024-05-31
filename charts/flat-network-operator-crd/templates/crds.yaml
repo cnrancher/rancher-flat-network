@@ -23,9 +23,6 @@ spec:
         properties:
           spec:
             properties:
-              cidr:
-                nullable: true
-                type: string
               ip:
                 nullable: true
                 type: string

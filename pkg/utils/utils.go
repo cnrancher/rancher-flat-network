@@ -68,3 +68,26 @@ func IsMultipleIP(ip string) bool {
 	}
 	return true
 }
+
+func IsSingleMAC(m string) bool {
+	_, err := net.ParseMAC(m)
+	return err == nil
+}
+
+func IsMultipleMAC(m string) bool {
+	if !strings.Contains(m, "-") {
+		return false
+	}
+	macs := strings.Split(strings.TrimSpace(m), "-")
+
+	if len(macs) < 2 {
+		return false
+	}
+
+	for _, v := range macs {
+		if _, err := net.ParseMAC(v); err != nil {
+			return false
+		}
+	}
+	return true
+}

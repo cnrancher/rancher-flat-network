@@ -1,8 +1,11 @@
 package pod
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"runtime"
+	"strconv"
 	"strings"
 	"time"
 
@@ -27,8 +30,9 @@ const (
 )
 
 type handler struct {
-	podClient           corecontroller.PodClient
-	podCache            corecontroller.PodCache
+	podClient corecontroller.PodClient
+	podCache  corecontroller.PodCache
+	// macvlanIP macvlancontroller.
 	macvlanIPClient     macvlancontroller.MacvlanIPClient
 	macvlanIPCache      macvlancontroller.MacvlanIPCache
 	macvlanSubnetCache  macvlancontroller.MacvlanSubnetCache
@@ -74,7 +78,21 @@ func Register(
 		podEnqueue:      wctx.Core.Pod().Enqueue,
 	}
 
-	wctx.Core.Pod().OnChange(ctx, handlerName, h.sync)
+	wctx.Core.Pod().OnChange(ctx, handlerName, h.handleError(h.sync))
+}
+
+func (h *handler) handleError(
+	sync func(string, *corev1.Pod) (*corev1.Pod, error),
+) func(string, *corev1.Pod) (*corev1.Pod, error) {
+	return func(s string, pod *corev1.Pod) (*corev1.Pod, error) {
+		podSynced, err := sync(s, pod)
+		if err != nil {
+			logrus.WithFields(fieldsPod(pod)).
+				Errorf("failed to sync pod: %v", err)
+			return podSynced, err
+		}
+		return podSynced, nil
+	}
 }
 
 // sync ensures macvlanIP resource exists.
@@ -98,6 +116,17 @@ func (h *handler) sync(name string, pod *corev1.Pod) (*corev1.Pod, error) {
 		// h.eventMacvlanIPError(pod, err)
 		return pod, fmt.Errorf("ensureFlatNetworkIP: %w", err)
 	}
+	if macvlanIP == nil || macvlanIP.Status.Phase != "Active" {
+		logrus.WithFields(fieldsPod(pod)).
+			Infof("waiting for macvlanIP status to active")
+
+		// Requeue in few seconds to wait for macvlanIP status active.
+		// This will not block the pod creation process and just waiting for
+		// a few seconds to update the pod flatnetwork labels.
+		h.podEnqueueAfter(pod.Namespace, pod.Name, time.Second*5)
+		return pod, nil
+	}
+
 	// Ensure Pod label updated with the FlatNetworkIP.
 	if err = h.updatePodLabel(pod, macvlanIP); err != nil {
 		// h.eventMacvlanIPError(pod, err)
@@ -129,11 +158,18 @@ func (h *handler) ensureFlatNetworkIP(pod *corev1.Pod) (*macvlanv1.MacvlanIP, er
 
 	createdMacvlanIP, err := h.macvlanIPClient.Create(expectedIP)
 	if err != nil {
+		if apierrors.IsAlreadyExists(err) {
+			// The macvlanIP may just created and the informer cache may not
+			// synced yet, ignore error, return the expectedIP directly
+			// and requeue to wait for macvlanIP status to active.
+			return expectedIP, nil
+		}
 		return nil, err
 	}
 	logrus.WithFields(fieldsPod(pod)).
-		Infof("request to created macvlanIP [%v/%v] IP [%v]",
-			pod.Namespace, pod.Name, createdMacvlanIP.Spec.IP)
+		Infof("request to create macvlanIP [%v/%v] IP [%v]",
+			pod.Namespace, pod.Name, createdMacvlanIP.Spec.CIDR)
+
 	return createdMacvlanIP, nil
 }
 
@@ -145,30 +181,21 @@ func (h *handler) updatePodLabel(pod *corev1.Pod, macvlanIP *macvlanv1.MacvlanIP
 	annotationSubnet := pod.Annotations[macvlanv1.AnnotationSubnet]
 	annotationMac := pod.Annotations[macvlanv1.AnnotationMac]
 
-	if macvlanIP.Status.Phase != "Active" {
-		logrus.WithFields(fieldsPod(pod)).
-			Infof("waiting for macvlanIP status to Active")
-		h.podEnqueueAfter(pod.Namespace, pod.Name, time.Second*5)
-		return nil
-	}
-
 	labels := map[string]string{}
 	labels[macvlanv1.LabelMultipleIPHash] = calcHash(annotationIP, annotationMac)
 	labels[macvlanv1.LabelSubnet] = annotationSubnet
+	labels[macvlanv1.LabelSelectedIP] = ""
+	labels[macvlanv1.LabelSelectedMac] = ""
+	labels[macvlanv1.LabelMacvlanIPType] = "specific"
+
 	if macvlanIP.Status.IP != nil {
 		labels[macvlanv1.LabelSelectedIP] = macvlanIP.Status.IP.String()
-	} else {
-		labels[macvlanv1.LabelSelectedIP] = ""
 	}
-	if macvlanIP.Spec.MAC != nil {
-		labels[macvlanv1.LabelSelectedMac] = strings.ReplaceAll(macvlanIP.Spec.MAC.String(), ":", "_")
-	} else {
-		labels[macvlanv1.LabelSelectedMac] = ""
+	if macvlanIP.Status.MAC != nil {
+		labels[macvlanv1.LabelSelectedMac] = strings.ReplaceAll(macvlanIP.Status.MAC.String(), ":", "_")
 	}
 	if annotationIP == "auto" {
 		labels[macvlanv1.LabelMacvlanIPType] = "auto"
-	} else {
-		labels[macvlanv1.LabelMacvlanIPType] = "specific"
 	}
 	skip := true
 	for k, v := range labels {
@@ -182,6 +209,8 @@ func (h *handler) updatePodLabel(pod *corev1.Pod, macvlanIP *macvlanv1.MacvlanIP
 		return nil
 	}
 
+	// Pod may just created and updated by other kube-controllers,
+	// use retry to avoid conflict.
 	if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		result, err := h.podClient.Get(pod.Namespace, pod.Name, metav1.GetOptions{})
 		if err != nil {
@@ -198,17 +227,16 @@ func (h *handler) updatePodLabel(pod *corev1.Pod, macvlanIP *macvlanv1.MacvlanIP
 		}
 		_, err = h.podClient.Update(pod)
 		if err != nil {
-			logrus.WithFields(fieldsPod(pod)).
-				Warnf("onPodUpdate: failed to update pod label [%v]: %v",
-					utils.PrintObject(pod.Labels), err)
 			return err
 		}
 		return nil
 	}); err != nil {
+		logrus.WithFields(fieldsPod(pod)).
+			Errorf("failed to update pod flatnetwork label: %v", err)
 		return err
 	}
 	logrus.WithFields(fieldsPod(pod)).
-		Infof("finished syncing pod flat network labels")
+		Infof("finished syncing pod flat network label")
 
 	return nil
 }
@@ -219,5 +247,15 @@ func fieldsPod(pod *corev1.Pod) logrus.Fields {
 	}
 	return logrus.Fields{
 		"POD": fmt.Sprintf("%v/%v", pod.Namespace, pod.Name),
+		"GID": getGID(),
 	}
+}
+
+func getGID() uint64 {
+	b := make([]byte, 64)
+	b = b[:runtime.Stack(b, false)]
+	b = bytes.TrimPrefix(b, []byte("goroutine "))
+	b = b[:bytes.IndexByte(b, ' ')]
+	n, _ := strconv.ParseUint(string(b), 10, 64)
+	return n
 }

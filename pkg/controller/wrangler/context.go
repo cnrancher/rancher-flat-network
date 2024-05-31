@@ -84,11 +84,11 @@ func NewContext(
 }
 
 func (w *Context) OnLeader(f func(ctx context.Context) error) {
-	w.leadership.OnLeader(f)
+	// w.leadership.OnLeader(f)
 }
 
 func (c *Context) Start(ctx context.Context, worker int) error {
-	c.leadership.Start(ctx)
+	// c.leadership.Start(ctx)
 
 	return start.All(ctx, worker, c.starters...)
 }

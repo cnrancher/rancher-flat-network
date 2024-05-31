@@ -26,7 +26,8 @@ go.work
 !/Dockerfile.dapper
 
 # VSCode
-/.vscode/
+/.vscode/*.json
+!/.vscode/launch.json.template
 
 # Build files
 /bin/

@@ -3,7 +3,6 @@ package pod
 import (
 	"crypto/sha1"
 	"fmt"
-	"net"
 
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
@@ -26,8 +25,8 @@ func (h *handler) eventMacvlanSubnetError(pod *corev1.Pod, err error) {
 func (h *handler) newMacvlanIP(pod *corev1.Pod) (*macvlanv1.MacvlanIP, error) {
 	// Valid pod annotation
 	annotationIP := pod.Annotations[macvlanv1.AnnotationIP]
+	annotationMAC := pod.Annotations[macvlanv1.AnnotationMac]
 	annotationSubnet := pod.Annotations[macvlanv1.AnnotationSubnet]
-	annotationMac := pod.Annotations[macvlanv1.AnnotationMac]
 	macvlanIPType := "specific"
 	switch annotationIP {
 	case "auto":
@@ -38,18 +37,16 @@ func (h *handler) newMacvlanIP(pod *corev1.Pod) (*macvlanv1.MacvlanIP, error) {
 				macvlanv1.AnnotationIP, annotationIP)
 		}
 	}
+	if annotationMAC != "" {
+		if !utils.IsSingleMAC(annotationMAC) && !utils.IsMultipleMAC(annotationMAC) {
+			return nil, fmt.Errorf("newMacvlanIP: invalid annotation [%v: %v]",
+				macvlanv1.AnnotationMac, annotationMAC)
+		}
+	}
 	subnet, err := h.macvlanSubnetCache.Get(macvlanv1.MacvlanSubnetNamespace, annotationSubnet)
 	if err != nil {
 		return nil, fmt.Errorf("newMacvlanIP: failed to get subnet [%v]: %w",
 			annotationSubnet, err)
-	}
-	var mac net.HardwareAddr
-	if annotationMac != "" {
-		mac, err = net.ParseMAC(annotationMac)
-		if err != nil {
-			return nil, fmt.Errorf("newMacvlanIP: failed to parse mac [%v]: %w",
-				annotationMac, err)
-		}
 	}
 
 	controller := true
@@ -73,8 +70,8 @@ func (h *handler) newMacvlanIP(pod *corev1.Pod) (*macvlanv1.MacvlanIP, error) {
 			},
 		},
 		Spec: macvlanv1.MacvlanIPSpec{
-			IP:     annotationIP,
-			MAC:    mac,
+			CIDR:   annotationIP,
+			MAC:    annotationMAC,
 			PodID:  string(pod.GetUID()),
 			Subnet: subnet.Name,
 		},

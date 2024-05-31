@@ -1,0 +1,16 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Local debug",
+            "request": "launch",
+            "type": "go",
+            "mode": "exec",
+            "console": "integratedTerminal",
+            "program": "${workspaceRoot}/flat-network-operator",
+            "args": [
+                "--debug"
+            ]
+        }
+    ]
+}
