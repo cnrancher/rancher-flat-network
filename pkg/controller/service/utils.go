@@ -2,14 +2,18 @@ package service
 
 import (
 	"fmt"
-
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/equality"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
+	"maps"
+	"strings"
 
 	"github.com/cnrancher/flat-network-operator/pkg/utils"
 	"github.com/sirupsen/logrus"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/util/intstr"
+
+	macvlanv1 "github.com/cnrancher/flat-network-operator/pkg/apis/macvlan.cluster.cattle.io/v1"
 )
 
 const (
@@ -17,13 +21,92 @@ const (
 	netAttatchDefName = "static-macvlan-cni-attach"
 )
 
-// makeMacvlanService returns a macvlan headless sercive struct based on
-// the provided existing service.
-func makeMacvlanService(svc *corev1.Service) *corev1.Service {
-	ports := []corev1.ServicePort{}
+// isIngressService detects if this svc is owned by Rancher managed ingress.
+func isIngressService(svc *corev1.Service) bool {
+	if svc == nil || svc.Name == "" {
+		return false
+	}
+	if !strings.HasPrefix(svc.Name, "ingress-") {
+		return false
+	}
 
+	for _, owner := range svc.OwnerReferences {
+		if strings.ToLower(owner.Kind) == "ingress" {
+			return true
+		}
+	}
+
+	return false
+}
+
+// Check if this service is a flat-network macvlan service.
+// A Flat-Network Service is a ClusterIP typed headless service, name ends with
+// '-macvlan' suffix.
+func isFlatNetworkService(svc *corev1.Service) bool {
+	if !strings.HasSuffix(svc.Name, macvlanServiceNameSuffix) {
+		return false
+	}
+	if svc.Spec.Type != "ClusterIP" {
+		return false
+	}
+	if len(svc.Spec.ClusterIPs) != 0 {
+		if svc.Spec.ClusterIPs[0] != "None" {
+			return false
+		}
+	} else if svc.Spec.ClusterIP != "None" {
+		return false
+	}
+	return true
+}
+
+func (h *handler) isWorkloadDisabledFlatNetwork(svc *corev1.Service) (bool, error) {
+	if len(svc.Spec.Selector) == 0 {
+		return true, nil
+	}
+
+	pods, err := h.podCache.List(svc.Namespace, labels.SelectorFromSet(svc.Spec.Selector))
+	if err != nil {
+		return false, fmt.Errorf("failed to list pod by selector [%v] on service [%v/%v]: %w",
+			svc.Spec.Selector, svc.Namespace, svc.Name, err)
+	}
+	if len(pods) == 0 {
+		return true, nil
+	}
+
+	// pod of this svc disabled flat-network service by annotation.
+	for _, pod := range pods {
+		if pod == nil {
+			continue
+		}
+		annotations := pod.Annotations
+		if annotations != nil && annotations[macvlanv1.AnnotationMacvlanService] == "disabled" {
+			return true, nil
+		}
+	}
+
+	// Pod does not use flat-network.
+	var podUseFlatNetwork bool
+	for _, pod := range pods {
+		if pod == nil {
+			continue
+		}
+		if utils.IsMacvlanPod(pod) {
+			podUseFlatNetwork = true
+			break
+		}
+	}
+
+	return !podUseFlatNetwork, nil
+}
+
+// newMacvlanService returns a macvlan headless sercive struct based on
+// the provided existing service.
+func newMacvlanService(svc *corev1.Service) *corev1.Service {
+	svc = svc.DeepCopy()
+	ports := []corev1.ServicePort{}
 	for _, v := range svc.Spec.Ports {
 		port := v.DeepCopy()
+		port.NodePort = 0
 		if svc.Spec.ClusterIP == corev1.ClusterIPNone {
 			port.Port = port.Port + 1
 			port.TargetPort = intstr.FromInt(port.TargetPort.IntValue() + 1)
@@ -31,51 +114,63 @@ func makeMacvlanService(svc *corev1.Service) *corev1.Service {
 		ports = append(ports, *port)
 	}
 
-	specCopy := svc.Spec.DeepCopy()
-	specCopy.ClusterIP = corev1.ClusterIPNone
-
-	// Make this service headless.
-	// Setting this to "None" makes a "headless service" (no virtual IP),
-	// which is useful when direct endpoint connections are preferred and
-	// proxying is not required.
-	specCopy.ClusterIPs = []string{"None"}
-	specCopy.Ports = ports
+	// The flat-network service is owned by original service.
+	ownerReference := svc.OwnerReferences
+	ownerReference = append(ownerReference, metav1.OwnerReference{
+		APIVersion: "v1",
+		Kind:       "Service",
+		Name:       svc.Name,
+		UID:        svc.UID,
+		// Controller: utils.Pointer(true),
+	})
 
 	s := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            fmt.Sprintf("%s%s", svc.Name, macvlanServiceNameSuffix),
 			Namespace:       svc.Namespace,
-			OwnerReferences: svc.OwnerReferences,
+			OwnerReferences: ownerReference,
 			Annotations: map[string]string{
 				k8sCNINetworksKey: netAttatchDefName,
 			},
 		},
-		Spec: *specCopy,
+		Spec: corev1.ServiceSpec{
+			Ports:    ports,
+			Selector: maps.Clone(svc.Spec.Selector),
+			// Setting this to "None" makes a "headless service" (no virtual IP),
+			// which is useful when direct endpoint connections are preferred and
+			// proxying is not required.
+			ClusterIP:  corev1.ClusterIPNone,
+			ClusterIPs: []string{"None"},
+			Type:       "ClusterIP",
+		},
 	}
 
 	return s
 }
 
-// macvlanServiceUpdated returns true if the macvlan service already updated
-func macvlanServiceUpdated(a, b *corev1.Service) bool {
+// flatNetworkServiceUpdated returns true if the macvlan service already updated
+func flatNetworkServiceUpdated(a, b *corev1.Service) bool {
 	if a == nil || b == nil {
 		return false
 	}
 	if a.Name != b.Name || a.Namespace != b.Namespace {
-		logrus.Debugf("service [%v/%v] name/namespace mismatch [%v/%v]",
-			a.Namespace, a.Name, b.Namespace, b.Name)
+		logrus.WithFields(fieldsService(a)).
+			Debugf("service [%v/%v] name/namespace mismatch [%v/%v]",
+				a.Namespace, a.Name, b.Namespace, b.Name)
 		return false
 	}
 	if !equality.Semantic.DeepEqual(a.OwnerReferences, b.OwnerReferences) {
-		logrus.Debugf("service [%v/%v] OwnerReferences mismatch, a: %v\nb: %v",
-			a.Namespace, a.Name,
-			utils.PrintObject(a.OwnerReferences), utils.PrintObject(b.OwnerReferences))
+		logrus.WithFields(fieldsService(a)).
+			Debugf("service [%v/%v] OwnerReferences mismatch, a: %v\nb: %v",
+				a.Namespace, a.Name,
+				utils.PrintObject(a.OwnerReferences), utils.PrintObject(b.OwnerReferences))
 		return false
 	}
 	if !equality.Semantic.DeepEqual(a.Annotations, b.Annotations) {
-		logrus.Debugf("service [%v/%v] Annotations mismatch: a: %v\n b: %v",
-			a.Namespace, a.Name,
-			utils.PrintObject(a.Annotations), utils.PrintObject(b.Annotations))
+		logrus.WithFields(fieldsService(a)).
+			Debugf("service [%v/%v] Annotations mismatch: a: %v\n b: %v",
+				a.Namespace, a.Name,
+				utils.PrintObject(a.Annotations), utils.PrintObject(b.Annotations))
 		return false
 	}
 	if a.Spec.ClusterIPs == nil {
@@ -85,9 +180,10 @@ func macvlanServiceUpdated(a, b *corev1.Service) bool {
 		b.Spec.ClusterIPs = []string{"None"}
 	}
 	if !equality.Semantic.DeepEqual(a.Spec, b.Spec) {
-		logrus.Debugf("service [%v/%v] Spec mismatch: a: %v\nb: %v",
-			a.Namespace, a.Name,
-			utils.PrintObject(a.Spec), utils.PrintObject(b.Spec))
+		logrus.WithFields(fieldsService(a)).
+			Debugf("service [%v/%v] Spec mismatch: a: %v\nb: %v",
+				a.Namespace, a.Name,
+				utils.PrintObject(a.Spec), utils.PrintObject(b.Spec))
 		return false
 	}
 	return true

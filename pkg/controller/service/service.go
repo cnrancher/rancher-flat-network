@@ -2,24 +2,21 @@ package service
 
 import (
 	"context"
-	"strings"
+	"fmt"
 	"time"
 
 	"github.com/cnrancher/flat-network-operator/pkg/utils"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/util/retry"
 
-	macvlanv1 "github.com/cnrancher/flat-network-operator/pkg/apis/macvlan.cluster.cattle.io/v1"
 	corecontroller "github.com/cnrancher/flat-network-operator/pkg/generated/controllers/core/v1"
 )
 
 const (
-	controllerName           = "service"
-	controllerRemoveName     = "service-remove"
+	handlerName              = "flatnetwork-service"
+	handlerRemoveName        = "flatnetwork-service-remove"
 	macvlanServiceNameSuffix = "-macvlan"
 )
 
@@ -46,164 +43,116 @@ func Register(
 		serviceEnqueue:      services.Enqueue,
 	}
 
-	services.OnChange(ctx, controllerName, h.handleServiceError(h.syncService))
-}
-
-func (h *handler) handleServiceError(
-	onChange func(string, *corev1.Service) (*corev1.Service, error),
-) func(string, *corev1.Service) (*corev1.Service, error) {
-	// TODO: handle service retry
-	return onChange
+	services.OnChange(ctx, handlerName, h.syncService)
 }
 
 func (h *handler) syncService(name string, svc *corev1.Service) (*corev1.Service, error) {
-	// macvlan svc creation disabled by annotation
-	isMacvlanServiceDisabled := false
-	// is this service a macvlan service
-	isMacvlanService := false
-	// macvlan was not enabled on owner workload
-	isMacvlanPodEnabled := false
-
-	// Check if the service owner disabled the macvlan svc creation.
-	for _, owner := range svc.OwnerReferences {
-		if strings.ToLower(owner.Kind) == "ingress" {
-			// Discard ingress service since the ingress svc is handled in ingress.go.
-			return svc, nil
-		}
-	}
-
-	if len(svc.Spec.Selector) != 0 {
-		pods, err := h.podCache.List(svc.Namespace, labels.SelectorFromSet(svc.Spec.Selector))
-		if err != nil {
-			logrus.Errorf("syncService: failed to list pod by selector [%v] on svc [%v/%v]: %v",
-				svc.Spec.Selector, svc.Namespace, svc.Name, err)
-			return svc, err
-		}
-		logrus.Debugf("syncService: list [%v] pods on selector [%+v]",
-			len(pods), svc.Spec.Selector)
-		if len(pods) != 0 {
-			// Check if the pod of this svc enabled macvlan.
-			for _, pod := range pods {
-				if pod == nil {
-					continue
-				}
-				if utils.IsMacvlanPod(pod) {
-					logrus.Debugf("syncService: pod [%v/%v] of service [%v] enabled macvlan",
-						pod.Namespace, pod.Name, svc.Name)
-					isMacvlanPodEnabled = true
-					break
-				}
-			}
-			// Check if the pod of this svc disabled macvlan service by annotation.
-			for _, pod := range pods {
-				if pod == nil {
-					continue
-				}
-				annotations := pod.Annotations
-				if annotations != nil && annotations[macvlanv1.AnnotationMacvlanService] == "disabled" {
-					logrus.Debugf("syncService: found %q disabled on pod [%v/%v]",
-						macvlanv1.AnnotationMacvlanService, pod.Namespace, pod.Name)
-					isMacvlanServiceDisabled = true
-					break
-				}
-			}
-		}
-	}
-
-	// Check if the service is a macvlan svc.
-	if strings.HasSuffix(svc.Name, macvlanServiceNameSuffix) {
-		_, err := h.serviceCache.Get(svc.Namespace, strings.TrimSuffix(svc.Name, macvlanServiceNameSuffix))
-		if err == nil {
-			isMacvlanService = true
-			logrus.Debugf("syncService: service [%s/%s] is a macvlan svc",
-				svc.Namespace, svc.Name)
-		}
-	}
-	// Check if this macvlan svc needs delete.
-	if isMacvlanService {
-		if isMacvlanServiceDisabled || !isMacvlanPodEnabled {
-			// Delete this macvlan svc.
-			logrus.Infof("syncService: service [%s/%s] owner disabled macvlan, will deleted",
-				svc.Namespace, svc.Name)
-			// err := c.kubeClientset.CoreV1().Services(svc.Namespace).
-			// 	Delete(context.TODO(), svc.Name, metav1.DeleteOptions{})
-			err := h.serviceClient.Delete(svc.Namespace, svc.Name, &metav1.DeleteOptions{})
-			if err != nil {
-				logrus.Errorf("syncService: failed to delete service [%v/%v]: %v",
-					svc.Namespace, svc.Name, err)
-				return svc, err
-			}
-			return svc, nil
-		}
-	}
-
-	// The macvlan service creation was disabled, return directly.
-	// Only sync non-macvlan & non-ingress service.
-	if isMacvlanServiceDisabled || !isMacvlanPodEnabled || isMacvlanService {
+	if svc == nil || svc.Name == "" || svc.DeletionTimestamp != nil {
 		return svc, nil
 	}
 
-	logrus.Debugf("syncService: processing service [%s/%s]", svc.Namespace, svc.Name)
-	// Create if the macvlan service not exists.
-	expectedMacvlanSvc := makeMacvlanService(svc)
-	existMacvlanSvc, err := h.serviceCache.Get(svc.Name, expectedMacvlanSvc.Name)
+	switch {
+	case isIngressService(svc):
+		// ignore rancher managed ingress service (manager UI only).
+		return svc, nil
+	case isFlatNetworkService(svc):
+		// sync flat-network service created by this operator.
+		return h.handleFlatNetworkService(svc)
+	default:
+		// sync other non-flat-network services.
+		return h.handleDefaultService(svc)
+	}
+}
+
+func (h *handler) handleDefaultService(svc *corev1.Service) (*corev1.Service, error) {
+	flatNetworkServiceDisabled, err := h.isWorkloadDisabledFlatNetwork(svc)
 	if err != nil {
-		if errors.IsNotFound(err) {
-			if strings.HasSuffix(svc.Name, macvlanServiceNameSuffix) {
-				logrus.Infof("syncService: Skip create [%v/%v] as the origional svc have %q suffix",
-					svc.Namespace, expectedMacvlanSvc.Name, macvlanServiceNameSuffix)
-				return svc, nil
-			}
-			// Create the macvlan service.
-			logrus.Infof("syncService: Request to create macvlan service [%v/%v]",
-				svc.Namespace, expectedMacvlanSvc.Name)
-			// _, err := c.kubeClientset.CoreV1().Services(svc.Namespace).
-			// 	Create(context.TODO(), expectedMacvlanSvc, metav1.CreateOptions{})
-			_, err := h.serviceClient.Create(expectedMacvlanSvc)
+		logrus.WithFields(fieldsService(svc)).
+			Errorf("failed to check workload disabled flat-network service: %v", err)
+		return svc, err
+	}
+	// The flat-network service creation was disabled, return directly.
+	if flatNetworkServiceDisabled {
+		return svc, nil
+	}
+
+	// Create if the flat-network service not exists.
+	expectedService := newMacvlanService(svc)
+	existService, err := h.serviceCache.Get(expectedService.Namespace, expectedService.Name)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			// if strings.HasSuffix(svc.Name, macvlanServiceNameSuffix) {
+			// 	logrus.WithFields(fieldsService(svc)).
+			// 		Infof("skip create [%v/%v] as the origional svc have %q suffix",
+			// 			svc.Namespace, expectedService.Name, macvlanServiceNameSuffix)
+			// 	return svc, nil
+			// }
+			logrus.WithFields(fieldsService(svc)).
+				Infof("request to create flat-network service [%v/%v]",
+					expectedService.Namespace, expectedService.Name)
+			_, err := h.serviceClient.Create(expectedService)
 			if err != nil {
-				logrus.Errorf("syncService: failed to create macvlan service [%v/%v]: %v",
-					svc.Namespace, expectedMacvlanSvc.Name, err)
+				logrus.WithFields(fieldsService(svc)).
+					Errorf("failed to create flat-network service [%v/%v]: %v",
+						expectedService.Namespace, expectedService.Name, err)
 				return svc, err
 			}
 			return svc, nil
 		}
-		logrus.Errorf("syncService: failed to get [%v/%v]: %v", svc.Namespace, expectedMacvlanSvc.Name, err)
+
+		logrus.WithFields(fieldsService(svc)).
+			Errorf("failed to get [%v/%v] from cache: %v",
+				expectedService.Namespace, expectedService.Name, err)
 		return svc, err
 	}
 
 	// Skip if the macvlan service is already updated.
-	if macvlanServiceUpdated(existMacvlanSvc, expectedMacvlanSvc) {
-		logrus.Debugf("syncService: macvlan service [%v/%v] already updated, skip",
-			svc.Namespace, expectedMacvlanSvc.Name)
+	if flatNetworkServiceUpdated(existService, expectedService) {
+		logrus.WithFields(fieldsService(svc)).
+			Debugf("flat-network service [%v/%v] already updated, skip",
+				expectedService.Namespace, expectedService.Name)
 		return svc, nil
 	}
 
-	// Update the macvlan service with retry to avoid conflict.
+	// Update the flat-network service with retry to avoid conflict.
 	if err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		logrus.Debugf("Kube apiserver update service [%v/%v] request", svc.Namespace, svc.Name)
-		macvlanSvc, err := h.serviceClient.Get(svc.Namespace, expectedMacvlanSvc.Name, metav1.GetOptions{})
+		result, err := h.serviceCache.Get(expectedService.Namespace, expectedService.Name)
 		if err != nil {
-			logrus.Warnf("syncService: failed to get svc [%v/%v]: %v",
-				svc.Namespace, expectedMacvlanSvc.Name, err)
+			logrus.WithFields(fieldsService(svc)).
+				Warnf("failed to get svc [%v/%v] from cache: %v",
+					expectedService.Namespace, expectedService.Name, err)
 			return err
 		}
 
-		macvlanSvc = macvlanSvc.DeepCopy()
-		macvlanSvc.Spec = expectedMacvlanSvc.Spec
-		macvlanSvc.Annotations = expectedMacvlanSvc.Annotations
-		macvlanSvc.OwnerReferences = expectedMacvlanSvc.OwnerReferences
-		_, err = h.serviceClient.Update(macvlanSvc)
+		result = result.DeepCopy()
+		result.Spec = expectedService.Spec
+		result.Annotations = expectedService.Annotations
+		result.OwnerReferences = expectedService.OwnerReferences
+		result, err = h.serviceClient.Update(result)
 		if err != nil {
-			logrus.Warnf("syncService: service [%v/%v] update error: %v",
-				svc.Namespace, macvlanSvc.Name, err)
 			return err
 		}
+		svc = result
 		return nil
 	}); err != nil {
-		logrus.Errorf("syncService: service [%v/%v] update retry error: %v",
-			svc.Namespace, expectedMacvlanSvc.Name, err)
+		logrus.WithFields(fieldsService(svc)).
+			Errorf("failed to update flat-network service [%v/%v]: %v",
+				expectedService.Namespace, expectedService.Name, err)
 		return svc, err
 	}
+	logrus.WithFields(fieldsService(svc)).
+		Infof("updated flat-network service [%v/%v]",
+			expectedService.Namespace, expectedService.Name)
 
-	return svc, nil
+	return nil, nil
+}
+
+func fieldsService(svc *corev1.Service) logrus.Fields {
+	if svc == nil {
+		return logrus.Fields{}
+	}
+	return logrus.Fields{
+		"GID": utils.GetGID(),
+		"SVC": fmt.Sprintf("%v/%v", svc.Namespace, svc.Name),
+	}
 }

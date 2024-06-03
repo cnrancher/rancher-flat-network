@@ -8,16 +8,16 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cnrancher/flat-network-operator/pkg/controller/wrangler"
+	"github.com/cnrancher/flat-network-operator/pkg/ipcalc"
+	"github.com/cnrancher/flat-network-operator/pkg/utils"
 	"github.com/sirupsen/logrus"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
 
 	macvlanv1 "github.com/cnrancher/flat-network-operator/pkg/apis/macvlan.cluster.cattle.io/v1"
-	"github.com/cnrancher/flat-network-operator/pkg/controller/wrangler"
 	corecontroller "github.com/cnrancher/flat-network-operator/pkg/generated/controllers/core/v1"
 	macvlancontroller "github.com/cnrancher/flat-network-operator/pkg/generated/controllers/macvlan.cluster.cattle.io/v1"
-	"github.com/cnrancher/flat-network-operator/pkg/ipcalc"
 )
 
 const (
@@ -81,14 +81,13 @@ func (h *handler) handleError(
 		var message string
 		var err error
 		ip, err = onChange(key, ip)
-		if ip == nil {
-			return ip, err
-		}
-
 		if err != nil {
 			logrus.WithFields(fieldsIP(ip)).
 				Errorf("%v", err)
 			message = err.Error()
+		}
+		if ip == nil {
+			return ip, err
 		}
 		if ip.Name == "" {
 			return ip, err
@@ -99,7 +98,7 @@ func (h *handler) handleError(
 		}
 
 		err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-			ip, err := h.macvlanIPClient.Get(ip.Namespace, ip.Name, metav1.GetOptions{})
+			ip, err := h.macvlanIPCache.Get(ip.Namespace, ip.Name)
 			if err != nil {
 				return err
 			}
@@ -183,6 +182,7 @@ func (h *handler) onMacvlanIPCreate(ip *macvlanv1.MacvlanIP) (*macvlanv1.Macvlan
 		}
 		result = result.DeepCopy()
 		result.Status.UsedIP = ipcalc.AddIPToRange(allocatedIP, result.Status.UsedIP)
+		result.Status.UsedIPCount++
 		if allocatedMAC != nil {
 			result.Status.UsedMac = append(result.Status.UsedMac, allocatedMAC)
 		}
@@ -222,6 +222,7 @@ func (h *handler) onMacvlanIPCreate(ip *macvlanv1.MacvlanIP) (*macvlanv1.Macvlan
 		// Fallback subnet status.
 		subnet = subnet.DeepCopy()
 		subnet.Status.UsedIP = ipcalc.RemoveIPFromRange(allocatedIP, subnet.Status.UsedIP)
+		subnet.Status.UsedIPCount--
 		if len(allocatedMAC) != 0 && len(subnet.Status.UsedMac) != 0 {
 			subnet.Status.UsedMac = slices.DeleteFunc(subnet.Status.UsedMac, func(a net.HardwareAddr) bool {
 				return a.String() == allocatedIP.String()
@@ -287,6 +288,7 @@ func fieldsIP(ip *macvlanv1.MacvlanIP) logrus.Fields {
 		return logrus.Fields{}
 	}
 	return logrus.Fields{
-		"IP": fmt.Sprintf("%v/%v", ip.Namespace, ip.Name),
+		"GID": utils.GetGID(),
+		"IP":  fmt.Sprintf("%v/%v", ip.Namespace, ip.Name),
 	}
 }

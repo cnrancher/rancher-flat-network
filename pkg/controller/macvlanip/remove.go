@@ -28,6 +28,7 @@ func (h *handler) handleMacvlanIPRemove(s string, ip *macvlanv1.MacvlanIP) (*mac
 
 		result = result.DeepCopy()
 		result.Status.UsedIP = ipcalc.RemoveIPFromRange(ip.Status.IP, result.Status.UsedIP)
+		result.Status.UsedIPCount--
 		if len(ip.Status.MAC) != 0 {
 			result.Status.UsedMac = slices.DeleteFunc(result.Status.UsedMac, func(m net.HardwareAddr) bool {
 				return bytes.Equal(m, ip.Status.MAC)

@@ -1,15 +1,11 @@
 package pod
 
 import (
-	"bytes"
 	"context"
 	"fmt"
-	"runtime"
-	"strconv"
 	"strings"
 	"time"
 
-	macvlanv1 "github.com/cnrancher/flat-network-operator/pkg/apis/macvlan.cluster.cattle.io/v1"
 	"github.com/cnrancher/flat-network-operator/pkg/controller/wrangler"
 	"github.com/cnrancher/flat-network-operator/pkg/utils"
 	"github.com/sirupsen/logrus"
@@ -19,6 +15,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/retry"
 
+	macvlanv1 "github.com/cnrancher/flat-network-operator/pkg/apis/macvlan.cluster.cattle.io/v1"
 	appscontroller "github.com/cnrancher/flat-network-operator/pkg/generated/controllers/apps/v1"
 	batchcontroller "github.com/cnrancher/flat-network-operator/pkg/generated/controllers/batch/v1"
 	corecontroller "github.com/cnrancher/flat-network-operator/pkg/generated/controllers/core/v1"
@@ -26,7 +23,7 @@ import (
 )
 
 const (
-	handlerName = "flat-network-pod"
+	handlerName = "flatnetwork-pod"
 )
 
 type handler struct {
@@ -246,16 +243,7 @@ func fieldsPod(pod *corev1.Pod) logrus.Fields {
 		return logrus.Fields{}
 	}
 	return logrus.Fields{
+		"GID": utils.GetGID(),
 		"POD": fmt.Sprintf("%v/%v", pod.Namespace, pod.Name),
-		"GID": getGID(),
 	}
-}
-
-func getGID() uint64 {
-	b := make([]byte, 64)
-	b = b[:runtime.Stack(b, false)]
-	b = bytes.TrimPrefix(b, []byte("goroutine "))
-	b = b[:bytes.IndexByte(b, ' ')]
-	n, _ := strconv.ParseUint(string(b), 10, 64)
-	return n
 }

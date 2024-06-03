@@ -153,6 +153,8 @@ spec:
                   type: object
                 nullable: true
                 type: array
+              usedIPCount:
+                type: integer
               usedMac:
                 items:
                   nullable: true

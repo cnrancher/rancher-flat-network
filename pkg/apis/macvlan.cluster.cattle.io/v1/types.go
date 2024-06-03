@@ -107,7 +107,8 @@ type MacvlanSubnetStatus struct {
 	FailureMessage string `json:"failureMessage"`
 
 	// UsedIP is the used IPRange of this subnet.
-	UsedIP []IPRange `json:"usedIP"`
+	UsedIP      []IPRange `json:"usedIP"`
+	UsedIPCount int       `json:"usedIPCount"`
 
 	// UsedMac is the **USER SPECIFIED** used Mac address.
 	UsedMac []net.HardwareAddr `json:"usedMac"`

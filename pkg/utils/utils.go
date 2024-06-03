@@ -1,8 +1,11 @@
 package utils
 
 import (
+	"bytes"
 	"encoding/json"
 	"net"
+	"runtime"
+	"strconv"
 	"strings"
 
 	macvlanv1 "github.com/cnrancher/flat-network-operator/pkg/apis/macvlan.cluster.cattle.io/v1"
@@ -90,4 +93,14 @@ func IsMultipleMAC(m string) bool {
 		}
 	}
 	return true
+}
+
+// GetGID returns current go routine ID
+func GetGID() uint64 {
+	b := make([]byte, 64)
+	b = b[:runtime.Stack(b, false)]
+	b = bytes.TrimPrefix(b, []byte("goroutine "))
+	b = b[:bytes.IndexByte(b, ' ')]
+	n, _ := strconv.ParseUint(string(b), 10, 64)
+	return n
 }

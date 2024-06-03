@@ -4,13 +4,12 @@ import (
 	"crypto/sha1"
 	"fmt"
 
+	macvlanv1 "github.com/cnrancher/flat-network-operator/pkg/apis/macvlan.cluster.cattle.io/v1"
+	"github.com/cnrancher/flat-network-operator/pkg/utils"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	macvlanv1 "github.com/cnrancher/flat-network-operator/pkg/apis/macvlan.cluster.cattle.io/v1"
-	"github.com/cnrancher/flat-network-operator/pkg/utils"
 )
 
 func (h *handler) eventMacvlanIPError(pod *corev1.Pod, err error) {
@@ -49,7 +48,6 @@ func (h *handler) newMacvlanIP(pod *corev1.Pod) (*macvlanv1.MacvlanIP, error) {
 			annotationSubnet, err)
 	}
 
-	controller := true
 	macvlanIP := &macvlanv1.MacvlanIP{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        pod.Name,
@@ -65,7 +63,7 @@ func (h *handler) newMacvlanIP(pod *corev1.Pod) (*macvlanv1.MacvlanIP, error) {
 					Kind:       "Pod",
 					UID:        pod.UID,
 					Name:       pod.Name,
-					Controller: &controller,
+					Controller: utils.Pointer(true),
 				},
 			},
 		},
