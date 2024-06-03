@@ -242,8 +242,8 @@ func (h *handler) onMacvlanIPCreate(ip *macvlanv1.MacvlanIP) (*macvlanv1.Macvlan
 		macString = "auto"
 	}
 	logrus.WithFields(fieldsIP(ip)).
-		Infof("allocated macvlanIP [%v/%v] subnet [%v] MAC [%v] address [%v]",
-			ip.Namespace, ip.Name, ip.Spec.Subnet, macString, ip.Status.IP.String())
+		Infof("allocated IP subnet [%v] MAC [%v] address [%v]",
+			ip.Spec.Subnet, macString, ip.Status.IP.String())
 
 	return ip, nil
 }

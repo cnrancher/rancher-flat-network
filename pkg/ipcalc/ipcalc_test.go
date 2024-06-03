@@ -9,29 +9,21 @@ import (
 )
 
 func Test_IPIncrease(t *testing.T) {
-	var ip1, ip2 net.IP
-	ip1 = net.IPv4(192, 168, 1, 1)
-	ip2 = net.IPv4(192, 168, 1, 2)
-	IPIncrease(ip1)
-	assert.DeepEqual(t, ip1, ip2)
+	ip := net.IPv4(192, 168, 1, 1)
+	IPIncrease(ip)
+	assert.DeepEqual(t, ip, net.IPv4(192, 168, 1, 2))
 
-	ip1 = net.IPv4(192, 168, 1, 255)
-	ip2 = net.IPv4(192, 168, 2, 0)
-	IPIncrease(ip1)
-	assert.DeepEqual(t, ip1, ip2)
+	ip = net.IPv4(192, 168, 1, 255)
+	IPIncrease(ip)
+	assert.DeepEqual(t, ip, net.IPv4(192, 168, 2, 0))
 }
 
 func Test_IPDecrease(t *testing.T) {
-	var ip1, ip2 net.IP
-	ip1 = net.IPv4(192, 168, 1, 2)
-	ip2 = net.IPv4(192, 168, 1, 1)
-	IPDecrease(ip1)
-	assert.DeepEqual(t, ip1, ip2)
-
-	ip1 = net.IPv4(192, 168, 2, 0)
-	ip2 = net.IPv4(192, 168, 1, 255)
-	IPDecrease(ip1)
-	assert.DeepEqual(t, ip1, ip2)
+	ip := net.IPv4(192, 168, 1, 1)
+	IPDecrease(ip)
+	assert.DeepEqual(t, ip, net.IPv4(192, 168, 1, 0))
+	IPDecrease(ip)
+	assert.DeepEqual(t, ip, net.IPv4(192, 168, 0, 255))
 }
 
 func Test_CalcDefaultGateway(t *testing.T) {
@@ -244,7 +236,7 @@ func Test_AddCIDRSuffix(t *testing.T) {
 	assert.Equal(t, "172.31.1.100/32", c)
 }
 
-func Test_AddIPInRange(t *testing.T) {
+func Test_AddIPToRange(t *testing.T) {
 	r := AddIPToRange(net.ParseIP("192.168.1.12"), nil)
 	assert.DeepEqual(t, r, []macvlanv1.IPRange{
 		{
@@ -347,7 +339,7 @@ func Test_AddIPInRange(t *testing.T) {
 	})
 }
 
-func Test_RemoveIPInRange(t *testing.T) {
+func Test_RemoveIPFromRange(t *testing.T) {
 	r := []macvlanv1.IPRange{
 		{
 			RangeStart: net.ParseIP("192.168.1.100"),
