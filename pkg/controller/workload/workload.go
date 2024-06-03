@@ -2,6 +2,7 @@ package workload
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -12,6 +13,7 @@ import (
 	macvlanv1 "github.com/cnrancher/flat-network-operator/pkg/apis/macvlan.cluster.cattle.io/v1"
 	appscontroller "github.com/cnrancher/flat-network-operator/pkg/generated/controllers/apps/v1"
 	batchcontroller "github.com/cnrancher/flat-network-operator/pkg/generated/controllers/batch/v1"
+	"github.com/cnrancher/flat-network-operator/pkg/utils"
 )
 
 type Workload interface {
@@ -23,8 +25,7 @@ type Workload interface {
 }
 
 const (
-	controllerName       = "workload"
-	controllerRemoveName = "workload-remove"
+	handlerName = "flatnetwork-workload"
 )
 
 type handler struct {
@@ -63,22 +64,24 @@ func Register(
 		replicasets:  replicasets,
 		statefulsets: statefulsets,
 
-		deploymentEnqueueAfter:  deployments.EnqueueAfter,
-		deploymentEnqueue:       daemonsets.Enqueue,
-		daemonsetEnqueueAfter:   daemonsets.EnqueueAfter,
-		daemonsetEnqueue:        daemonsets.Enqueue,
-		replicasetEnqueueAfter:  replicasets.EnqueueAfter,
-		replicasetEnqueue:       replicasets.Enqueue,
+		deploymentEnqueueAfter: deployments.EnqueueAfter,
+		deploymentEnqueue:      deployments.Enqueue,
+
+		daemonsetEnqueueAfter: daemonsets.EnqueueAfter,
+		daemonsetEnqueue:      daemonsets.Enqueue,
+
+		replicasetEnqueueAfter: replicasets.EnqueueAfter,
+		replicasetEnqueue:      replicasets.Enqueue,
+
 		statefulsetEnqueueAfter: statefulsets.EnqueueAfter,
 		statefulsetEnqueue:      statefulsets.Enqueue,
 	}
 	workloadHandler = h
 
-	logrus.Infof("Setting up Deployment/DaemonSet/ReplicaSet/StatefulSet event handlers")
-	deployments.OnChange(ctx, controllerName, syncWorkload)
-	daemonsets.OnChange(ctx, controllerName, syncWorkload)
-	replicasets.OnChange(ctx, controllerName, syncWorkload)
-	statefulsets.OnChange(ctx, controllerName, syncWorkload)
+	deployments.OnChange(ctx, handlerName, syncWorkload)
+	daemonsets.OnChange(ctx, handlerName, syncWorkload)
+	replicasets.OnChange(ctx, handlerName, syncWorkload)
+	statefulsets.OnChange(ctx, handlerName, syncWorkload)
 }
 
 func syncWorkload[T Workload](name string, w T) (T, error) {
@@ -102,6 +105,9 @@ func needUpdateWorkloadLabel(
 		workloadLabels = make(map[string]string)
 	}
 	podMeta := getTemplateObjectMeta(workload)
+	if podMeta.Annotations == nil {
+		podMeta.Annotations = map[string]string{}
+	}
 
 	update := false
 	iptype := workloadLabels[macvlanv1.LabelMacvlanIPType]
@@ -128,13 +134,15 @@ func needUpdateWorkloadLabel(
 func (h *handler) updateWorkloadLabel(w metav1.Object, iptype, subnet string) (metav1.Object, error) {
 	wCopy := deepCopy(w)
 	if w == nil {
-		logrus.Warnf("updateWorkloadLabel: skip unrecognized workload: %T", w)
+		logrus.WithFields(fieldsWorkload(w)).
+			Warnf("updateWorkloadLabel: skip unrecognized workload: %T", w)
 		return w, nil
 	}
 	w = wCopy
 
-	logrus.Infof("Update workload %T [%s/%s] label [macvlanIpType: %v] [subnet: %v]",
-		w, w.GetNamespace(), w.GetName(), iptype, subnet)
+	logrus.WithFields(fieldsWorkload(w)).
+		Infof("Update workload %T [%s/%s] label [macvlanIpType: %v] [subnet: %v]",
+			w, w.GetNamespace(), w.GetName(), iptype, subnet)
 	labels := w.GetLabels()
 	if labels == nil {
 		labels = map[string]string{}
@@ -156,4 +164,26 @@ func (h *handler) updateWorkloadLabel(w metav1.Object, iptype, subnet string) (m
 		return h.jobs.Update(o)
 	}
 	return w, nil
+}
+
+func fieldsWorkload(obj metav1.Object) logrus.Fields {
+	if obj == nil {
+		return logrus.Fields{}
+	}
+	fields := logrus.Fields{
+		"GID": utils.GetGID(),
+	}
+	switch o := obj.(type) {
+	case *appsv1.Deployment:
+		fields["Deployment"] = fmt.Sprintf("%v/%v", o.Namespace, o.Name)
+	case *appsv1.DaemonSet:
+		fields["DaemonSet"] = fmt.Sprintf("%v/%v", o.Namespace, o.Name)
+	case *appsv1.StatefulSet:
+		fields["StatefulSet"] = fmt.Sprintf("%v/%v", o.Namespace, o.Name)
+	case *appsv1.ReplicaSet:
+		fields["ReplicaSet"] = fmt.Sprintf("%v/%v", o.Namespace, o.Name)
+	case *batchv1.Job:
+		fields["Job"] = fmt.Sprintf("%v/%v", o.Namespace, o.Name)
+	}
+	return fields
 }
