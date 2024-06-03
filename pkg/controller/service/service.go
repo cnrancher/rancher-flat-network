@@ -16,7 +16,6 @@ import (
 
 const (
 	handlerName              = "flatnetwork-service"
-	handlerRemoveName        = "flatnetwork-service-remove"
 	macvlanServiceNameSuffix = "-macvlan"
 )
 

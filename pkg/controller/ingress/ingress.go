@@ -6,23 +6,19 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
+	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
-	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/util/retry"
 
 	macvlanv1 "github.com/cnrancher/flat-network-operator/pkg/apis/macvlan.cluster.cattle.io/v1"
 	corecontroller "github.com/cnrancher/flat-network-operator/pkg/generated/controllers/core/v1"
 	networkingcontroller "github.com/cnrancher/flat-network-operator/pkg/generated/controllers/networking.k8s.io/v1"
+	"github.com/cnrancher/flat-network-operator/pkg/utils"
 )
 
 const (
-	controllerName       = "ingress"
-	controllerRemoveName = "ingress-remove"
-)
+	handlerName = "flatnetwork-ingress"
 
-const (
 	k8sCNINetworksKey = "k8s.v1.cni.cncf.io/networks"
 	netAttatchDefName = "static-macvlan-cni-attach"
 )
@@ -47,19 +43,20 @@ func Register(
 		ingressEnqueueAfter: ingress.EnqueueAfter,
 		ingressEnqueue:      ingress.Enqueue,
 	}
-	ingress.OnChange(ctx, controllerName, h.handleIngressError(h.syncIngress))
-}
-
-func (h *handler) handleIngressError(
-	onChange func(string, *networkingv1.Ingress) (*networkingv1.Ingress, error),
-) func(string, *networkingv1.Ingress) (*networkingv1.Ingress, error) {
-	// TODO: handle service retry
-	return onChange
+	ingress.OnChange(ctx, handlerName, h.syncIngress)
 }
 
 func (h *handler) syncIngress(
-	name string, ingress *networkingv1.Ingress,
+	_ string, ingress *networkingv1.Ingress,
 ) (*networkingv1.Ingress, error) {
+	if ingress == nil || ingress.Name == "" || ingress.DeletionTimestamp != nil {
+		return ingress, nil
+	}
+	if len(ingress.Spec.Rules) == 0 || ingress.Annotations == nil {
+		return ingress, nil
+	}
+	// TODO: Only need to sync manager-UI created ingress service.
+
 	for _, rule := range ingress.Spec.Rules {
 		if rule.HTTP == nil || rule.HTTP.Paths == nil {
 			continue
@@ -70,36 +67,30 @@ func (h *handler) syncIngress(
 			}
 			svcName := path.Backend.Service.Name
 			// Only sync service with name has prefix 'ingress-'.
-			macvlanEnabled := false
+			flatNetworkEnabled := false
 			if ingress.Annotations[macvlanv1.AnnotationIngress] == "true" {
-				macvlanEnabled = true
+				flatNetworkEnabled = true
 			}
 			// Get service from the informer cache.
 			// The service may not found if the ingress is just created.
 			svc, err := h.serviceCache.Get(ingress.Namespace, svcName)
 			if err != nil {
 				if errors.IsNotFound(err) {
-					logrus.Debugf("onIngressAdd: Service [%s/%s] not found yet: [%v], will try later.",
-						ingress.Namespace, svcName, err)
-				} else {
-					logrus.Errorf("onIngressAdd: Failed to get service [%s/%s] of ingress [%v]: %v",
-						ingress.Namespace, svcName, ingress.Name, err)
+					logrus.WithFields(fieldsIngress(ingress)).
+						Infof("service [%s/%s] not found from cache, will try later",
+							ingress.Namespace, svcName)
+					h.ingressEnqueueAfter(ingress.Namespace, ingress.Name, time.Second*5)
+					return ingress, nil
 				}
-				continue
+
+				return ingress, fmt.Errorf("failed to get service [%s/%s] of ingress [%v]: %w",
+					ingress.Namespace, svcName, ingress.Name, err)
 			}
-			// Skip update if the service annotation already set.
-			if macvlanEnabled {
-				if svc.Annotations != nil && svc.Annotations[k8sCNINetworksKey] == netAttatchDefName {
-					continue
-				}
-			} else {
-				if svc.Annotations == nil || svc.Annotations[k8sCNINetworksKey] == "" {
-					continue
-				}
-			}
-			err = h.handleIngressService(ingress.Namespace, svcName, ingress.Name, macvlanEnabled)
-			if err != nil {
-				logrus.Errorf("onIngressAdd: failed to update ingress service: %v", err)
+
+			if err = h.handleIngressService(ingress, svc, flatNetworkEnabled); err != nil {
+				logrus.WithFields(fieldsIngress(ingress)).
+					Errorf("failed to update ingress service: %v", err)
+				return ingress, nil
 			}
 		}
 	}
@@ -107,44 +98,46 @@ func (h *handler) syncIngress(
 	return ingress, nil
 }
 
-// handleIngressService add/remove macvlan annotation for ingress service.
+// handleIngressService add/remove flat-network multus annotation for ingress service.
 func (h *handler) handleIngressService(
-	namespace, svcName, ingressName string, macvlanEnabled bool,
+	ingress *networkingv1.Ingress, service *corev1.Service, flatNetworkEnabled bool,
 ) error {
-	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		// Retrieve the latest version of Service before attempting update
-		// RetryOnConflict uses exponential backoff to avoid exhausting the apiserver
-		result, err := h.serviceClient.Get(namespace, svcName, metav1.GetOptions{})
-		if err != nil {
-			logrus.Errorf("Failed to get latest version of Service: %v", err)
-			return err
-		}
-
-		svc := result.DeepCopy()
-		if svc.Annotations == nil {
-			svc.Annotations = make(map[string]string)
-		}
-		if macvlanEnabled {
-			svc.Annotations[k8sCNINetworksKey] = netAttatchDefName
-		} else {
-			delete(svc.Annotations, k8sCNINetworksKey)
-		}
-		if equality.Semantic.DeepEqual(result.Annotations, svc.Annotations) {
-			// Skip if the service annotation already updated.
-			logrus.Debugf("Skip update ingress svc [%v] annotation as already updated", svc.Name)
+	if service.Annotations == nil {
+		service.Annotations = map[string]string{}
+	}
+	// Skip if the service annotation already updated.
+	if flatNetworkEnabled {
+		if service.Annotations[k8sCNINetworksKey] == netAttatchDefName {
 			return nil
 		}
-		logrus.Debugf("Kube apiserver update service [%v/%v] request", svc.Namespace, svc.Name)
-		_, err = h.serviceClient.Update(svc)
-		if err != nil {
-			return err
-		}
-		logrus.Infof("handleIngressService: namespace[%s] ingress[%s] service[%s] update macvlan enabled [%v]",
-			namespace, ingressName, svcName, macvlanEnabled)
+	} else if service.Annotations[k8sCNINetworksKey] == "" {
 		return nil
-	})
-	if err != nil {
-		return fmt.Errorf("ingress service update annotation error: %w", err)
 	}
+
+	service = service.DeepCopy()
+	if flatNetworkEnabled {
+		service.Annotations[k8sCNINetworksKey] = netAttatchDefName
+	} else {
+		delete(service.Annotations, k8sCNINetworksKey)
+	}
+	_, err := h.serviceClient.Update(service)
+	if err != nil {
+		return fmt.Errorf("failed to update service [%v/%v]: %w",
+			service.Namespace, service.Name, err)
+	}
+
+	logrus.WithFields(fieldsIngress(ingress)).
+		Infof("ingress[%s] service[%s] update macvlan enabled [%v]",
+			ingress.Name, service.Name, flatNetworkEnabled)
 	return nil
+}
+
+func fieldsIngress(ingress *networkingv1.Ingress) logrus.Fields {
+	if ingress == nil {
+		return logrus.Fields{}
+	}
+	return logrus.Fields{
+		"GID": utils.GetGID(),
+		"IP":  fmt.Sprintf("%v/%v", ingress.Namespace, ingress.Name),
+	}
 }

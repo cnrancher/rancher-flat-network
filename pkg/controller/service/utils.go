@@ -161,29 +161,50 @@ func flatNetworkServiceUpdated(a, b *corev1.Service) bool {
 	}
 	if !equality.Semantic.DeepEqual(a.OwnerReferences, b.OwnerReferences) {
 		logrus.WithFields(fieldsService(a)).
-			Debugf("service [%v/%v] OwnerReferences mismatch, a: %v\nb: %v",
-				a.Namespace, a.Name,
+			Debugf("service OwnerReferences mismatch, a: %v\nb: %v",
 				utils.PrintObject(a.OwnerReferences), utils.PrintObject(b.OwnerReferences))
 		return false
 	}
 	if !equality.Semantic.DeepEqual(a.Annotations, b.Annotations) {
 		logrus.WithFields(fieldsService(a)).
-			Debugf("service [%v/%v] Annotations mismatch: a: %v\n b: %v",
-				a.Namespace, a.Name,
+			Debugf("service Annotations mismatch: a: %v\n b: %v",
 				utils.PrintObject(a.Annotations), utils.PrintObject(b.Annotations))
 		return false
 	}
-	if a.Spec.ClusterIPs == nil {
-		a.Spec.ClusterIPs = []string{"None"}
-	}
-	if b.Spec.ClusterIPs == nil {
-		b.Spec.ClusterIPs = []string{"None"}
-	}
-	if !equality.Semantic.DeepEqual(a.Spec, b.Spec) {
+	if !equality.Semantic.DeepEqual(a.Spec.Ports, b.Spec.Ports) {
 		logrus.WithFields(fieldsService(a)).
-			Debugf("service [%v/%v] Spec mismatch: a: %v\nb: %v",
-				a.Namespace, a.Name,
-				utils.PrintObject(a.Spec), utils.PrintObject(b.Spec))
+			Debugf("service spec.ports mismatch: a: %v\nb: %v",
+				utils.PrintObject(a.Spec.Ports), utils.PrintObject(b.Spec.Ports))
+		return false
+	}
+	if !equality.Semantic.DeepEqual(a.Spec.Selector, b.Spec.Selector) {
+		logrus.WithFields(fieldsService(a)).
+			Debugf("service spec.selector mismatch: a: %v\nb: %v",
+				utils.PrintObject(a.Spec.Selector), utils.PrintObject(b.Spec.Selector))
+		return false
+	}
+	if !equality.Semantic.DeepEqual(a.Spec.Selector, b.Spec.Selector) {
+		logrus.WithFields(fieldsService(a)).
+			Debugf("service spec.selector mismatch: a: %v\nb: %v",
+				utils.PrintObject(a.Spec.Selector), utils.PrintObject(b.Spec.Selector))
+		return false
+	}
+	if !equality.Semantic.DeepEqual(a.Spec.ClusterIP, b.Spec.ClusterIP) {
+		logrus.WithFields(fieldsService(a)).
+			Debugf("service spec.clusterIP mismatch: a: %v\nb: %v",
+				utils.PrintObject(a.Spec.ClusterIP), utils.PrintObject(b.Spec.ClusterIP))
+		return false
+	}
+	if !equality.Semantic.DeepEqual(a.Spec.ClusterIPs, b.Spec.ClusterIPs) {
+		logrus.WithFields(fieldsService(a)).
+			Debugf("service spec.clusterIPs mismatch: a: %v\nb: %v",
+				utils.PrintObject(a.Spec.ClusterIPs), utils.PrintObject(b.Spec.ClusterIPs))
+		return false
+	}
+	if !equality.Semantic.DeepEqual(a.Spec.Type, b.Spec.Type) {
+		logrus.WithFields(fieldsService(a)).
+			Debugf("service spec.type mismatch: a: %v\nb: %v",
+				utils.PrintObject(a.Spec.Type), utils.PrintObject(b.Spec.Type))
 		return false
 	}
 	return true
