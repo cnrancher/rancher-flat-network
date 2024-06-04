@@ -12,7 +12,9 @@ import (
 	"github.com/cnrancher/flat-network-operator/pkg/ipcalc"
 	"github.com/cnrancher/flat-network-operator/pkg/utils"
 	"github.com/sirupsen/logrus"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/retry"
 
 	macvlanv1 "github.com/cnrancher/flat-network-operator/pkg/apis/macvlan.cluster.cattle.io/v1"
@@ -46,9 +48,11 @@ type handler struct {
 	podEnqueueAfter func(string, string, time.Duration)
 	podEnqueue      func(string, string)
 
-	// AllocateMutex is the mutex for allocating IP & MAC address from subnet.
+	recorder record.EventRecorder
+
+	// allocateMutex is the mutex for allocating IP & MAC address from subnet.
 	// FIXME: Use leader election lock instead of memory mutex!
-	AllocateMutex sync.Mutex
+	allocateMutex sync.Mutex
 }
 
 func Register(
@@ -62,6 +66,7 @@ func Register(
 		macvlanSubnetCache:  wctx.Macvlan.MacvlanSubnet().Cache(),
 		podClient:           wctx.Core.Pod(),
 		podCache:            wctx.Core.Pod().Cache(),
+		recorder:            wctx.Recorder,
 
 		macvlanipEnqueueAfter: wctx.Macvlan.MacvlanIP().EnqueueAfter,
 		macvlanipEnqueue:      wctx.Macvlan.MacvlanSubnet().Enqueue,
@@ -83,7 +88,7 @@ func (h *handler) handleError(
 		ip, err = onChange(key, ip)
 		if err != nil {
 			logrus.WithFields(fieldsIP(ip)).
-				Errorf("%v", err)
+				Error(err)
 			message = err.Error()
 		}
 		if ip == nil {
@@ -112,7 +117,7 @@ func (h *handler) handleError(
 			return err
 		})
 		if err != nil {
-			logrus.Errorf("Error recording macvlan IP [%s] failure message: %v", ip.Name, err)
+			logrus.Errorf("error recording macvlan IP [%s] failure message: %v", ip.Name, err)
 			return ip, err
 		}
 		return ip, nil
@@ -123,10 +128,11 @@ func (h *handler) handleMacvlanIP(s string, ip *macvlanv1.MacvlanIP) (*macvlanv1
 	if ip == nil || ip.Name == "" || ip.DeletionTimestamp != nil {
 		return ip, nil
 	}
-	ip, err := h.macvlanIPCache.Get(ip.Namespace, ip.Name)
+	result, err := h.macvlanIPCache.Get(ip.Namespace, ip.Name)
 	if err != nil {
 		return ip, fmt.Errorf("failed to get macvlanIP from cache: %v", err)
 	}
+	ip = result
 
 	switch ip.Status.Phase {
 	case macvlanIPActivePhase:
@@ -150,8 +156,8 @@ func (h *handler) onMacvlanIPCreate(ip *macvlanv1.MacvlanIP) (*macvlanv1.Macvlan
 	}
 
 	// FIXME: Use leader election lock instead of memory mutex!
-	h.AllocateMutex.Lock()
-	defer h.AllocateMutex.Unlock()
+	h.allocateMutex.Lock()
+	defer h.allocateMutex.Unlock()
 
 	// Ensure the macvlan subnet resource exists.
 	subnet, err := h.macvlanSubnetCache.Get(macvlanv1.MacvlanSubnetNamespace, ip.Spec.Subnet)
@@ -164,6 +170,7 @@ func (h *handler) onMacvlanIPCreate(ip *macvlanv1.MacvlanIP) (*macvlanv1.Macvlan
 	if err != nil {
 		logrus.WithFields(fieldsIP(ip)).
 			Errorf("failed to allocate IP address: %v", err)
+		h.eventError(pod, err)
 		return ip, err
 	}
 	allocatedMAC, err := h.allocateMAC(ip, subnet)
@@ -177,7 +184,8 @@ func (h *handler) onMacvlanIPCreate(ip *macvlanv1.MacvlanIP) (*macvlanv1.Macvlan
 	err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		result, err := h.macvlanSubnetCache.Get(macvlanv1.MacvlanSubnetNamespace, ip.Spec.Subnet)
 		if err != nil {
-			logrus.Errorf("failed to get maacvlanSubnet from cache: %v", err)
+			logrus.WithFields(fieldsIP(ip)).
+				Errorf("failed to get subnet from cache: %v", err)
 			return err
 		}
 		result = result.DeepCopy()
@@ -194,7 +202,7 @@ func (h *handler) onMacvlanIPCreate(ip *macvlanv1.MacvlanIP) (*macvlanv1.Macvlan
 		return err
 	})
 	if err != nil {
-		return ip, fmt.Errorf("allocateAutoIP: failed to update subnet [%v] status: %w",
+		return ip, fmt.Errorf("failed to update subnet [%v] status: %w",
 			subnet.Name, err)
 	}
 
@@ -281,6 +289,10 @@ func (h *handler) onMacvlanIPUpdate(ip *macvlanv1.MacvlanIP) (*macvlanv1.Macvlan
 	h.macvlanipEnqueue(ip.Namespace, ip.Name)
 	h.podEnqueueAfter(ip.Namespace, ip.Name, time.Second*5)
 	return ip, nil
+}
+
+func (h *handler) eventError(pod *corev1.Pod, err error) {
+	h.recorder.Event(pod, corev1.EventTypeWarning, "MacvlanIPError", err.Error())
 }
 
 func fieldsIP(ip *macvlanv1.MacvlanIP) logrus.Fields {

@@ -12,14 +12,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func (h *handler) eventMacvlanIPError(pod *corev1.Pod, err error) {
-	h.recorder.Event(pod, corev1.EventTypeWarning, "MacvlanIPError", err.Error())
-}
-
-func (h *handler) eventMacvlanSubnetError(pod *corev1.Pod, err error) {
-	h.recorder.Event(pod, corev1.EventTypeWarning, "MacvlanSubnetError", err.Error())
-}
-
 // newMacvlanIP returns a new macvlanIP struct object by Pod.
 func (h *handler) newMacvlanIP(pod *corev1.Pod) (*macvlanv1.MacvlanIP, error) {
 	// Valid pod annotation

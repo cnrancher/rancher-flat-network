@@ -111,6 +111,13 @@ func (h *handler) handleSubnetChanged(
 	if subnet.Name == "" || subnet.DeletionTimestamp != nil {
 		return subnet, nil
 	}
+	result, err := h.macvlanSubnetCache.Get(subnet.Namespace, subnet.Name)
+	if err != nil {
+		logrus.WithFields(fieldsSubnet(subnet)).
+			Errorf("failed to get subnet from cache: %v", err)
+		return subnet, err
+	}
+	subnet = result
 
 	switch subnet.Status.Phase {
 	case macvlanSubnetActivePhase:
@@ -215,6 +222,9 @@ func (h *handler) onMacvlanSubnetUpdate(subnet *macvlanv1.MacvlanSubnet) (*macvl
 			return fmt.Errorf("failed to get subnet from cache: %w", err)
 		}
 		result = result.DeepCopy()
+		if equality.Semantic.DeepEqual(usedIPs, result.Status.UsedIP) && result.Status.UsedIPCount == len(ips) {
+			return nil
+		}
 		result.Status.UsedIP = usedIPs
 		result.Status.UsedIPCount = len(ips)
 		result, err = h.macvlanSubnetClient.UpdateStatus(result)

@@ -78,7 +78,7 @@ func IPNotUsed(ip net.IP, usedRanges []macvlanv1.IPRange) bool {
 	}
 	a := ip.To16() // Ensure 16bytes length.
 	if a == nil {
-		return false
+		return true
 	}
 
 	for _, usedRange := range usedRanges {

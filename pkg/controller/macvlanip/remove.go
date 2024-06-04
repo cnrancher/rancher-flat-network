@@ -17,8 +17,8 @@ func (h *handler) handleMacvlanIPRemove(s string, ip *macvlanv1.MacvlanIP) (*mac
 		return ip, nil
 	}
 
-	h.AllocateMutex.Lock()
-	defer h.AllocateMutex.Unlock()
+	h.allocateMutex.Lock()
+	defer h.allocateMutex.Unlock()
 
 	err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		result, err := h.macvlanSubnetCache.Get(macvlanv1.MacvlanSubnetNamespace, ip.Spec.Subnet)

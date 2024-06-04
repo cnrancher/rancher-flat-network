@@ -85,70 +85,93 @@ func Register(
 }
 
 func syncWorkload[T Workload](name string, w T) (T, error) {
+	if workloadHandler == nil {
+		err := fmt.Errorf("failed to sync workload: handler not initialized")
+		logrus.WithFields(fieldsWorkload(w)).Error(err)
+		return w, err
+	}
 	if w == nil || w.GetName() == "" || w.GetDeletionTimestamp() != nil {
 		return w, nil
 	}
-	update, iptype, subnet := needUpdateWorkloadLabel(w)
-	if !update {
+
+	isFlatNetworkEnabled, labels := getFlatNetworkLabel(w)
+	if !isFlatNetworkEnabled {
 		return w, nil
 	}
-	o, err := workloadHandler.updateWorkloadLabel(w, iptype, subnet)
+	o, err := workloadHandler.updateWorkloadLabel(w, labels)
+	if err != nil {
+		logrus.WithFields(fieldsWorkload(w)).
+			Errorf("failed to update workload label: %v", err)
+		return w, err
+	}
 	w, _ = o.(T)
 	return w, err
 }
 
-func needUpdateWorkloadLabel(
-	workload metav1.Object,
-) (bool, string, string) {
-	workloadLabels := workload.GetLabels()
-	if workloadLabels == nil {
-		workloadLabels = make(map[string]string)
+func getFlatNetworkLabel(w metav1.Object) (isFlatNetworkEnabled bool, labels map[string]string) {
+	m := getTemplateObjectMeta(w)
+	if m == nil {
+		return false, nil
 	}
-	podMeta := getTemplateObjectMeta(workload)
-	if podMeta.Annotations == nil {
-		podMeta.Annotations = map[string]string{}
+	if m.Annotations == nil {
+		m.Annotations = map[string]string{}
 	}
+	a := m.Annotations
 
-	update := false
-	iptype := workloadLabels[macvlanv1.LabelMacvlanIPType]
-	subnet := podMeta.Annotations[macvlanv1.AnnotationSubnet]
-	if podMeta.Annotations[macvlanv1.AnnotationSubnet] != workloadLabels[macvlanv1.LabelSubnet] {
-		update = true
-		subnet = podMeta.Annotations[macvlanv1.AnnotationSubnet]
+	var (
+		ipType string
+		subnet string
+	)
+	switch a[macvlanv1.LabelMacvlanIPType] {
+	case "auto":
+		ipType = "auto"
+		isFlatNetworkEnabled = true
+	case "":
+	default:
+		ipType = "specific"
+		isFlatNetworkEnabled = true
 	}
-	if podMeta.Annotations[macvlanv1.AnnotationIP] == "auto" {
-		if workloadLabels[macvlanv1.LabelMacvlanIPType] != "auto" {
-			update = true
-			iptype = "auto"
-		}
+	subnet = a[macvlanv1.AnnotationSubnet]
+
+	labels = map[string]string{
+		macvlanv1.LabelMacvlanIPType: ipType,
+		macvlanv1.LabelSubnet:        subnet,
 	}
-	if podMeta.Annotations[macvlanv1.AnnotationIP] != "auto" &&
-		podMeta.Annotations[macvlanv1.AnnotationIP] != "" &&
-		workloadLabels[macvlanv1.LabelMacvlanIPType] != "specific" {
-		update = true
-		iptype = "specific"
-	}
-	return update, iptype, subnet
+	return
 }
 
-func (h *handler) updateWorkloadLabel(w metav1.Object, iptype, subnet string) (metav1.Object, error) {
+func (h *handler) updateWorkloadLabel(
+	w metav1.Object, labels map[string]string,
+) (metav1.Object, error) {
+	if labels == nil {
+		return w, nil
+	}
+
 	wCopy := deepCopy(w)
-	if w == nil {
+	if wCopy == nil {
 		logrus.WithFields(fieldsWorkload(w)).
 			Warnf("updateWorkloadLabel: skip unrecognized workload: %T", w)
 		return w, nil
 	}
 	w = wCopy
-
-	logrus.WithFields(fieldsWorkload(w)).
-		Infof("Update workload %T [%s/%s] label [macvlanIpType: %v] [subnet: %v]",
-			w, w.GetNamespace(), w.GetName(), iptype, subnet)
-	labels := w.GetLabels()
-	if labels == nil {
-		labels = map[string]string{}
+	wl := w.GetLabels()
+	if wl == nil {
+		wl = map[string]string{}
 	}
-	labels[macvlanv1.LabelMacvlanIPType] = iptype
-	labels[macvlanv1.LabelSubnet] = subnet
+	needUpdate := false
+	for k, v := range labels {
+		if wl[k] != v {
+			needUpdate = true
+			wl[k] = v
+		}
+	}
+	if !needUpdate {
+		return w, nil
+	}
+	logrus.WithFields(fieldsWorkload(w)).
+		Infof("request to update workload [%v/%v] label: %v",
+			w.GetNamespace(), w.GetName(), utils.PrintObject(labels))
+
 	switch o := w.(type) {
 	case *appsv1.Deployment:
 		return h.deployments.Update(o)
@@ -173,17 +196,18 @@ func fieldsWorkload(obj metav1.Object) logrus.Fields {
 	fields := logrus.Fields{
 		"GID": utils.GetGID(),
 	}
-	switch o := obj.(type) {
+	s := fmt.Sprintf("%v/%v", obj.GetNamespace(), obj.GetName())
+	switch obj.(type) {
 	case *appsv1.Deployment:
-		fields["Deployment"] = fmt.Sprintf("%v/%v", o.Namespace, o.Name)
+		fields["Deployment"] = s
 	case *appsv1.DaemonSet:
-		fields["DaemonSet"] = fmt.Sprintf("%v/%v", o.Namespace, o.Name)
+		fields["DaemonSet"] = s
 	case *appsv1.StatefulSet:
-		fields["StatefulSet"] = fmt.Sprintf("%v/%v", o.Namespace, o.Name)
+		fields["StatefulSet"] = s
 	case *appsv1.ReplicaSet:
-		fields["ReplicaSet"] = fmt.Sprintf("%v/%v", o.Namespace, o.Name)
+		fields["ReplicaSet"] = s
 	case *batchv1.Job:
-		fields["Job"] = fmt.Sprintf("%v/%v", o.Namespace, o.Name)
+		fields["Job"] = s
 	}
 	return fields
 }

@@ -52,11 +52,19 @@ func Test_MacvlanSubnet(t *testing.T) {
 			VLAN:    0,
 			CIDR:    "192.168.1.0/24",
 			Mode:    "",
-			Gateway: net.ParseIP("192.168.1.1"),
+			Gateway: nil,
 			Ranges: []macvlanv1.IPRange{
 				{
 					RangeStart: net.ParseIP("192.168.1.100"),
-					RangeEnd:   net.ParseIP("192.168.1.200"),
+					RangeEnd:   net.ParseIP("192.168.1.120"),
+				},
+				{
+					RangeStart: net.ParseIP("192.168.1.150"),
+					RangeEnd:   net.ParseIP("192.168.1.160"),
+				},
+				{
+					RangeStart: net.ParseIP("192.168.1.200"),
+					RangeEnd:   net.ParseIP("192.168.1.220"),
 				},
 			},
 			Routes: []macvlanv1.Route{},

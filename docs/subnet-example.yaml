@@ -14,19 +14,28 @@
     "vlan": 0,
     "cidr": "192.168.1.0/24",
     "mode": "",
-    "gateway": "192.168.1.1",
+    "gateway": "",
     "ranges": [
       {
         "rangeStart": "192.168.1.100",
-        "rangeEnd": "192.168.1.200"
+        "rangeEnd": "192.168.1.120"
+      },
+      {
+        "rangeStart": "192.168.1.150",
+        "rangeEnd": "192.168.1.160"
+      },
+      {
+        "rangeStart": "192.168.1.200",
+        "rangeEnd": "192.168.1.220"
       }
     ],
     "podDefaultGateway": {}
   },
   "status": {
     "phase": "",
+    "failureMessage": "",
     "usedIP": null,
-    "usedMac": null,
-    "failureMessage": ""
+    "usedIPCount": 0,
+    "usedMac": null
   }
 }

@@ -12,7 +12,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/retry"
 
 	macvlanv1 "github.com/cnrancher/flat-network-operator/pkg/apis/macvlan.cluster.cattle.io/v1"
@@ -43,8 +42,6 @@ type handler struct {
 	cronJobCache     batchcontroller.CronJobCache
 	jobCache         batchcontroller.JobCache
 
-	recorder record.EventRecorder
-
 	podEnqueueAfter func(string, string, time.Duration)
 	podEnqueue      func(string, string)
 }
@@ -68,8 +65,6 @@ func Register(
 		statefulSetCache: wctx.Apps.StatefulSet().Cache(),
 		cronJobCache:     wctx.Batch.CronJob().Cache(),
 		jobCache:         wctx.Batch.Job().Cache(),
-
-		recorder: wctx.Recorder,
 
 		podEnqueueAfter: wctx.Core.Pod().EnqueueAfter,
 		podEnqueue:      wctx.Core.Pod().Enqueue,

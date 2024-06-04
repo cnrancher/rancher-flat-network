@@ -82,8 +82,8 @@ func (h *handler) allocateIP(
 				return a, nil
 			}
 		}
-		return nil, fmt.Errorf("allocateIP: no available IP address from [%v]",
-			ip.Spec.CIDR)
+		return nil, fmt.Errorf("allocateIP: no available IP address from [%v]: %w",
+			ip.Spec.CIDR, ipcalc.ErrNoAvailableIP)
 	case strings.Contains(ip.Spec.CIDR, "/"):
 		s := strings.Split(ip.Spec.CIDR, "/")[0]
 		a := net.ParseIP(s).To16()
@@ -91,7 +91,8 @@ func (h *handler) allocateIP(
 			return nil, fmt.Errorf("allocateIP: invalid IP [%v]", ip.Spec.CIDR)
 		}
 		if ipcalc.IPInRanges(a, subnet.Status.UsedIP) {
-			return a, fmt.Errorf("allocateIP: IP [%v] already in use", ip.Spec.CIDR)
+			return a, fmt.Errorf("allocateIP: IP [%v] already in use: %w",
+				ip.Spec.CIDR, ipcalc.ErrNoAvailableIP)
 		}
 		return a, nil
 	}
