@@ -54,8 +54,8 @@ type MacvlanIPSpec struct {
 	//
 	// Available:
 	//   'auto': Allocate one IP address from subnet automatically (default).
-	//   '<ip-address>': Use one custom IPv4 address, format '192.168.1.2'.
-	//   '<ip-address>/<mask-size>': Use one custom IPv4 address, format '192.168.1.2/24'.
+	//   '<ip-address>': Use one custom IPv4/IPv6 address, format '192.168.1.2', 'fdaa:bbbb:cccc:dddd::1001'
+	//   '<ip-address>/<mask-size>': Use one custom IPv4/IPv6 address, format '192.168.1.2/24',  'fdaa:bbbb:cccc:dddd::1001/64'
 	//   '<ip1>-<ip2>-...-<ipN>': Use multiple custom IPv4 address.
 	CIDR string `json:"ip"`
 
