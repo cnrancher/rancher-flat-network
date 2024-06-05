@@ -21,7 +21,7 @@ func (h *handler) handleMacvlanIPRemove(s string, ip *macvlanv1.MacvlanIP) (*mac
 	defer h.allocateMutex.Unlock()
 
 	err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-		result, err := h.macvlanSubnetCache.Get(macvlanv1.MacvlanSubnetNamespace, ip.Spec.Subnet)
+		result, err := h.macvlanSubnetCache.Get(macvlanv1.SubnetNamespace, ip.Spec.Subnet)
 		if err != nil {
 			return fmt.Errorf("failed to get subnet from cache: %w", err)
 		}

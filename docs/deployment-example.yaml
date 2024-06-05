@@ -6,7 +6,7 @@ metadata:
   labels:
     app: nginx
 spec:
-  replicas: 10
+  replicas: 5
   selector:
     matchLabels:
       app: nginx
@@ -34,7 +34,7 @@ metadata:
   labels:
     app: alpine
 spec:
-  replicas: 10
+  replicas: 5
   selector:
     matchLabels:
       app: alpine
@@ -45,6 +45,36 @@ spec:
       annotations:
         macvlan.pandaria.cattle.io/ip: "auto"
         macvlan.pandaria.cattle.io/subnet: "example-subnet"
+        macvlan.pandaria.cattle.io/mac: ""
+    spec:
+      containers:
+      - name: alpine
+        image: alpine
+        command:
+        - "sleep"
+        args:
+        - "infinity"
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: example-alpine-ipv6
+  namespace: default
+  labels:
+    app: alpine-ipv6
+spec:
+  replicas: 5
+  selector:
+    matchLabels:
+      app: alpine-ipv6
+  template:
+    metadata:
+      labels:
+        app: alpine-ipv6
+      annotations:
+        macvlan.pandaria.cattle.io/ip: "auto"
+        macvlan.pandaria.cattle.io/subnet: "example-subnet-ipv6"
         macvlan.pandaria.cattle.io/mac: ""
     spec:
       containers:

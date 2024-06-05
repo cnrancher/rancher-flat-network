@@ -138,6 +138,9 @@ spec:
               failureMessage:
                 nullable: true
                 type: string
+              gateway:
+                nullable: true
+                type: string
               phase:
                 nullable: true
                 type: string

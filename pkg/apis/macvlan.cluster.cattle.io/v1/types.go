@@ -7,24 +7,30 @@ import (
 )
 
 const (
-	MacvlanSubnetNamespace  = "kube-system"
-	MacvlanAnnotationPrefix = "macvlan.pandaria.cattle.io/"
-	AnnotationIP            = "macvlan.pandaria.cattle.io/ip"
-	AnnotationSubnet        = "macvlan.pandaria.cattle.io/subnet"
-	LabelSubnet             = "macvlan.pandaria.cattle.io/subnet"
-	AnnotationMac           = "macvlan.pandaria.cattle.io/mac"
-	LabelSelectedIP         = "macvlan.pandaria.cattle.io/selectedIp"
-	LabelMultipleIPHash     = "macvlan.pandaria.cattle.io/multipleIpHash"
+	SubnetNamespace = "kube-system"
 
+	// Specification for Annotations
+	AnnotationPrefix         = "macvlan.pandaria.cattle.io/"
+	AnnotationIP             = "macvlan.pandaria.cattle.io/ip"
+	AnnotationSubnet         = "macvlan.pandaria.cattle.io/subnet"
+	AnnotationMac            = "macvlan.pandaria.cattle.io/mac"
 	AnnotationIngress        = "macvlan.panda.io/ingress"
-	LabelMacvlanIPType       = "macvlan.panda.io/macvlanIpType"
-	LabelSelectedMac         = "macvlan.panda.io/selectedMac"
 	AnnotationMacvlanService = "macvlan.panda.io/macvlanService"
-	LabelProjectID           = "field.cattle.io/projectId"
-	LabelWorkloadSelector    = "workload.user.cattle.io/workloadselector"
-	AnnotationIPDelayReuse   = "macvlan.panda.io/ipDelayReuseTimestamp"
-	FinalizerIPDelayReuse    = "macvlan.panda.io/ipDelayReuse"
 	AnnotationsIPv6to4       = "macvlan.panda.io/ipv6to4"
+
+	// Deprecated: no longer used
+	AnnotationIPDelayReuse = "macvlan.panda.io/ipDelayReuseTimestamp"
+
+	// Specification for Labels
+	LabelSelectedIP       = "macvlan.pandaria.cattle.io/selectedIp"
+	LabelMultipleIPHash   = "macvlan.pandaria.cattle.io/multipleIpHash"
+	LabelSubnet           = "macvlan.pandaria.cattle.io/subnet"
+	LabelMacvlanIPType    = "macvlan.panda.io/macvlanIpType"
+	LabelSelectedMac      = "macvlan.panda.io/selectedMac"
+	LabelProjectID        = "field.cattle.io/projectId"
+	LabelWorkloadSelector = "workload.user.cattle.io/workloadselector"
+
+	FinalizerIPDelayReuse = "macvlan.panda.io/ipDelayReuse"
 )
 
 // +genclient
@@ -105,6 +111,9 @@ type MacvlanSubnetSpec struct {
 type MacvlanSubnetStatus struct {
 	Phase          string `json:"phase"`
 	FailureMessage string `json:"failureMessage"`
+
+	// Gateway is the gateway of the subnet.
+	Gateway net.IP `json:"gateway"`
 
 	// UsedIP is the used IPRange of this subnet.
 	UsedIP      []IPRange `json:"usedIP"`

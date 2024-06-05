@@ -3,34 +3,53 @@ package ipcalc
 import (
 	"net"
 	"testing"
+	"time"
 
 	macvlanv1 "github.com/cnrancher/flat-network-operator/pkg/apis/macvlan.cluster.cattle.io/v1"
-	"gotest.tools/v3/assert"
+	"github.com/stretchr/testify/assert"
 )
 
 func Test_IPIncrease(t *testing.T) {
 	ip := net.IPv4(192, 168, 1, 1)
 	IPIncrease(ip)
-	assert.DeepEqual(t, ip, net.IPv4(192, 168, 1, 2))
+	assert.Equal(t, ip, net.IPv4(192, 168, 1, 2))
 
 	ip = net.IPv4(192, 168, 1, 255)
 	IPIncrease(ip)
-	assert.DeepEqual(t, ip, net.IPv4(192, 168, 2, 0))
+	assert.Equal(t, ip, net.IPv4(192, 168, 2, 0))
+
+	ip = net.ParseIP("fdaa:bbcc::1")
+	IPIncrease(ip)
+	assert.Equal(t, ip, net.ParseIP("fdaa:bbcc::2"))
+
+	ip = net.ParseIP("fdaa:bbcc::ffff")
+	IPIncrease(ip)
+	assert.Equal(t, ip, net.ParseIP("fdaa:bbcc::1:0000"))
 }
 
 func Test_IPDecrease(t *testing.T) {
 	ip := net.IPv4(192, 168, 1, 1)
 	IPDecrease(ip)
-	assert.DeepEqual(t, ip, net.IPv4(192, 168, 1, 0))
+	assert.Equal(t, ip, net.IPv4(192, 168, 1, 0))
 	IPDecrease(ip)
-	assert.DeepEqual(t, ip, net.IPv4(192, 168, 0, 255))
+	assert.Equal(t, ip, net.IPv4(192, 168, 0, 255))
+
+	ip = net.ParseIP("fdaa:bbcc::1")
+	IPDecrease(ip)
+	assert.Equal(t, ip, net.ParseIP("fdaa:bbcc::"))
+	IPDecrease(ip)
+	assert.Equal(t, ip, net.ParseIP("fdaa:bbcb:ffff:ffff:ffff:ffff:ffff:ffff"))
 }
 
 func Test_CalcDefaultGateway(t *testing.T) {
-	ip, _ := GetDefaultGateway("192.168.1.0/24")
-	assert.DeepEqual(t, net.ParseIP("192.168.1.1"), ip)
-	ip, _ = GetDefaultGateway("")
-	assert.Check(t, ip == nil)
+	ip, _ := GetDefaultGateway("")
+	assert.True(t, ip == nil)
+
+	ip, _ = GetDefaultGateway("192.168.1.0/24")
+	assert.Equal(t, net.ParseIP("192.168.1.1"), ip)
+
+	ip, _ = GetDefaultGateway("fdab:cdef::/64")
+	assert.Equal(t, net.ParseIP("fdab:cdef::1"), ip)
 }
 
 func Test_IPInRanges(t *testing.T) {
@@ -95,62 +114,26 @@ func Test_IPInRanges(t *testing.T) {
 	if IPInRanges(ip, ipRanges) {
 		t.Fatal("failed")
 	}
-}
 
-func Test_IPNotUsed(t *testing.T) {
-	var ip net.IP = []byte{1, 2, 3}
-	if !IPNotUsed(ip, nil) {
-		t.Fatal("failed")
-	}
-	if !IPNotUsed(ip, []macvlanv1.IPRange{}) {
-		t.Fatal("failed")
-	}
-	if !IPNotUsed(ip, []macvlanv1.IPRange{
+	// IPv6
+	ip = net.ParseIP("fd00::1")
+	ipRanges = []macvlanv1.IPRange{
 		{
-			RangeStart: nil,
-			RangeEnd:   nil,
+			RangeStart: net.ParseIP("fd00::1"),
+			RangeEnd:   net.ParseIP("fd00::1"),
 		},
-	}) {
+	}
+	if !IPInRanges(ip, ipRanges) {
 		t.Fatal("failed")
 	}
 
-	ip = net.ParseIP("10.0.0.1")
-	if !IPNotUsed(ip, nil) {
-		t.Fatal("failed")
-	}
-	if !IPNotUsed(ip, []macvlanv1.IPRange{}) {
-		t.Fatal("failed")
-	}
-	if !IPNotUsed(ip, []macvlanv1.IPRange{
-		{
-			RangeStart: nil,
-			RangeEnd:   nil,
-		},
-	}) {
+	ip = net.ParseIP("fd00::2")
+	if IPInRanges(ip, ipRanges) {
 		t.Fatal("failed")
 	}
 
-	var usedRanges = []macvlanv1.IPRange{
-		{
-			RangeStart: net.ParseIP("10.0.0.1"),
-			RangeEnd:   net.ParseIP("10.0.0.1"),
-		},
-	}
-	if IPNotUsed(ip, usedRanges) {
-		t.Fatal("failed")
-	}
-
-	usedRanges = []macvlanv1.IPRange{
-		{
-			RangeStart: net.ParseIP("10.0.0.100"),
-			RangeEnd:   net.ParseIP("10.0.0.200"),
-		},
-	}
-	if !IPNotUsed(ip, usedRanges) {
-		t.Fatal("failed")
-	}
-	ip = net.ParseIP("10.0.0.110")
-	if IPNotUsed(ip, usedRanges) {
+	ipRanges[0].RangeEnd = net.ParseIP("fd00::2")
+	if !IPInRanges(ip, ipRanges) {
 		t.Fatal("failed")
 	}
 }
@@ -161,12 +144,12 @@ func Test_GetAvailableIP(t *testing.T) {
 	assert.Equal(t, len(ip), 0)
 
 	ip, err = GetAvailableIP("10.0.0.0/24", nil, nil)
-	assert.NilError(t, err)
-	assert.DeepEqual(t, ip, net.ParseIP("10.0.0.1"))
+	assert.Nil(t, err)
+	assert.Equal(t, ip, net.ParseIP("10.0.0.1"))
 
 	ip, err = GetAvailableIP("10.0.0.0/24", []macvlanv1.IPRange{}, []macvlanv1.IPRange{})
-	assert.NilError(t, err)
-	assert.DeepEqual(t, ip, net.ParseIP("10.0.0.1"))
+	assert.Nil(t, err)
+	assert.Equal(t, ip, net.ParseIP("10.0.0.1"))
 
 	ip, _ = GetAvailableIP(
 		"10.0.0.0/24",
@@ -178,7 +161,7 @@ func Test_GetAvailableIP(t *testing.T) {
 		},
 		[]macvlanv1.IPRange{},
 	)
-	assert.DeepEqual(t, ip, net.ParseIP("10.0.0.100"))
+	assert.Equal(t, ip, net.ParseIP("10.0.0.100"))
 
 	ip, _ = GetAvailableIP(
 		"10.0.0.0/24",
@@ -199,7 +182,7 @@ func Test_GetAvailableIP(t *testing.T) {
 			},
 		},
 	)
-	assert.DeepEqual(t, ip, net.ParseIP("10.0.0.210"))
+	assert.Equal(t, ip, net.ParseIP("10.0.0.210"))
 
 	ip, _ = GetAvailableIP(
 		"10.0.0.0/24",
@@ -224,7 +207,7 @@ func Test_GetAvailableIP(t *testing.T) {
 			},
 		},
 	)
-	assert.DeepEqual(t, ip, net.ParseIP("10.0.0.211"))
+	assert.Equal(t, ip, net.ParseIP("10.0.0.211"))
 
 	ip, _ = GetAvailableIP(
 		"10.0.0.0/8",
@@ -236,7 +219,7 @@ func Test_GetAvailableIP(t *testing.T) {
 		},
 		[]macvlanv1.IPRange{},
 	)
-	assert.DeepEqual(t, ip, net.ParseIP("10.255.255.254"))
+	assert.Equal(t, ip, net.ParseIP("10.255.255.254"))
 
 	ip, err = GetAvailableIP(
 		"10.0.0.0/8",
@@ -256,36 +239,54 @@ func Test_GetAvailableIP(t *testing.T) {
 	assert.ErrorIs(t, err, ErrNoAvailableIP)
 	assert.Equal(t, len(ip), 0)
 
+	now := time.Now().UnixMilli()
 	ip, err = GetAvailableIP(
 		"10.0.0.0/8",
 		[]macvlanv1.IPRange{},
 		[]macvlanv1.IPRange{
 			{
-				RangeStart: net.ParseIP("10.0.0.0"),
+				RangeStart: net.ParseIP("10.0.0.1"),
 				RangeEnd:   net.ParseIP("10.255.255.254"),
 			},
 		},
 	)
 	assert.ErrorIs(t, err, ErrNoAvailableIP)
 	assert.Equal(t, len(ip), 0)
-}
+	t.Logf("time consumed %.2f (s)", float64(time.Now().UnixMilli()-now)/1000.0)
 
-func Test_AddCIDRSuffix(t *testing.T) {
-	ip := net.ParseIP("192.168.1.12")
-	c := AddCIDRSuffix(ip, "192.168.1.0/24")
-	assert.Equal(t, "192.168.1.12/24", c)
+	// Get available IP from IPv6
+	ip, _ = GetAvailableIP(
+		"fdaa::/16",
+		[]macvlanv1.IPRange{},
+		[]macvlanv1.IPRange{},
+	)
+	assert.Equal(t, ip, net.ParseIP("fdaa::1"))
 
-	ip = net.ParseIP("10.0.0.1")
-	c = AddCIDRSuffix(ip, "10.0.0.0/8")
-	assert.Equal(t, "10.0.0.1/8", c)
+	ip, err = GetAvailableIP(
+		"fdaa::/16",
+		[]macvlanv1.IPRange{},
+		[]macvlanv1.IPRange{
+			{
+				RangeStart: net.ParseIP("fdaa::1"),
+				RangeEnd:   net.ParseIP("fdaa::ffff"),
+			},
+		},
+	)
+	assert.Nil(t, err)
+	assert.Equal(t, ip, net.ParseIP("fdaa::1:0"))
 
-	ip = net.ParseIP("172.31.1.100")
-	c = AddCIDRSuffix(ip, "172.16.0.0/16")
-	assert.Equal(t, "172.31.1.100/16", c)
-
-	ip = net.ParseIP("172.31.1.100")
-	c = AddCIDRSuffix(ip, "172.16.0.0")
-	assert.Equal(t, "172.31.1.100/32", c)
+	ip, err = GetAvailableIP(
+		"fdaa::/16",
+		[]macvlanv1.IPRange{},
+		[]macvlanv1.IPRange{
+			{
+				RangeStart: net.ParseIP("fdaa::1"),
+				RangeEnd:   net.ParseIP("fdaa:ffff:ffff:ffff:ffff:ffff:ffff:fffe"),
+			},
+		},
+	)
+	assert.Nil(t, ip)
+	assert.ErrorIs(t, err, ErrNoAvailableIP)
 }
 
 func Test_AddIPToRange(t *testing.T) {
@@ -293,7 +294,7 @@ func Test_AddIPToRange(t *testing.T) {
 	assert.Equal(t, len(r), 0)
 
 	r = AddIPToRange(net.ParseIP("192.168.1.12"), nil)
-	assert.DeepEqual(t, r, []macvlanv1.IPRange{
+	assert.Equal(t, r, []macvlanv1.IPRange{
 		{
 			RangeStart: net.ParseIP("192.168.1.12"),
 			RangeEnd:   net.ParseIP("192.168.1.12"),
@@ -301,7 +302,7 @@ func Test_AddIPToRange(t *testing.T) {
 	})
 
 	r = AddIPToRange(net.ParseIP("192.168.1.12"), r)
-	assert.DeepEqual(t, r, []macvlanv1.IPRange{
+	assert.Equal(t, r, []macvlanv1.IPRange{
 		{
 			RangeStart: net.ParseIP("192.168.1.12"),
 			RangeEnd:   net.ParseIP("192.168.1.12"),
@@ -310,7 +311,7 @@ func Test_AddIPToRange(t *testing.T) {
 
 	// Re-add existing ip in range.
 	r = AddIPToRange(net.ParseIP("192.168.1.12"), r)
-	assert.DeepEqual(t, r, []macvlanv1.IPRange{
+	assert.Equal(t, r, []macvlanv1.IPRange{
 		{
 			RangeStart: net.ParseIP("192.168.1.12"),
 			RangeEnd:   net.ParseIP("192.168.1.12"),
@@ -318,7 +319,7 @@ func Test_AddIPToRange(t *testing.T) {
 	})
 
 	r = AddIPToRange(net.ParseIP("192.168.1.13"), r)
-	assert.DeepEqual(t, r, []macvlanv1.IPRange{
+	assert.Equal(t, r, []macvlanv1.IPRange{
 		{
 			RangeStart: net.ParseIP("192.168.1.12"),
 			RangeEnd:   net.ParseIP("192.168.1.13"),
@@ -326,7 +327,7 @@ func Test_AddIPToRange(t *testing.T) {
 	})
 
 	r = AddIPToRange(net.ParseIP("192.168.1.11"), r)
-	assert.DeepEqual(t, r, []macvlanv1.IPRange{
+	assert.Equal(t, r, []macvlanv1.IPRange{
 		{
 			RangeStart: net.ParseIP("192.168.1.11"),
 			RangeEnd:   net.ParseIP("192.168.1.13"),
@@ -334,7 +335,7 @@ func Test_AddIPToRange(t *testing.T) {
 	})
 
 	r = AddIPToRange(net.ParseIP("192.168.1.20"), r)
-	assert.DeepEqual(t, r, []macvlanv1.IPRange{
+	assert.Equal(t, r, []macvlanv1.IPRange{
 		{
 			RangeStart: net.ParseIP("192.168.1.11"),
 			RangeEnd:   net.ParseIP("192.168.1.13"),
@@ -346,7 +347,7 @@ func Test_AddIPToRange(t *testing.T) {
 	})
 
 	r = AddIPToRange(net.ParseIP("192.168.1.1"), r)
-	assert.DeepEqual(t, r, []macvlanv1.IPRange{
+	assert.Equal(t, r, []macvlanv1.IPRange{
 		{
 			RangeStart: net.ParseIP("192.168.1.1"),
 			RangeEnd:   net.ParseIP("192.168.1.1"),
@@ -362,7 +363,7 @@ func Test_AddIPToRange(t *testing.T) {
 	})
 
 	r = AddIPToRange(net.ParseIP("192.168.1.2"), r)
-	assert.DeepEqual(t, r, []macvlanv1.IPRange{
+	assert.Equal(t, r, []macvlanv1.IPRange{
 		{
 			RangeStart: net.ParseIP("192.168.1.1"),
 			RangeEnd:   net.ParseIP("192.168.1.2"),
@@ -378,7 +379,7 @@ func Test_AddIPToRange(t *testing.T) {
 	})
 
 	r = AddIPToRange(net.ParseIP("192.168.1.0"), r)
-	assert.DeepEqual(t, r, []macvlanv1.IPRange{
+	assert.Equal(t, r, []macvlanv1.IPRange{
 		{
 			RangeStart: net.ParseIP("192.168.1.0"),
 			RangeEnd:   net.ParseIP("192.168.1.2"),
@@ -392,6 +393,65 @@ func Test_AddIPToRange(t *testing.T) {
 			RangeEnd:   net.ParseIP("192.168.1.20"),
 		},
 	})
+
+	r = AddIPToRange(net.ParseIP("fd00::1"), r)
+	assert.Equal(t, r, []macvlanv1.IPRange{
+		{
+			RangeStart: net.ParseIP("192.168.1.0"),
+			RangeEnd:   net.ParseIP("192.168.1.2"),
+		},
+		{
+			RangeStart: net.ParseIP("192.168.1.11"),
+			RangeEnd:   net.ParseIP("192.168.1.13"),
+		},
+		{
+			RangeStart: net.ParseIP("192.168.1.20"),
+			RangeEnd:   net.ParseIP("192.168.1.20"),
+		},
+		{
+			RangeStart: net.ParseIP("fd00::1"),
+			RangeEnd:   net.ParseIP("fd00::1"),
+		},
+	})
+	r = AddIPToRange(net.ParseIP("fd00::2"), r)
+	assert.Equal(t, r, []macvlanv1.IPRange{
+		{
+			RangeStart: net.ParseIP("192.168.1.0"),
+			RangeEnd:   net.ParseIP("192.168.1.2"),
+		},
+		{
+			RangeStart: net.ParseIP("192.168.1.11"),
+			RangeEnd:   net.ParseIP("192.168.1.13"),
+		},
+		{
+			RangeStart: net.ParseIP("192.168.1.20"),
+			RangeEnd:   net.ParseIP("192.168.1.20"),
+		},
+		{
+			RangeStart: net.ParseIP("fd00::1"),
+			RangeEnd:   net.ParseIP("fd00::2"),
+		},
+	})
+
+	r = AddIPToRange(net.ParseIP("fd00::1"), r)
+	assert.Equal(t, r, []macvlanv1.IPRange{
+		{
+			RangeStart: net.ParseIP("192.168.1.0"),
+			RangeEnd:   net.ParseIP("192.168.1.2"),
+		},
+		{
+			RangeStart: net.ParseIP("192.168.1.11"),
+			RangeEnd:   net.ParseIP("192.168.1.13"),
+		},
+		{
+			RangeStart: net.ParseIP("192.168.1.20"),
+			RangeEnd:   net.ParseIP("192.168.1.20"),
+		},
+		{
+			RangeStart: net.ParseIP("fd00::1"),
+			RangeEnd:   net.ParseIP("fd00::2"),
+		},
+	})
 }
 
 func Test_RemoveIPFromRange(t *testing.T) {
@@ -402,7 +462,7 @@ func Test_RemoveIPFromRange(t *testing.T) {
 		},
 	}
 	r = RemoveIPFromRange(nil, r)
-	assert.DeepEqual(t, r, []macvlanv1.IPRange{
+	assert.Equal(t, r, []macvlanv1.IPRange{
 		{
 			RangeStart: net.ParseIP("192.168.1.100"),
 			RangeEnd:   net.ParseIP("192.168.1.200"),
@@ -410,7 +470,7 @@ func Test_RemoveIPFromRange(t *testing.T) {
 	})
 
 	r = RemoveIPFromRange(net.ParseIP("192.168.1.101"), r)
-	assert.DeepEqual(t, r, []macvlanv1.IPRange{
+	assert.Equal(t, r, []macvlanv1.IPRange{
 		{
 			RangeStart: net.ParseIP("192.168.1.100"),
 			RangeEnd:   net.ParseIP("192.168.1.100"),
@@ -422,7 +482,7 @@ func Test_RemoveIPFromRange(t *testing.T) {
 	})
 
 	r = RemoveIPFromRange(net.ParseIP("192.168.1.100"), r)
-	assert.DeepEqual(t, r, []macvlanv1.IPRange{
+	assert.Equal(t, r, []macvlanv1.IPRange{
 		{
 			RangeStart: net.ParseIP("192.168.1.102"),
 			RangeEnd:   net.ParseIP("192.168.1.200"),
@@ -431,7 +491,7 @@ func Test_RemoveIPFromRange(t *testing.T) {
 
 	// Re-delete non-existing ip from range.
 	r = RemoveIPFromRange(net.ParseIP("192.168.1.100"), r)
-	assert.DeepEqual(t, r, []macvlanv1.IPRange{
+	assert.Equal(t, r, []macvlanv1.IPRange{
 		{
 			RangeStart: net.ParseIP("192.168.1.102"),
 			RangeEnd:   net.ParseIP("192.168.1.200"),
@@ -439,7 +499,7 @@ func Test_RemoveIPFromRange(t *testing.T) {
 	})
 
 	r = RemoveIPFromRange(net.ParseIP("192.168.1.102"), r)
-	assert.DeepEqual(t, r, []macvlanv1.IPRange{
+	assert.Equal(t, r, []macvlanv1.IPRange{
 		{
 			RangeStart: net.ParseIP("192.168.1.103"),
 			RangeEnd:   net.ParseIP("192.168.1.200"),
@@ -447,7 +507,7 @@ func Test_RemoveIPFromRange(t *testing.T) {
 	})
 
 	r = RemoveIPFromRange(net.ParseIP("192.168.1.200"), r)
-	assert.DeepEqual(t, r, []macvlanv1.IPRange{
+	assert.Equal(t, r, []macvlanv1.IPRange{
 		{
 			RangeStart: net.ParseIP("192.168.1.103"),
 			RangeEnd:   net.ParseIP("192.168.1.199"),
@@ -461,7 +521,7 @@ func Test_RemoveIPFromRange(t *testing.T) {
 		},
 	}
 	r = RemoveIPFromRange(net.ParseIP("192.168.1.111"), r)
-	assert.DeepEqual(t, r, []macvlanv1.IPRange{
+	assert.Equal(t, r, []macvlanv1.IPRange{
 		{
 			RangeStart: net.ParseIP("192.168.1.100"),
 			RangeEnd:   net.ParseIP("192.168.1.100"),
@@ -469,5 +529,103 @@ func Test_RemoveIPFromRange(t *testing.T) {
 	})
 
 	r = RemoveIPFromRange(net.ParseIP("192.168.1.100"), r)
-	assert.DeepEqual(t, r, []macvlanv1.IPRange{})
+	assert.Equal(t, r, []macvlanv1.IPRange{})
+
+	r = []macvlanv1.IPRange{
+		{
+			RangeStart: net.ParseIP("fd00::0001"),
+			RangeEnd:   net.ParseIP("fd00::0002"),
+		},
+	}
+	r = RemoveIPFromRange(net.ParseIP("fd00::0002"), r)
+	assert.Equal(t, r, []macvlanv1.IPRange{
+		{
+			RangeStart: net.ParseIP("fd00::0001"),
+			RangeEnd:   net.ParseIP("fd00::0001"),
+		},
+	})
+
+	r = RemoveIPFromRange(net.ParseIP("fd00::1"), r)
+	assert.Equal(t, r, []macvlanv1.IPRange{})
+}
+
+func Test_MaskXOR(t *testing.T) {
+	mask := MaskXOR(nil)
+	assert.Nil(t, mask)
+
+	_, network, err := net.ParseCIDR("10.16.0.0/12")
+	assert.Nil(t, err)
+	mask = MaskXOR(network.Mask)
+	assert.Equal(t, mask, net.IPMask{0x0, 0x0f, 0xff, 0xff})
+
+	_, network, err = net.ParseCIDR("192.168.1.0/24")
+	assert.Nil(t, err)
+	mask = MaskXOR(network.Mask)
+	assert.Equal(t, mask, net.IPMask{0x0, 0x0, 0x0, 0xff})
+
+	_, network, err = net.ParseCIDR("fdaa::/32")
+	assert.Nil(t, err)
+	mask = MaskXOR(network.Mask)
+	expected := make(net.IPMask, 16)
+	for i := 0; i < len(expected); i++ {
+		if i < 32/8 {
+			// set first 32/8 bytes to 0x00
+			continue
+		}
+		// set bytes after 32/8 bytes to 0xff
+		expected[i] = 0xff
+	}
+	assert.Equal(t, mask, expected)
+}
+
+func Test_IsBroadCast(t *testing.T) {
+	_, network, _ := net.ParseCIDR("192.168.1.0/24")
+	assert.True(t, IsBroadCast(net.ParseIP("192.168.1.255"), network))
+	assert.False(t, IsBroadCast(net.ParseIP("192.168.1.11"), network))
+	assert.False(t, IsBroadCast(net.ParseIP("192.168.1.0"), network))
+
+	_, network, _ = net.ParseCIDR("10.0.0.0/8")
+	assert.True(t, IsBroadCast(net.ParseIP("10.255.255.255"), network))
+	assert.False(t, IsBroadCast(net.ParseIP("10.0.0.1"), network))
+	assert.False(t, IsBroadCast(net.ParseIP("10.0.0.255"), network))
+	assert.False(t, IsBroadCast(net.ParseIP("10.0.0.0"), network))
+
+	_, network, _ = net.ParseCIDR("10.0.0.0/12")
+	assert.True(t, IsBroadCast(net.ParseIP("10.15.255.255"), network))
+	assert.False(t, IsBroadCast(net.ParseIP("10.0.0.1"), network))
+	assert.False(t, IsBroadCast(net.ParseIP("10.0.0.255"), network))
+	assert.False(t, IsBroadCast(net.ParseIP("10.0.0.0"), network))
+
+	_, network, _ = net.ParseCIDR("fdaa:bbbb:cccc:dddd::/64")
+	assert.True(t, IsBroadCast(net.ParseIP("fdaa:bbbb:cccc:dddd:ffff:ffff:ffff:ffff"), network))
+	assert.False(t, IsBroadCast(net.ParseIP("fdaa:bbbb:cccc:dddd:0:ffff:ffff:ffff"), network))
+	assert.False(t, IsBroadCast(net.ParseIP("fdaa:bbbb:cccc:dddd::ffff"), network))
+	assert.False(t, IsBroadCast(net.ParseIP("fdaa:bbbb:cccc:dddd::0"), network))
+
+	_, network, _ = net.ParseCIDR("fdaa::/64")
+	assert.True(t, IsBroadCast(net.ParseIP("fdaa::ffff:ffff:ffff:ffff"), network))
+	assert.False(t, IsBroadCast(net.ParseIP("fdaa::ffff:ffff:ffff"), network))
+	assert.False(t, IsBroadCast(net.ParseIP("fdaa::ffff"), network))
+	assert.False(t, IsBroadCast(net.ParseIP("fdaa::"), network))
+}
+
+func Test_IsNetwork(t *testing.T) {
+	_, network, _ := net.ParseCIDR("192.168.1.0/24")
+	assert.True(t, IsNetwork(net.ParseIP("192.168.1.0"), network))
+	assert.False(t, IsNetwork(net.ParseIP("192.168.1.11"), network))
+	assert.False(t, IsNetwork(net.ParseIP("192.168.1.255"), network))
+}
+
+func Test_IsAvailableIP(t *testing.T) {
+	_, network, _ := net.ParseCIDR("192.168.1.0/24")
+	assert.True(t, IsAvailableIP(net.ParseIP("192.168.1.11"), network))
+	assert.False(t, IsAvailableIP(net.ParseIP("192.168.1.0"), network))
+	assert.False(t, IsAvailableIP(net.ParseIP("192.168.1.255"), network))
+
+	_, network, _ = net.ParseCIDR("fdaa::/64")
+	assert.True(t, IsAvailableIP(net.ParseIP("fdaa::0001"), network))
+	assert.False(t, IsAvailableIP(net.ParseIP("fdaa:abab::0001"), network))
+	assert.False(t, IsAvailableIP(net.ParseIP("fdaa:abab::0002:0001"), network))
+	assert.False(t, IsAvailableIP(net.ParseIP("fdaa:abab::ffff:ffff:ffff:ffff"), network))
+	assert.False(t, IsAvailableIP(net.ParseIP("fdaa::ffff:ffff:ffff:ffff"), network))
 }

@@ -10,7 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 )
 
-func (h *handler) onMacvlanSubnetRemove(
+func (h *handler) handleMacvlanSubnetRemove(
 	_ string, subnet *macvlanv1.MacvlanSubnet,
 ) (*macvlanv1.MacvlanSubnet, error) {
 	if subnet == nil || subnet.Name == "" {
@@ -37,8 +37,14 @@ func (h *handler) onMacvlanSubnetRemove(
 				subnet.Name, utils.PrintObject(usedMap))
 	}
 
+	subnet = subnet.DeepCopy()
+	subnet.Status.Phase = ""
+	subnetUpdate, err := h.macvlanSubnetClient.UpdateStatus(subnet)
+	if err != nil {
+		return subnet, err
+	}
 	logrus.WithFields(fieldsSubnet(subnet)).
 		Infof("subnet [%v] removed",
-			subnet.Name)
-	return subnet, nil
+			subnetUpdate.Name)
+	return subnetUpdate, nil
 }

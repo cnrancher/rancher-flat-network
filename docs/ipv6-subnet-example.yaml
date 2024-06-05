@@ -4,25 +4,24 @@ metadata:
     creationTimestamp: null
     labels:
         project: ""
-    name: example-subnet
+    name: example-subnet-ipv6
     namespace: kube-system
 spec:
-    cidr: 192.168.1.0/24
+    cidr: "fd00:abcd::/64"
     gateway: ""
     master: eth0
     mode: ""
     podDefaultGateway: {}
     ranges:
-        - rangeEnd: 192.168.1.120
-          rangeStart: 192.168.1.100
-        - rangeEnd: 192.168.1.160
-          rangeStart: 192.168.1.150
-        - rangeEnd: 192.168.1.220
-          rangeStart: 192.168.1.200
+        - rangeEnd: "fd00:abcd::0010"
+          rangeStart: "fd00:abcd::"
+        - rangeEnd: "fd00:abcd::1000:1000"
+          rangeStart: "fd00:abcd::1000:0"
+        - rangeEnd: "fd00:abcd::1"
+          rangeStart: "fd00:abcd::1"
     vlan: 0
 status:
     failureMessage: ""
-    gateway: ""
     phase: ""
     usedIP: null
     usedIPCount: 0

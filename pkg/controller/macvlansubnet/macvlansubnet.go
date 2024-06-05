@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"net"
 	"slices"
 	"time"
 
@@ -11,8 +12,10 @@ import (
 	"github.com/cnrancher/flat-network-operator/pkg/ipcalc"
 	"github.com/cnrancher/flat-network-operator/pkg/utils"
 	"github.com/sirupsen/logrus"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/retry"
 
 	macvlanv1 "github.com/cnrancher/flat-network-operator/pkg/apis/macvlan.cluster.cattle.io/v1"
@@ -35,6 +38,8 @@ type handler struct {
 	macvlanSubnetCache  macvlancontroller.MacvlanSubnetCache
 	macvlanIPCache      macvlancontroller.MacvlanIPCache
 
+	recorder record.EventRecorder
+
 	macvlansubnetEnqueueAfter func(string, string, time.Duration)
 	macvlansubnetEnqueue      func(string, string)
 }
@@ -52,11 +57,11 @@ func Register(
 		macvlansubnetEnqueue:      wctx.Macvlan.MacvlanSubnet().Enqueue,
 	}
 
-	wctx.Macvlan.MacvlanSubnet().OnChange(ctx, handlerName, h.handleSubnetError(h.handleSubnetChanged))
-	wctx.Macvlan.MacvlanSubnet().OnRemove(ctx, handlerRemoveName, h.onMacvlanSubnetRemove)
+	wctx.Macvlan.MacvlanSubnet().OnChange(ctx, handlerName, h.handleError(h.handleMacvlanSubnet))
+	wctx.Macvlan.MacvlanSubnet().OnRemove(ctx, handlerRemoveName, h.handleMacvlanSubnetRemove)
 }
 
-func (h *handler) handleSubnetError(
+func (h *handler) handleError(
 	onChange func(string, *macvlanv1.MacvlanSubnet) (*macvlanv1.MacvlanSubnet, error),
 ) func(string, *macvlanv1.MacvlanSubnet) (*macvlanv1.MacvlanSubnet, error) {
 	return func(key string, subnet *macvlanv1.MacvlanSubnet) (*macvlanv1.MacvlanSubnet, error) {
@@ -102,7 +107,7 @@ func (h *handler) handleSubnetError(
 	}
 }
 
-func (h *handler) handleSubnetChanged(
+func (h *handler) handleMacvlanSubnet(
 	_ string, subnet *macvlanv1.MacvlanSubnet,
 ) (*macvlanv1.MacvlanSubnet, error) {
 	if subnet == nil {
@@ -130,7 +135,7 @@ func (h *handler) handleSubnetChanged(
 func (h *handler) onMacvlanSubnetCreate(subnet *macvlanv1.MacvlanSubnet) (*macvlanv1.MacvlanSubnet, error) {
 	// Update macvlan subnet labels.
 	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		result, err := h.macvlanSubnetCache.Get(macvlanv1.MacvlanSubnetNamespace, subnet.Name)
+		result, err := h.macvlanSubnetCache.Get(macvlanv1.SubnetNamespace, subnet.Name)
 		if err != nil {
 			logrus.WithFields(fieldsSubnet(subnet)).
 				Errorf("failed to get subnet from cache: %v", err)
@@ -143,13 +148,6 @@ func (h *handler) onMacvlanSubnetCreate(subnet *macvlanv1.MacvlanSubnet) (*macvl
 		result.Labels["master"] = result.Spec.Master
 		result.Labels["vlan"] = fmt.Sprintf("%v", result.Spec.VLAN)
 		result.Labels["mode"] = result.Spec.Mode
-		if result.Spec.Gateway == nil {
-			gatewayIP, err := ipcalc.GetDefaultGateway(result.Spec.CIDR)
-			if err != nil {
-				return fmt.Errorf("failed to get macvlan subnet default gateway IP: %w", err)
-			}
-			result.Spec.Gateway = gatewayIP
-		}
 		result, err = h.macvlanSubnetClient.Update(result)
 		if err != nil {
 			logrus.WithFields(fieldsSubnet(subnet)).
@@ -166,32 +164,26 @@ func (h *handler) onMacvlanSubnetCreate(subnet *macvlanv1.MacvlanSubnet) (*macvl
 		return subnet, fmt.Errorf("failed to update label and gateway of subnet: %w", err)
 	}
 
-	// Add the gateway ip to usedIP status.
+	var gatewayIP net.IP
 	if subnet.Spec.Gateway == nil {
-		return subnet, fmt.Errorf("subnet %q gateway should not empty", subnet.Name)
+		gatewayIP, err = ipcalc.GetDefaultGateway(subnet.Spec.CIDR)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get macvlan subnet default gateway IP: %w", err)
+		}
+	} else {
+		gatewayIP = subnet.Spec.Gateway
 	}
 
-	// Update the macvlan subnet status phase to active.
-	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		result, err := h.macvlanSubnetCache.Get(subnet.Namespace, subnet.Name)
-		if err != nil {
-			logrus.WithFields(fieldsSubnet(subnet)).
-				Warnf("Failed to get latest version of subnet: %v", err)
-			return err
-		}
-		result = result.DeepCopy()
-		result.Status.Phase = macvlanSubnetActivePhase
-		result.Status.UsedIP = ipcalc.AddIPToRange(result.Spec.Gateway, result.Status.UsedIP)
-		result, err = h.macvlanSubnetClient.UpdateStatus(result)
-		if err != nil {
-			return err
-		}
-		subnet = result
-		return nil
-	})
+	// Update the flat-network subnet status.
+	subnet = subnet.DeepCopy()
+	subnet.Status.Phase = macvlanSubnetActivePhase
+	subnet.Status.UsedIP = ipcalc.AddIPToRange(subnet.Spec.Gateway, subnet.Status.UsedIP)
+	subnet.Status.Gateway = gatewayIP
+	subnetUpdate, err := h.macvlanSubnetClient.UpdateStatus(subnet)
 	if err != nil {
 		return subnet, fmt.Errorf("failed to update status of subnet: %w", err)
 	}
+	subnet = subnetUpdate
 
 	logrus.WithFields(fieldsSubnet(subnet)).
 		Infof("update subnet [%v] status to active", subnet.Name)
@@ -210,8 +202,23 @@ func (h *handler) onMacvlanSubnetUpdate(subnet *macvlanv1.MacvlanSubnet) (*macvl
 	// Sync this subnet in every 10 minutes.
 	defer h.macvlansubnetEnqueueAfter(subnet.Namespace, subnet.Name, time.Minute*10)
 
+	var gatewayIP net.IP = subnet.Status.Gateway
+	if gatewayIP == nil {
+		if subnet.Spec.Gateway == nil {
+			gatewayIP, err = ipcalc.GetDefaultGateway(subnet.Spec.CIDR)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get gateway IP from subnet: %w", err)
+			}
+		} else {
+			gatewayIP = subnet.Spec.Gateway
+		}
+	}
+
 	usedIPs := ip2UsedRanges(ips)
-	if equality.Semantic.DeepEqual(usedIPs, subnet.Status.UsedIP) && subnet.Status.UsedIPCount == len(ips) {
+	usedIPs = ipcalc.AddIPToRange(gatewayIP, usedIPs)
+	if equality.Semantic.DeepEqual(usedIPs, subnet.Status.UsedIP) &&
+		subnet.Status.UsedIPCount == len(ips) &&
+		gatewayIP.Equal(subnet.Status.Gateway) {
 		logrus.WithFields(fieldsSubnet(subnet)).
 			Debugf("subnet [%v] usedIP status already update", subnet.Name)
 		return subnet, nil
@@ -226,7 +233,8 @@ func (h *handler) onMacvlanSubnetUpdate(subnet *macvlanv1.MacvlanSubnet) (*macvl
 			return nil
 		}
 		result.Status.UsedIP = usedIPs
-		result.Status.UsedIPCount = len(ips)
+		result.Status.UsedIPCount = len(ips) + 1 // PodIPs & Gateway IP
+		result.Status.Gateway = gatewayIP
 		result, err = h.macvlanSubnetClient.UpdateStatus(result)
 		if err != nil {
 			return fmt.Errorf("failed to update subnet status: %w", err)
@@ -258,6 +266,10 @@ func ip2UsedRanges(ips []*macvlanv1.MacvlanIP) []macvlanv1.IPRange {
 		usedIPs = ipcalc.AddIPToRange(ip.Status.IP, usedIPs)
 	}
 	return usedIPs
+}
+
+func (h *handler) eventError(pod *corev1.Pod, err error) {
+	h.recorder.Event(pod, corev1.EventTypeWarning, "FlatNetworkSubnetError", err.Error())
 }
 
 func fieldsSubnet(subnet *macvlanv1.MacvlanSubnet) logrus.Fields {

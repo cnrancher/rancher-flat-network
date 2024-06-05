@@ -181,7 +181,11 @@ func (h *handler) updatePodLabel(pod *corev1.Pod, macvlanIP *macvlanv1.MacvlanIP
 	labels[macvlanv1.LabelMacvlanIPType] = "specific"
 
 	if macvlanIP.Status.IP != nil {
-		labels[macvlanv1.LabelSelectedIP] = macvlanIP.Status.IP.String()
+		if macvlanIP.Status.IP.To4() != nil {
+			// TODO: IPv6 address contains invalid char ':'
+			// Set IPv4 labels only.
+			labels[macvlanv1.LabelSelectedIP] = macvlanIP.Status.IP.String()
+		}
 	}
 	if macvlanIP.Status.MAC != nil {
 		labels[macvlanv1.LabelSelectedMac] = strings.ReplaceAll(macvlanIP.Status.MAC.String(), ":", "_")

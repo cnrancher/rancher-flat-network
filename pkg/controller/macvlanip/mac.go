@@ -35,7 +35,7 @@ func alreadyAllocatedMAC(ip *macvlanv1.MacvlanIP) bool {
 	return false
 }
 
-func (h *handler) allocateMAC(
+func allocateMAC(
 	ip *macvlanv1.MacvlanIP, subnet *macvlanv1.MacvlanSubnet,
 ) (net.HardwareAddr, error) {
 	if ip.Spec.MAC == "" {

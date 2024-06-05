@@ -5,7 +5,6 @@ import (
 	"errors"
 	"net"
 	"slices"
-	"strings"
 
 	macvlanv1 "github.com/cnrancher/flat-network-operator/pkg/apis/macvlan.cluster.cattle.io/v1"
 )
@@ -16,7 +15,6 @@ var (
 )
 
 // IPIncrease increases the provided IP address.
-// http://play.golang.org/p/m8TNTtygK0
 func IPIncrease(ip net.IP) {
 	for j := len(ip) - 1; j >= 0; j-- {
 		ip[j]++
@@ -36,16 +34,20 @@ func IPDecrease(ip net.IP) {
 	}
 }
 
-// GetDefaultGateway returns `192.168.1.1` from CIDR `192.168.1.0/24`.
-func GetDefaultGateway(cidr string) (net.IP, error) {
-	ip, ipnet, err := net.ParseCIDR(cidr)
+// GetDefaultGateway returns **16 bytes** IP address by CIDR.
+//
+// Example:
+//
+//	CIDR `192.168.1.0/24` -> return `192.168.1.1`.
+func GetDefaultGateway(CIDR string) (net.IP, error) {
+	ip, ipnet, err := net.ParseCIDR(CIDR)
 	if err != nil {
 		return nil, err
 	}
 
 	ip = ip.Mask(ipnet.Mask)
 	IPIncrease(ip)
-	return ip, nil
+	return ip.To16(), nil
 }
 
 // IPInRanges checks whether the address is in the IPRange.
@@ -71,70 +73,70 @@ func IPInRanges(ip net.IP, ipRanges []macvlanv1.IPRange) bool {
 	return false
 }
 
-// IPNotUsed checks whether the IP address is used or not.
-func IPNotUsed(ip net.IP, usedRanges []macvlanv1.IPRange) bool {
-	if len(usedRanges) == 0 {
-		return true
-	}
-	a := ip.To16() // Ensure 16bytes length.
-	if a == nil {
-		return true
-	}
-
-	for _, usedRange := range usedRanges {
-		if usedRange.RangeStart == nil || usedRange.RangeEnd == nil {
-			continue
-		}
-		start := usedRange.RangeStart.To16()
-		end := usedRange.RangeEnd.To16()
-		if bytes.Compare(a, start) >= 0 && bytes.Compare(a, end) <= 0 {
-			return false
-		}
-	}
-	return true
-}
-
 // GetAvailableIP gets a **16bytes length** IP address by CIDR and IPRange.
 // ErrNoAvailableIP error will be returned if no IP address resource available.
 func GetAvailableIP(
 	cidr string, ipRanges []macvlanv1.IPRange, usedIPs []macvlanv1.IPRange,
 ) (net.IP, error) {
-	ip, ipnet, err := net.ParseCIDR(cidr)
+	ip, network, err := net.ParseCIDR(cidr)
 	if err != nil {
 		return nil, err
 	}
 
-	// Iterate to get an available IP address.
-	for ip := ip.Mask(ipnet.Mask); ipnet.Contains(ip); IPIncrease(ip) {
-		l := len(ip)
-		if l != net.IPv4len && l != net.IPv6len {
-			continue
-		}
-		// Remove network address and broadcast address.
-		// FIXME: should check the CIDR length instead of using 0xFF here.
-		if ip[l-1] == 0x00 || ip[l-1] == 0xff {
-			continue
-		}
-		if len(ipRanges) == 0 && !IPInRanges(ip, usedIPs) {
-			return ip, nil
-		}
-		if IPInRanges(ip, ipRanges) && !IPInRanges(ip, usedIPs) {
-			return ip, nil
-		}
-	}
-	return nil, ErrNoAvailableIP
-}
+	// Iterate to get an available IP address from defined IPRanges.
+	if len(ipRanges) > 0 {
+		for _, r := range ipRanges {
+			start := slices.Clone(r.RangeStart.To16())
+			end := r.RangeEnd.To16()
+			// Skip the already used range to increase performance.
+			if len(usedIPs) != 0 {
+				for _, u := range usedIPs {
+					if u.RangeStart.Equal(start) {
+						start = slices.Clone(u.RangeEnd.To16())
+					}
+				}
+			}
+			if len(start) == 0 || len(end) == 0 {
+				continue
+			}
 
-// AddCIDRSuffix adds CIDR string suffix to IP address.
-//
-//	ip: `192.168.1.10` CIDR: `192.168.1.0/24` return `192.168.1.10/24`
-//	ip: `192.168.1.10` CIDR: `empty string` return `192.168.1.10/32`
-func AddCIDRSuffix(ip net.IP, CIDR string) string {
-	s := strings.Split(CIDR, "/")
-	if len(s) != 2 {
-		return ip.String() + "/32"
+			for ip := start; bytes.Compare(start, end) <= 0; IPIncrease(ip) {
+				ip = ip.To16() // Ensure IP in 16 bytes
+				// Remove network address and broadcast address.
+				if len(ip) == 0 || !IsAvailableIP(ip, network) {
+					continue
+				}
+				if !IPInRanges(ip, usedIPs) {
+					return ip, nil
+				}
+			}
+		}
+		return nil, ErrNoAvailableIP
 	}
-	return ip.String() + "/" + s[1]
+
+	// No custom IPRange defined, iterate to get available IP address.
+	start := net.IP(bytes.Clone(ip.Mask(network.Mask)))
+	IPIncrease(start)
+	// Skip the already used range to increase performance.
+	if len(usedIPs) != 0 {
+		for _, u := range usedIPs {
+			if u.RangeStart.Equal(start) {
+				start = slices.Clone(u.RangeEnd.To16())
+			}
+		}
+	}
+	for ip = start; network.Contains(ip); IPIncrease(ip) {
+		ip = ip.To16() // Ensure IP in 16 bytes
+		// Remove network address and broadcast address.
+		if len(ip) == 0 || !IsAvailableIP(ip, network) {
+			continue
+		}
+		if !IPInRanges(ip, usedIPs) {
+			return ip, nil
+		}
+	}
+
+	return nil, ErrNoAvailableIP
 }
 
 // AddIPToRange adds an IP address to IPRange.
@@ -229,4 +231,76 @@ func RemoveIPFromRange(ip net.IP, ipRanges []macvlanv1.IPRange) []macvlanv1.IPRa
 		return bytes.Compare(a.RangeStart, b.RangeStart)
 	})
 	return newRanges
+}
+
+// MaskXOR returns the XOR-ed network mask.
+//
+// Example:
+//
+//	input '255.255.240.0' -> return '0.0.15.255'
+func MaskXOR(mask net.IPMask) net.IPMask {
+	if len(mask) == 0 {
+		return nil
+	}
+	mask = slices.Clone(mask)
+	for i := 0; i < len(mask); i++ {
+		mask[i] ^= 255
+	}
+	return mask
+}
+
+// IsBroadCast checks if the IP address is the broadcast address of the network.
+func IsBroadCast(ip net.IP, network *net.IPNet) bool {
+	if len(ip) == 0 || network == nil || len(network.IP) == 0 || len(network.Mask) == 0 {
+		return false
+	}
+	mask := MaskXOR(network.Mask)
+	if network.IP.To4() != nil {
+		// IPv4
+		a := slices.Clone(network.IP.To4())
+		for i := 0; i < len(a) && i < len(mask); i++ {
+			a[i] += mask[i]
+		}
+		return ip.Equal(a)
+	} else if network.IP.To16() != nil {
+		// IPv6
+		a := slices.Clone(network.IP.To16())
+		for i := 0; i < len(a) && i < len(mask); i++ {
+			a[i] += mask[i]
+		}
+		return ip.Equal(a)
+	}
+
+	return false
+}
+
+// IsNetwork checks if the IP address is the network address itself.
+func IsNetwork(ip net.IP, network *net.IPNet) bool {
+	if len(ip) == 0 || network == nil || len(network.IP) == 0 || len(network.Mask) == 0 {
+		return false
+	}
+
+	return ip.Equal(network.IP)
+}
+
+func IPInNetwork(ip net.IP, network *net.IPNet) bool {
+	if len(ip) == 0 || network == nil || len(network.IP) == 0 || len(network.Mask) == 0 {
+		return false
+	}
+	networkAddr := ip.Mask(network.Mask)
+	return networkAddr.Equal(network.IP)
+}
+
+// IsAvailableIP returns true if the provided IP address is not a broadcast
+// and not a network address.
+func IsAvailableIP(ip net.IP, network *net.IPNet) bool {
+	if len(ip) == 0 || network == nil || len(network.IP) == 0 || len(network.Mask) == 0 {
+		return false
+	}
+	// IP address should inside the provided network.
+	if !IPInNetwork(ip, network) {
+		return false
+	}
+
+	return !(IsBroadCast(ip, network) || IsNetwork(ip, network))
 }

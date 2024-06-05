@@ -160,20 +160,20 @@ func (h *handler) onMacvlanIPCreate(ip *macvlanv1.MacvlanIP) (*macvlanv1.Macvlan
 	defer h.allocateMutex.Unlock()
 
 	// Ensure the macvlan subnet resource exists.
-	subnet, err := h.macvlanSubnetCache.Get(macvlanv1.MacvlanSubnetNamespace, ip.Spec.Subnet)
+	subnet, err := h.macvlanSubnetCache.Get(macvlanv1.SubnetNamespace, ip.Spec.Subnet)
 	if err != nil {
 		return ip, fmt.Errorf("onMacvlanIPCreate: failed to get subnet [%v] of ip [%v/%v]: %w",
 			ip.Spec.Subnet, ip.Namespace, ip.Name, err)
 	}
 
-	allocatedIP, err := h.allocateIP(ip, subnet)
+	allocatedIP, err := allocateIP(ip, subnet)
 	if err != nil {
 		logrus.WithFields(fieldsIP(ip)).
 			Errorf("failed to allocate IP address: %v", err)
 		h.eventError(pod, err)
 		return ip, err
 	}
-	allocatedMAC, err := h.allocateMAC(ip, subnet)
+	allocatedMAC, err := allocateMAC(ip, subnet)
 	if err != nil {
 		logrus.WithFields(fieldsIP(ip)).
 			Errorf("failed to allocate MAC address: %v", err)
@@ -182,7 +182,7 @@ func (h *handler) onMacvlanIPCreate(ip *macvlanv1.MacvlanIP) (*macvlanv1.Macvlan
 
 	// Update subnet status.
 	err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-		result, err := h.macvlanSubnetCache.Get(macvlanv1.MacvlanSubnetNamespace, ip.Spec.Subnet)
+		result, err := h.macvlanSubnetCache.Get(macvlanv1.SubnetNamespace, ip.Spec.Subnet)
 		if err != nil {
 			logrus.WithFields(fieldsIP(ip)).
 				Errorf("failed to get subnet from cache: %v", err)
@@ -257,7 +257,14 @@ func (h *handler) onMacvlanIPCreate(ip *macvlanv1.MacvlanIP) (*macvlanv1.Macvlan
 }
 
 func (h *handler) onMacvlanIPUpdate(ip *macvlanv1.MacvlanIP) (*macvlanv1.MacvlanIP, error) {
-	if alreadyAllocateIP(ip) && alreadyAllocatedMAC(ip) {
+	// Ensure the macvlan subnet resource exists.
+	subnet, err := h.macvlanSubnetCache.Get(macvlanv1.SubnetNamespace, ip.Spec.Subnet)
+	if err != nil {
+		return ip, fmt.Errorf("onMacvlanIPUpdate: failed to get subnet [%v] of ip [%v/%v]: %w",
+			ip.Spec.Subnet, ip.Namespace, ip.Name, err)
+	}
+
+	if alreadyAllocateIP(ip, subnet) && alreadyAllocatedMAC(ip) {
 		logrus.WithFields(fieldsIP(ip)).
 			Debugf("macvlanIP already updated")
 		return ip, nil
@@ -265,7 +272,7 @@ func (h *handler) onMacvlanIPUpdate(ip *macvlanv1.MacvlanIP) (*macvlanv1.Macvlan
 
 	logrus.WithFields(fieldsIP(ip)).
 		Infof("macvlanIP changes detected, will re-allocate IP & MAC addr")
-	err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+	err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		result, err := h.macvlanIPCache.Get(ip.Namespace, ip.Name)
 		if err != nil {
 			return fmt.Errorf("failed to get macvlanIP from cache: %w", err)
@@ -292,7 +299,7 @@ func (h *handler) onMacvlanIPUpdate(ip *macvlanv1.MacvlanIP) (*macvlanv1.Macvlan
 }
 
 func (h *handler) eventError(pod *corev1.Pod, err error) {
-	h.recorder.Event(pod, corev1.EventTypeWarning, "MacvlanIPError", err.Error())
+	h.recorder.Event(pod, corev1.EventTypeWarning, "FlatNetworkIPError", err.Error())
 }
 
 func fieldsIP(ip *macvlanv1.MacvlanIP) logrus.Fields {

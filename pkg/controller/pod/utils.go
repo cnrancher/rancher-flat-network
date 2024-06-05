@@ -34,7 +34,7 @@ func (h *handler) newMacvlanIP(pod *corev1.Pod) (*macvlanv1.MacvlanIP, error) {
 				macvlanv1.AnnotationMac, annotationMAC)
 		}
 	}
-	subnet, err := h.macvlanSubnetCache.Get(macvlanv1.MacvlanSubnetNamespace, annotationSubnet)
+	subnet, err := h.macvlanSubnetCache.Get(macvlanv1.SubnetNamespace, annotationSubnet)
 	if err != nil {
 		return nil, fmt.Errorf("newMacvlanIP: failed to get subnet [%v]: %w",
 			annotationSubnet, err)
@@ -81,7 +81,8 @@ func macvlanIPUpdated(a, b *macvlanv1.MacvlanIP) bool {
 		return false
 	}
 	if a.Name != b.Name || a.Namespace != b.Namespace {
-		logrus.Debugf("ip name/namespace of [%v/%v] mismatch", a.Namespace, a.Name)
+		logrus.Debugf("ip namespace/name [%v/%v] != [%v/%v]",
+			a.Namespace, a.Name, b.Namespace, b.Name)
 		return false
 	}
 	if !equality.Semantic.DeepEqual(a.OwnerReferences, b.OwnerReferences) {

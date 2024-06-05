@@ -1,20 +1,15 @@
-{
-  "kind": "MacvlanIP",
-  "apiVersion": "macvlan.cluster.cattle.io/v1",
-  "metadata": {
-    "name": "example-ip",
-    "creationTimestamp": null
-  },
-  "spec": {
-    "subnet": "example-subnet",
-    "ip": "",
-    "mac": "aa:bb:cc:dd:ee:ff",
-    "podId": "DE6F1529-3C77-4E4E-8D46-8294E025DE80"
-  },
-  "status": {
-    "phase": "",
-    "failureMessage": "",
-    "ip": "",
-    "mac": null
-  }
-}
+apiVersion: macvlan.cluster.cattle.io/v1
+kind: MacvlanIP
+metadata:
+    creationTimestamp: null
+    name: example-ip
+spec:
+    ip: ""
+    mac: aa:bb:cc:dd:ee:ff
+    podId: DE6F1529-3C77-4E4E-8D46-8294E025DE80
+    subnet: example-subnet
+status:
+    failureMessage: ""
+    ip: ""
+    mac: null
+    phase: ""
