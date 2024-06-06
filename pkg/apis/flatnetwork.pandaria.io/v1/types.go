@@ -139,6 +139,6 @@ type PodDefaultGateway struct {
 }
 
 type IPRange struct {
-	Start net.IP `json:"start"`
-	End   net.IP `json:"end"`
+	From net.IP `json:"from"`
+	End  net.IP `json:"end"`
 }

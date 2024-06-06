@@ -14,12 +14,8 @@ spec:
     mode: ""
     podDefaultGateway: {}
     ranges:
-        - end: 192.168.1.120
-          start: 192.168.1.100
-        - end: 192.168.1.160
-          start: 192.168.1.150
-        - end: 192.168.1.220
-          start: 192.168.1.200
+        - end: 192.168.1.200
+          from: 192.168.1.100
     vlan: 0
 status:
     failureMessage: ""

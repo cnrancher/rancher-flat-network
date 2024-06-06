@@ -62,8 +62,8 @@ func Test_IPInRanges(t *testing.T) {
 	}
 	if IPInRanges(ip, []flv1.IPRange{
 		{
-			Start: nil,
-			End:   nil,
+			From: nil,
+			End:  nil,
 		},
 	}) {
 		t.Fatal("failed")
@@ -78,8 +78,8 @@ func Test_IPInRanges(t *testing.T) {
 	}
 	if IPInRanges(ip, []flv1.IPRange{
 		{
-			Start: nil,
-			End:   nil,
+			From: nil,
+			End:  nil,
 		},
 	}) {
 		t.Fatal("failed")
@@ -87,8 +87,8 @@ func Test_IPInRanges(t *testing.T) {
 
 	var ipRanges = []flv1.IPRange{
 		{
-			Start: net.ParseIP("10.0.0.1"),
-			End:   net.ParseIP("10.0.0.1"),
+			From: net.ParseIP("10.0.0.1"),
+			End:  net.ParseIP("10.0.0.1"),
 		},
 	}
 	if !IPInRanges(ip, ipRanges) {
@@ -97,8 +97,8 @@ func Test_IPInRanges(t *testing.T) {
 
 	ipRanges = []flv1.IPRange{
 		{
-			Start: net.ParseIP("10.0.0.1"),
-			End:   net.ParseIP("10.0.0.255"),
+			From: net.ParseIP("10.0.0.1"),
+			End:  net.ParseIP("10.0.0.255"),
 		},
 	}
 	if !IPInRanges(ip, ipRanges) {
@@ -119,8 +119,8 @@ func Test_IPInRanges(t *testing.T) {
 	ip = net.ParseIP("fd00::1")
 	ipRanges = []flv1.IPRange{
 		{
-			Start: net.ParseIP("fd00::1"),
-			End:   net.ParseIP("fd00::1"),
+			From: net.ParseIP("fd00::1"),
+			End:  net.ParseIP("fd00::1"),
 		},
 	}
 	if !IPInRanges(ip, ipRanges) {
@@ -155,8 +155,8 @@ func Test_GetAvailableIP(t *testing.T) {
 		"10.0.0.0/24",
 		[]flv1.IPRange{
 			{
-				Start: net.ParseIP("10.0.0.100"),
-				End:   net.ParseIP("10.0.0.200"),
+				From: net.ParseIP("10.0.0.100"),
+				End:  net.ParseIP("10.0.0.200"),
 			},
 		},
 		[]flv1.IPRange{},
@@ -167,18 +167,18 @@ func Test_GetAvailableIP(t *testing.T) {
 		"10.0.0.0/24",
 		[]flv1.IPRange{
 			{
-				Start: net.ParseIP("10.0.0.100"),
-				End:   net.ParseIP("10.0.0.200"),
+				From: net.ParseIP("10.0.0.100"),
+				End:  net.ParseIP("10.0.0.200"),
 			},
 			{
-				Start: net.ParseIP("10.0.0.210"),
-				End:   net.ParseIP("10.0.0.220"),
+				From: net.ParseIP("10.0.0.210"),
+				End:  net.ParseIP("10.0.0.220"),
 			},
 		},
 		[]flv1.IPRange{
 			{
-				Start: net.ParseIP("10.0.0.100"),
-				End:   net.ParseIP("10.0.0.200"),
+				From: net.ParseIP("10.0.0.100"),
+				End:  net.ParseIP("10.0.0.200"),
 			},
 		},
 	)
@@ -188,22 +188,22 @@ func Test_GetAvailableIP(t *testing.T) {
 		"10.0.0.0/24",
 		[]flv1.IPRange{
 			{
-				Start: net.ParseIP("10.0.0.100"),
-				End:   net.ParseIP("10.0.0.200"),
+				From: net.ParseIP("10.0.0.100"),
+				End:  net.ParseIP("10.0.0.200"),
 			},
 			{
-				Start: net.ParseIP("10.0.0.210"),
-				End:   net.ParseIP("10.0.0.220"),
+				From: net.ParseIP("10.0.0.210"),
+				End:  net.ParseIP("10.0.0.220"),
 			},
 		},
 		[]flv1.IPRange{
 			{
-				Start: net.ParseIP("10.0.0.100"),
-				End:   net.ParseIP("10.0.0.200"),
+				From: net.ParseIP("10.0.0.100"),
+				End:  net.ParseIP("10.0.0.200"),
 			},
 			{
-				Start: net.ParseIP("10.0.0.210"),
-				End:   net.ParseIP("10.0.0.210"),
+				From: net.ParseIP("10.0.0.210"),
+				End:  net.ParseIP("10.0.0.210"),
 			},
 		},
 	)
@@ -213,8 +213,8 @@ func Test_GetAvailableIP(t *testing.T) {
 		"10.0.0.0/8",
 		[]flv1.IPRange{
 			{
-				Start: net.ParseIP("10.255.255.254"),
-				End:   net.ParseIP("10.255.255.254"),
+				From: net.ParseIP("10.255.255.254"),
+				End:  net.ParseIP("10.255.255.254"),
 			},
 		},
 		[]flv1.IPRange{},
@@ -225,14 +225,14 @@ func Test_GetAvailableIP(t *testing.T) {
 		"10.0.0.0/8",
 		[]flv1.IPRange{
 			{
-				Start: net.ParseIP("10.255.255.254"),
-				End:   net.ParseIP("10.255.255.254"),
+				From: net.ParseIP("10.255.255.254"),
+				End:  net.ParseIP("10.255.255.254"),
 			},
 		},
 		[]flv1.IPRange{
 			{
-				Start: net.ParseIP("10.255.255.254"),
-				End:   net.ParseIP("10.255.255.254"),
+				From: net.ParseIP("10.255.255.254"),
+				End:  net.ParseIP("10.255.255.254"),
 			},
 		},
 	)
@@ -245,8 +245,8 @@ func Test_GetAvailableIP(t *testing.T) {
 		[]flv1.IPRange{},
 		[]flv1.IPRange{
 			{
-				Start: net.ParseIP("10.0.0.1"),
-				End:   net.ParseIP("10.255.255.254"),
+				From: net.ParseIP("10.0.0.1"),
+				End:  net.ParseIP("10.255.255.254"),
 			},
 		},
 	)
@@ -267,8 +267,8 @@ func Test_GetAvailableIP(t *testing.T) {
 		[]flv1.IPRange{},
 		[]flv1.IPRange{
 			{
-				Start: net.ParseIP("fdaa::1"),
-				End:   net.ParseIP("fdaa::ffff"),
+				From: net.ParseIP("fdaa::1"),
+				End:  net.ParseIP("fdaa::ffff"),
 			},
 		},
 	)
@@ -280,8 +280,8 @@ func Test_GetAvailableIP(t *testing.T) {
 		[]flv1.IPRange{},
 		[]flv1.IPRange{
 			{
-				Start: net.ParseIP("fdaa::1"),
-				End:   net.ParseIP("fdaa:ffff:ffff:ffff:ffff:ffff:ffff:fffe"),
+				From: net.ParseIP("fdaa::1"),
+				End:  net.ParseIP("fdaa:ffff:ffff:ffff:ffff:ffff:ffff:fffe"),
 			},
 		},
 	)
@@ -296,16 +296,16 @@ func Test_AddIPToRange(t *testing.T) {
 	r = AddIPToRange(net.ParseIP("192.168.1.12"), nil)
 	assert.Equal(t, r, []flv1.IPRange{
 		{
-			Start: net.ParseIP("192.168.1.12"),
-			End:   net.ParseIP("192.168.1.12"),
+			From: net.ParseIP("192.168.1.12"),
+			End:  net.ParseIP("192.168.1.12"),
 		},
 	})
 
 	r = AddIPToRange(net.ParseIP("192.168.1.12"), r)
 	assert.Equal(t, r, []flv1.IPRange{
 		{
-			Start: net.ParseIP("192.168.1.12"),
-			End:   net.ParseIP("192.168.1.12"),
+			From: net.ParseIP("192.168.1.12"),
+			End:  net.ParseIP("192.168.1.12"),
 		},
 	})
 
@@ -313,143 +313,143 @@ func Test_AddIPToRange(t *testing.T) {
 	r = AddIPToRange(net.ParseIP("192.168.1.12"), r)
 	assert.Equal(t, r, []flv1.IPRange{
 		{
-			Start: net.ParseIP("192.168.1.12"),
-			End:   net.ParseIP("192.168.1.12"),
+			From: net.ParseIP("192.168.1.12"),
+			End:  net.ParseIP("192.168.1.12"),
 		},
 	})
 
 	r = AddIPToRange(net.ParseIP("192.168.1.13"), r)
 	assert.Equal(t, r, []flv1.IPRange{
 		{
-			Start: net.ParseIP("192.168.1.12"),
-			End:   net.ParseIP("192.168.1.13"),
+			From: net.ParseIP("192.168.1.12"),
+			End:  net.ParseIP("192.168.1.13"),
 		},
 	})
 
 	r = AddIPToRange(net.ParseIP("192.168.1.11"), r)
 	assert.Equal(t, r, []flv1.IPRange{
 		{
-			Start: net.ParseIP("192.168.1.11"),
-			End:   net.ParseIP("192.168.1.13"),
+			From: net.ParseIP("192.168.1.11"),
+			End:  net.ParseIP("192.168.1.13"),
 		},
 	})
 
 	r = AddIPToRange(net.ParseIP("192.168.1.20"), r)
 	assert.Equal(t, r, []flv1.IPRange{
 		{
-			Start: net.ParseIP("192.168.1.11"),
-			End:   net.ParseIP("192.168.1.13"),
+			From: net.ParseIP("192.168.1.11"),
+			End:  net.ParseIP("192.168.1.13"),
 		},
 		{
-			Start: net.ParseIP("192.168.1.20"),
-			End:   net.ParseIP("192.168.1.20"),
+			From: net.ParseIP("192.168.1.20"),
+			End:  net.ParseIP("192.168.1.20"),
 		},
 	})
 
 	r = AddIPToRange(net.ParseIP("192.168.1.1"), r)
 	assert.Equal(t, r, []flv1.IPRange{
 		{
-			Start: net.ParseIP("192.168.1.1"),
-			End:   net.ParseIP("192.168.1.1"),
+			From: net.ParseIP("192.168.1.1"),
+			End:  net.ParseIP("192.168.1.1"),
 		},
 		{
-			Start: net.ParseIP("192.168.1.11"),
-			End:   net.ParseIP("192.168.1.13"),
+			From: net.ParseIP("192.168.1.11"),
+			End:  net.ParseIP("192.168.1.13"),
 		},
 		{
-			Start: net.ParseIP("192.168.1.20"),
-			End:   net.ParseIP("192.168.1.20"),
+			From: net.ParseIP("192.168.1.20"),
+			End:  net.ParseIP("192.168.1.20"),
 		},
 	})
 
 	r = AddIPToRange(net.ParseIP("192.168.1.2"), r)
 	assert.Equal(t, r, []flv1.IPRange{
 		{
-			Start: net.ParseIP("192.168.1.1"),
-			End:   net.ParseIP("192.168.1.2"),
+			From: net.ParseIP("192.168.1.1"),
+			End:  net.ParseIP("192.168.1.2"),
 		},
 		{
-			Start: net.ParseIP("192.168.1.11"),
-			End:   net.ParseIP("192.168.1.13"),
+			From: net.ParseIP("192.168.1.11"),
+			End:  net.ParseIP("192.168.1.13"),
 		},
 		{
-			Start: net.ParseIP("192.168.1.20"),
-			End:   net.ParseIP("192.168.1.20"),
+			From: net.ParseIP("192.168.1.20"),
+			End:  net.ParseIP("192.168.1.20"),
 		},
 	})
 
 	r = AddIPToRange(net.ParseIP("192.168.1.0"), r)
 	assert.Equal(t, r, []flv1.IPRange{
 		{
-			Start: net.ParseIP("192.168.1.0"),
-			End:   net.ParseIP("192.168.1.2"),
+			From: net.ParseIP("192.168.1.0"),
+			End:  net.ParseIP("192.168.1.2"),
 		},
 		{
-			Start: net.ParseIP("192.168.1.11"),
-			End:   net.ParseIP("192.168.1.13"),
+			From: net.ParseIP("192.168.1.11"),
+			End:  net.ParseIP("192.168.1.13"),
 		},
 		{
-			Start: net.ParseIP("192.168.1.20"),
-			End:   net.ParseIP("192.168.1.20"),
+			From: net.ParseIP("192.168.1.20"),
+			End:  net.ParseIP("192.168.1.20"),
 		},
 	})
 
 	r = AddIPToRange(net.ParseIP("fd00::1"), r)
 	assert.Equal(t, r, []flv1.IPRange{
 		{
-			Start: net.ParseIP("192.168.1.0"),
-			End:   net.ParseIP("192.168.1.2"),
+			From: net.ParseIP("192.168.1.0"),
+			End:  net.ParseIP("192.168.1.2"),
 		},
 		{
-			Start: net.ParseIP("192.168.1.11"),
-			End:   net.ParseIP("192.168.1.13"),
+			From: net.ParseIP("192.168.1.11"),
+			End:  net.ParseIP("192.168.1.13"),
 		},
 		{
-			Start: net.ParseIP("192.168.1.20"),
-			End:   net.ParseIP("192.168.1.20"),
+			From: net.ParseIP("192.168.1.20"),
+			End:  net.ParseIP("192.168.1.20"),
 		},
 		{
-			Start: net.ParseIP("fd00::1"),
-			End:   net.ParseIP("fd00::1"),
+			From: net.ParseIP("fd00::1"),
+			End:  net.ParseIP("fd00::1"),
 		},
 	})
 	r = AddIPToRange(net.ParseIP("fd00::2"), r)
 	assert.Equal(t, r, []flv1.IPRange{
 		{
-			Start: net.ParseIP("192.168.1.0"),
-			End:   net.ParseIP("192.168.1.2"),
+			From: net.ParseIP("192.168.1.0"),
+			End:  net.ParseIP("192.168.1.2"),
 		},
 		{
-			Start: net.ParseIP("192.168.1.11"),
-			End:   net.ParseIP("192.168.1.13"),
+			From: net.ParseIP("192.168.1.11"),
+			End:  net.ParseIP("192.168.1.13"),
 		},
 		{
-			Start: net.ParseIP("192.168.1.20"),
-			End:   net.ParseIP("192.168.1.20"),
+			From: net.ParseIP("192.168.1.20"),
+			End:  net.ParseIP("192.168.1.20"),
 		},
 		{
-			Start: net.ParseIP("fd00::1"),
-			End:   net.ParseIP("fd00::2"),
+			From: net.ParseIP("fd00::1"),
+			End:  net.ParseIP("fd00::2"),
 		},
 	})
 
 	r = AddIPToRange(net.ParseIP("fd00::1"), r)
 	assert.Equal(t, r, []flv1.IPRange{
 		{
-			Start: net.ParseIP("192.168.1.0"),
-			End:   net.ParseIP("192.168.1.2"),
+			From: net.ParseIP("192.168.1.0"),
+			End:  net.ParseIP("192.168.1.2"),
 		},
 		{
-			Start: net.ParseIP("192.168.1.11"),
-			End:   net.ParseIP("192.168.1.13"),
+			From: net.ParseIP("192.168.1.11"),
+			End:  net.ParseIP("192.168.1.13"),
 		},
 		{
-			Start: net.ParseIP("192.168.1.20"),
-			End:   net.ParseIP("192.168.1.20"),
+			From: net.ParseIP("192.168.1.20"),
+			End:  net.ParseIP("192.168.1.20"),
 		},
 		{
-			Start: net.ParseIP("fd00::1"),
-			End:   net.ParseIP("fd00::2"),
+			From: net.ParseIP("fd00::1"),
+			End:  net.ParseIP("fd00::2"),
 		},
 	})
 }
@@ -457,35 +457,35 @@ func Test_AddIPToRange(t *testing.T) {
 func Test_RemoveIPFromRange(t *testing.T) {
 	r := []flv1.IPRange{
 		{
-			Start: net.ParseIP("192.168.1.100"),
-			End:   net.ParseIP("192.168.1.200"),
+			From: net.ParseIP("192.168.1.100"),
+			End:  net.ParseIP("192.168.1.200"),
 		},
 	}
 	r = RemoveIPFromRange(nil, r)
 	assert.Equal(t, r, []flv1.IPRange{
 		{
-			Start: net.ParseIP("192.168.1.100"),
-			End:   net.ParseIP("192.168.1.200"),
+			From: net.ParseIP("192.168.1.100"),
+			End:  net.ParseIP("192.168.1.200"),
 		},
 	})
 
 	r = RemoveIPFromRange(net.ParseIP("192.168.1.101"), r)
 	assert.Equal(t, r, []flv1.IPRange{
 		{
-			Start: net.ParseIP("192.168.1.100"),
-			End:   net.ParseIP("192.168.1.100"),
+			From: net.ParseIP("192.168.1.100"),
+			End:  net.ParseIP("192.168.1.100"),
 		},
 		{
-			Start: net.ParseIP("192.168.1.102"),
-			End:   net.ParseIP("192.168.1.200"),
+			From: net.ParseIP("192.168.1.102"),
+			End:  net.ParseIP("192.168.1.200"),
 		},
 	})
 
 	r = RemoveIPFromRange(net.ParseIP("192.168.1.100"), r)
 	assert.Equal(t, r, []flv1.IPRange{
 		{
-			Start: net.ParseIP("192.168.1.102"),
-			End:   net.ParseIP("192.168.1.200"),
+			From: net.ParseIP("192.168.1.102"),
+			End:  net.ParseIP("192.168.1.200"),
 		},
 	})
 
@@ -493,38 +493,38 @@ func Test_RemoveIPFromRange(t *testing.T) {
 	r = RemoveIPFromRange(net.ParseIP("192.168.1.100"), r)
 	assert.Equal(t, r, []flv1.IPRange{
 		{
-			Start: net.ParseIP("192.168.1.102"),
-			End:   net.ParseIP("192.168.1.200"),
+			From: net.ParseIP("192.168.1.102"),
+			End:  net.ParseIP("192.168.1.200"),
 		},
 	})
 
 	r = RemoveIPFromRange(net.ParseIP("192.168.1.102"), r)
 	assert.Equal(t, r, []flv1.IPRange{
 		{
-			Start: net.ParseIP("192.168.1.103"),
-			End:   net.ParseIP("192.168.1.200"),
+			From: net.ParseIP("192.168.1.103"),
+			End:  net.ParseIP("192.168.1.200"),
 		},
 	})
 
 	r = RemoveIPFromRange(net.ParseIP("192.168.1.200"), r)
 	assert.Equal(t, r, []flv1.IPRange{
 		{
-			Start: net.ParseIP("192.168.1.103"),
-			End:   net.ParseIP("192.168.1.199"),
+			From: net.ParseIP("192.168.1.103"),
+			End:  net.ParseIP("192.168.1.199"),
 		},
 	})
 
 	r = []flv1.IPRange{
 		{
-			Start: net.ParseIP("192.168.1.100"),
-			End:   net.ParseIP("192.168.1.100"),
+			From: net.ParseIP("192.168.1.100"),
+			End:  net.ParseIP("192.168.1.100"),
 		},
 	}
 	r = RemoveIPFromRange(net.ParseIP("192.168.1.111"), r)
 	assert.Equal(t, r, []flv1.IPRange{
 		{
-			Start: net.ParseIP("192.168.1.100"),
-			End:   net.ParseIP("192.168.1.100"),
+			From: net.ParseIP("192.168.1.100"),
+			End:  net.ParseIP("192.168.1.100"),
 		},
 	})
 
@@ -533,15 +533,15 @@ func Test_RemoveIPFromRange(t *testing.T) {
 
 	r = []flv1.IPRange{
 		{
-			Start: net.ParseIP("fd00::0001"),
-			End:   net.ParseIP("fd00::0002"),
+			From: net.ParseIP("fd00::0001"),
+			End:  net.ParseIP("fd00::0002"),
 		},
 	}
 	r = RemoveIPFromRange(net.ParseIP("fd00::0002"), r)
 	assert.Equal(t, r, []flv1.IPRange{
 		{
-			Start: net.ParseIP("fd00::0001"),
-			End:   net.ParseIP("fd00::0001"),
+			From: net.ParseIP("fd00::0001"),
+			End:  net.ParseIP("fd00::0001"),
 		},
 	})
 

@@ -53,6 +53,8 @@ func Register(
 		subnetCache:  wctx.FlatNetwork.FlatNetworkSubnet().Cache(),
 		ipCache:      wctx.FlatNetwork.FlatNetworkIP().Cache(),
 
+		recorder: wctx.Recorder,
+
 		subnetEnqueueAfter: wctx.FlatNetwork.FlatNetworkSubnet().EnqueueAfter,
 		subnetEnqueue:      wctx.FlatNetwork.FlatNetworkSubnet().Enqueue,
 	}
@@ -308,6 +310,9 @@ func ip2UsedRanges(ips []*flv1.FlatNetworkIP) []flv1.IPRange {
 }
 
 func (h *handler) eventError(subnet *flv1.FlatNetworkSubnet, err error) {
+	if err == nil {
+		return
+	}
 	h.recorder.Event(subnet, corev1.EventTypeWarning, "FlatNetworkSubnetError", err.Error())
 }
 

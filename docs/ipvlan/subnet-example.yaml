@@ -4,7 +4,7 @@ metadata:
     creationTimestamp: null
     labels:
         project: ""
-    name: example-ipvaln-subnet
+    name: example-ipvlan-subnet
     namespace: kube-system
 spec:
     cidr: 192.168.2.0/24
@@ -15,7 +15,7 @@ spec:
     podDefaultGateway: {}
     ranges:
         - end: 192.168.2.150
-          start: 192.168.2.100
+          from: 192.168.2.100
     vlan: 0
 status:
     failureMessage: ""

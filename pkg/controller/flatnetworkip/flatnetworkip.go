@@ -299,6 +299,9 @@ func (h *handler) onIPUpdate(ip *flv1.FlatNetworkIP) (*flv1.FlatNetworkIP, error
 }
 
 func (h *handler) eventError(ip *flv1.FlatNetworkIP, err error) {
+	if err == nil {
+		return
+	}
 	h.recorder.Event(ip, corev1.EventTypeWarning, "FlatNetworkIPError", err.Error())
 }
 

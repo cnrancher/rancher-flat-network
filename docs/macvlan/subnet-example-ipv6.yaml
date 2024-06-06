@@ -15,7 +15,7 @@ spec:
     podDefaultGateway: {}
     ranges:
         - end: fd00:aaaa::ffff
-          start: fd00:aaaa::1000
+          from: fd00:aaaa::1000
     vlan: 0
 status:
     failureMessage: ""

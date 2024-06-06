@@ -7,7 +7,7 @@ metadata:
     name: example-ipvlan-subnet-ipv6
     namespace: kube-system
 spec:
-    cidr: 192.168.2.0/24
+    cidr: fd00:eeee::/64
     flatMode: ipvlan
     gateway: ""
     master: eth0
@@ -15,7 +15,7 @@ spec:
     podDefaultGateway: {}
     ranges:
         - end: fd00:eeee::ffff
-          start: fd00:eeee::1000
+          from: fd00:eeee::1000
     vlan: 0
 status:
     failureMessage: ""

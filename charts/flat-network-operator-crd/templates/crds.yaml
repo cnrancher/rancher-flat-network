@@ -118,7 +118,7 @@ spec:
                     end:
                       nullable: true
                       type: string
-                    start:
+                    from:
                       nullable: true
                       type: string
                   type: object
@@ -159,7 +159,7 @@ spec:
                     end:
                       nullable: true
                       type: string
-                    start:
+                    from:
                       nullable: true
                       type: string
                   type: object

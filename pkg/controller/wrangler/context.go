@@ -60,7 +60,7 @@ func NewContext(
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartLogging(logrus.Warnf)
 	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: clientSet.CoreV1().Events("")})
-	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: "flat-network-operarto"})
+	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: "flat-network-operator"})
 
 	k8s, err := kubernetes.NewForConfig(restCfg)
 	if err != nil {

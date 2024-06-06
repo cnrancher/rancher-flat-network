@@ -2,6 +2,40 @@
 
 Rancher Flat-Network Operator based on [Wrangler](https://github.com/rancher/wrangler/).
 
+## Features
+
+- [x] FlatNetwork subnet supports both Macvlan & IPvlan.
+- [x] Support for both IPv4 and IPv6 addresses.
+- [x] IPAM supports custom specified IP address or allocate IP address automatically.
+- [x] Custom IP Range to allocate IP address.
+- [x] Auto create FlatNetwork headless ClusterIP service.
+- [ ] Update FlatNetwork Service Endpoints IP address.
+- [ ] Admission webhook server.
+- [ ] Upgrade resource migrator from `macvlan.cluster.cattle.io` to `flatnetwork.pandaria.io`.
+
+## Usage
+
+To build and run flat-network operator manually:
+
+1. Apply CRDs.
+
+    ```console
+    $ kubectl apply -f ./charts/flat-network-operator-crd/templates/crd.yaml
+    ```
+
+1. Build and run flat-network operator.
+
+    ```console
+    $ go build . && ./flat-network-operator
+    ```
+
+1. Launch another terminal to create example workloads.
+
+    ```console
+    $ kubectl apply -f ./docs/macvlan
+    $ kubectl apply -f ./docs/ipvlan
+    ```
+
 ## License
 
 Copyright 2024 SUSE Rancher

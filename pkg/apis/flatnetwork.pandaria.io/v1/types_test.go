@@ -32,8 +32,8 @@ var subnet = flv1.FlatNetworkSubnet{
 		Gateway:  nil,
 		Ranges: []flv1.IPRange{
 			{
-				Start: net.ParseIP("192.168.1.100"),
-				End:   net.ParseIP("192.168.1.200"),
+				From: net.ParseIP("192.168.1.100"),
+				End:  net.ParseIP("192.168.1.200"),
 			},
 		},
 		Routes: []flv1.Route{},
@@ -70,8 +70,8 @@ func Test_FlatNetworkSubnet_Macvlan_IPv6(t *testing.T) {
 	subnet.Spec.CIDR = "fd00:aaaa::/64"
 	subnet.Spec.Ranges = []flv1.IPRange{
 		{
-			Start: net.ParseIP("fd00:aaaa::1000"),
-			End:   net.ParseIP("fd00:aaaa::ffff"),
+			From: net.ParseIP("fd00:aaaa::1000"),
+			End:  net.ParseIP("fd00:aaaa::ffff"),
 		},
 	}
 	err := saveYaml(subnet, "../../../../docs/macvlan/subnet-example-ipv6.yaml")
@@ -81,13 +81,13 @@ func Test_FlatNetworkSubnet_Macvlan_IPv6(t *testing.T) {
 }
 
 func Test_FlatNetworkSubnet_IPvlan(t *testing.T) {
-	subnet.Name = "example-ipvaln-subnet"
+	subnet.Name = "example-ipvlan-subnet"
 	subnet.Spec.FlatMode = "ipvlan"
 	subnet.Spec.CIDR = "192.168.2.0/24"
 	subnet.Spec.Ranges = []flv1.IPRange{
 		{
-			Start: net.ParseIP("192.168.2.100"),
-			End:   net.ParseIP("192.168.2.150"),
+			From: net.ParseIP("192.168.2.100"),
+			End:  net.ParseIP("192.168.2.150"),
 		},
 	}
 	err := saveYaml(subnet, "../../../../docs/ipvlan/subnet-example.yaml")
@@ -99,10 +99,11 @@ func Test_FlatNetworkSubnet_IPvlan(t *testing.T) {
 func Test_FlatNetworkSubnet_IPvlan_IPv6(t *testing.T) {
 	subnet.Name = "example-ipvlan-subnet-ipv6"
 	subnet.Spec.FlatMode = "ipvlan"
+	subnet.Spec.CIDR = "fd00:eeee::/64"
 	subnet.Spec.Ranges = []flv1.IPRange{
 		{
-			Start: net.ParseIP("fd00:eeee::1000"),
-			End:   net.ParseIP("fd00:eeee::ffff"),
+			From: net.ParseIP("fd00:eeee::1000"),
+			End:  net.ParseIP("fd00:eeee::ffff"),
 		},
 	}
 	err := saveYaml(subnet, "../../../../docs/ipvlan/subnet-example-ipv6.yaml")

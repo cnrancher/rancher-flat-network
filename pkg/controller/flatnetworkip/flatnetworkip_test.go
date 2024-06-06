@@ -65,8 +65,8 @@ func Test_allocateIP(t *testing.T) {
 			UsedIP: []flv1.IPRange{
 				{
 					// Gateway IP address
-					Start: net.ParseIP("10.128.0.1"),
-					End:   net.ParseIP("10.128.0.1"),
+					From: net.ParseIP("10.128.0.1"),
+					End:  net.ParseIP("10.128.0.1"),
 				},
 			},
 		},
@@ -85,8 +85,8 @@ func Test_allocateIP(t *testing.T) {
 	// Allocate IP in specific range
 	subnet.Spec.Ranges = []flv1.IPRange{
 		{
-			Start: net.IPv4(10, 128, 1, 101),
-			End:   net.IPv4(10, 128, 1, 102),
+			From: net.IPv4(10, 128, 1, 101),
+			End:  net.IPv4(10, 128, 1, 102),
 		},
 	}
 	allocatedIP, err = allocateIP(ip, subnet)
@@ -97,8 +97,8 @@ func Test_allocateIP(t *testing.T) {
 	// Re-allocate IP in specific range
 	subnet.Spec.Ranges = []flv1.IPRange{
 		{
-			Start: net.IPv4(10, 128, 1, 101),
-			End:   net.IPv4(10, 128, 1, 102),
+			From: net.IPv4(10, 128, 1, 101),
+			End:  net.IPv4(10, 128, 1, 102),
 		},
 	}
 	allocatedIP, err = allocateIP(ip, subnet)
@@ -109,8 +109,8 @@ func Test_allocateIP(t *testing.T) {
 	// Re-allocate IP in specific range, no available IP error expected
 	subnet.Spec.Ranges = []flv1.IPRange{
 		{
-			Start: net.IPv4(10, 128, 1, 101),
-			End:   net.IPv4(10, 128, 1, 102),
+			From: net.IPv4(10, 128, 1, 101),
+			End:  net.IPv4(10, 128, 1, 102),
 		},
 	}
 	allocatedIP, err = allocateIP(ip, subnet)
@@ -134,8 +134,8 @@ func Test_allocateIP(t *testing.T) {
 	// Re-alloc IP in single specific mode, but not in subnet ranges.
 	subnet.Spec.Ranges = []flv1.IPRange{
 		{
-			Start: net.IPv4(10, 128, 1, 101),
-			End:   net.IPv4(10, 128, 1, 102),
+			From: net.IPv4(10, 128, 1, 101),
+			End:  net.IPv4(10, 128, 1, 102),
 		},
 	}
 	ip.Spec.Addrs = []net.IP{
@@ -171,8 +171,8 @@ func Test_allocateIP(t *testing.T) {
 	// Allocate IP in multi specific mode, but not in subnet IP range
 	subnet.Spec.Ranges = []flv1.IPRange{
 		{
-			Start: net.IPv4(10, 128, 1, 101),
-			End:   net.IPv4(10, 128, 1, 102),
+			From: net.IPv4(10, 128, 1, 101),
+			End:  net.IPv4(10, 128, 1, 102),
 		},
 	}
 	subnet.Status.UsedIP = nil
