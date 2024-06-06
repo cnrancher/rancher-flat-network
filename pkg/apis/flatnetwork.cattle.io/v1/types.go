@@ -46,22 +46,11 @@ type IPSpec struct {
 	// Subnet is the name of the flat-network subnet resource (required).
 	Subnet string `json:"subnet"`
 
-	// CIDR is the mode to allocate IP address.
-	//
-	// Available:
-	//   'auto': Allocate one IP address from subnet automatically (default).
-	//   '<ip-address>': Use one custom IPv4/IPv6 address, format '192.168.1.2', 'fdaa:bbbb:cccc:dddd::1001'
-	//   '<ip-address>/<mask-size>': Use one custom IPv4/IPv6 address, format '192.168.1.2/24',  'fdaa:bbbb:cccc:dddd::1001/64'
-	//   '<ip1>-<ip2>-...-<ipN>': Use multiple custom IPv4 address.
-	CIDR string `json:"ip"`
+	// Addrs is the user specified IP addresses (optional).
+	Addrs []net.IP `json:"addrs"`
 
-	// MAC is the mode to specify custom MAC address.
-	//
-	// Available:
-	//   '' (empty string): Do not use custom MAC address.
-	//   '<mac-address>': Use one custom IPv4 address, format 'aa:bb:cc:dd:ee:ff'.
-	//   '<mac1>-<mac2>-...-<macN>': Use multiple custom MAC address.
-	MAC string `json:"mac"`
+	// MACs is the user specified MAC addresses (optional).
+	MACs []net.HardwareAddr `json:"macs"`
 
 	// PodID is the Pod metadata.UID
 	PodID string `json:"podId"`
@@ -71,8 +60,8 @@ type IPStatus struct {
 	Phase          string `json:"phase"`
 	FailureMessage string `json:"failureMessage"`
 
-	// Address is the allocated IP address.
-	Address net.IP `json:"address"`
+	// Addr is the allocated IP address.
+	Addr net.IP `json:"addr"`
 
 	// MAC is the allocated (user specified only) MAC addr
 	MAC net.HardwareAddr `json:"mac"`

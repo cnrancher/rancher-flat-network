@@ -12,7 +12,7 @@ import (
 func Test_alreadyAllocateIP(t *testing.T) {
 	ip := &flv1.IP{
 		Spec: flv1.IPSpec{
-			CIDR: "auto",
+			Addrs: []net.IP{},
 		},
 		Status: flv1.IPStatus{},
 	}
@@ -24,42 +24,36 @@ func Test_alreadyAllocateIP(t *testing.T) {
 	}
 	assert.False(t, alreadyAllocateIP(ip, subnet))
 
-	ip.Status.Address = net.ParseIP("192.168.1.11")
+	ip.Status.Addr = net.ParseIP("192.168.1.11")
 	assert.False(t, alreadyAllocateIP(ip, subnet))
 
 	subnet.Spec.CIDR = "192.168.1.0/24"
 	assert.True(t, alreadyAllocateIP(ip, subnet))
 
-	ip.Spec.CIDR = "192.168.1.11"
+	ip.Spec.Addrs = append(ip.Spec.Addrs, net.ParseIP("192.168.1.11"))
 	assert.True(t, alreadyAllocateIP(ip, subnet))
 
-	ip.Status.Address = net.ParseIP("192.168.1.20")
+	ip.Status.Addr = net.ParseIP("192.168.1.20")
 	assert.False(t, alreadyAllocateIP(ip, subnet))
 
-	ip.Spec.CIDR = "192.168.1.11-192.168.1.12-192.168.1.13-192.168.1.14-192.168.1.15"
-	ip.Status.Address = net.ParseIP("192.168.1.13")
+	ip.Spec.Addrs = []net.IP{
+		net.ParseIP("192.168.1.11"),
+		net.ParseIP("192.168.1.12"),
+		net.ParseIP("192.168.1.13"),
+		net.ParseIP("192.168.1.14"),
+		net.ParseIP("192.168.1.15"),
+	}
+	ip.Status.Addr = net.ParseIP("192.168.1.13")
 	assert.True(t, alreadyAllocateIP(ip, subnet))
 
-	ip.Status.Address = net.ParseIP("192.168.1.20")
-	assert.False(t, alreadyAllocateIP(ip, subnet))
-
-	ip.Spec.CIDR = "192.168.1.22/24"
-	ip.Status.Address = net.ParseIP("192.168.1.22")
-	assert.True(t, alreadyAllocateIP(ip, subnet))
-
-	ip.Spec.CIDR = "192.168.1.22/24"
-	ip.Status.Address = net.ParseIP("192.168.1.1")
-	assert.False(t, alreadyAllocateIP(ip, subnet))
-
-	ip.Spec.CIDR = "invalid data"
-	ip.Status.Address = nil
+	ip.Status.Addr = net.ParseIP("192.168.1.20")
 	assert.False(t, alreadyAllocateIP(ip, subnet))
 }
 
 func Test_allocateIP(t *testing.T) {
 	ip := &flv1.IP{
 		Spec: flv1.IPSpec{
-			CIDR: "auto",
+			Addrs: []net.IP{},
 		},
 		Status: flv1.IPStatus{},
 	}
@@ -125,7 +119,7 @@ func Test_allocateIP(t *testing.T) {
 
 	// Allocate IP in single specific mode
 	subnet.Spec.Ranges = nil
-	ip.Spec.CIDR = "10.128.1.200"
+	ip.Spec.Addrs = append(ip.Spec.Addrs, net.ParseIP("10.128.1.200"))
 	allocatedIP, err = allocateIP(ip, subnet)
 	assert.Nil(t, err)
 	assert.Equal(t, allocatedIP, net.ParseIP("10.128.1.200"))
@@ -144,15 +138,20 @@ func Test_allocateIP(t *testing.T) {
 			End:   net.IPv4(10, 128, 1, 102),
 		},
 	}
-	ip.Spec.CIDR = "10.128.1.210"
+	ip.Spec.Addrs = []net.IP{
+		net.ParseIP("10.128.1.200"),
+	}
 	allocatedIP, err = allocateIP(ip, subnet)
-	assert.ErrorContains(t, err, "subnet range")
+	assert.ErrorIs(t, err, ipcalc.ErrNoAvailableIP)
 	assert.Nil(t, allocatedIP)
 
 	// Allocate IP in multi specific mode
 	subnet.Spec.Ranges = nil
 	subnet.Status.UsedIP = nil
-	ip.Spec.CIDR = "10.128.1.200-10.128.1.201"
+	ip.Spec.Addrs = []net.IP{
+		net.ParseIP("10.128.1.200"),
+		net.ParseIP("10.128.1.201"),
+	}
 	allocatedIP, err = allocateIP(ip, subnet)
 	assert.Nil(t, err)
 	assert.Equal(t, allocatedIP, net.ParseIP("10.128.1.200"))
@@ -180,32 +179,18 @@ func Test_allocateIP(t *testing.T) {
 	allocatedIP, err = allocateIP(ip, subnet)
 	assert.ErrorIs(t, err, ipcalc.ErrNoAvailableIP)
 	assert.Nil(t, allocatedIP)
+}
 
-	// Allocate IP by CIDR
-	subnet.Spec.Ranges = nil
-	subnet.Status.UsedIP = nil
-	ip.Spec.CIDR = "10.128.1.11/24"
-	allocatedIP, err = allocateIP(ip, subnet)
-	assert.Nil(t, err)
-	assert.Equal(t, allocatedIP, net.ParseIP("10.128.1.11"))
-	subnet.Status.UsedIP = ipcalc.AddIPToRange(allocatedIP, subnet.Status.UsedIP)
-
-	// Re-allocate IP by CIDR
-	ip.Spec.CIDR = "10.128.1.11/24"
-	allocatedIP, err = allocateIP(ip, subnet)
-	assert.ErrorIs(t, err, ipcalc.ErrNoAvailableIP)
-	assert.Nil(t, allocatedIP)
-
-	// Allocate IP by CIDR, but not in subnet ranges
-	subnet.Spec.Ranges = []flv1.IPRange{
-		{
-			Start: net.IPv4(10, 128, 1, 101),
-			End:   net.IPv4(10, 128, 1, 102),
+func Test_alreadyAllocatedMAC(t *testing.T) {
+	ip := &flv1.IP{
+		Spec: flv1.IPSpec{
+			MACs: []net.HardwareAddr{},
 		},
+		Status: flv1.IPStatus{},
 	}
-	subnet.Status.UsedIP = nil
-	ip.Spec.CIDR = "10.128.1.11/24"
-	allocatedIP, err = allocateIP(ip, subnet)
-	assert.ErrorIs(t, err, ipcalc.ErrNoAvailableIP)
-	assert.Nil(t, allocatedIP)
+	assert.True(t, alreadyAllocatedMAC(ip))
+}
+
+func Test_allocateMAC(t *testing.T) {
+
 }

@@ -1,5 +1,5 @@
-apiVersion: macvlan.cluster.cattle.io/v1
-kind: MacvlanSubnet
+apiVersion: flatnetwork.cattle.io/v1
+kind: Subnet
 metadata:
     creationTimestamp: null
     labels:
@@ -8,17 +8,18 @@ metadata:
     namespace: kube-system
 spec:
     cidr: 192.168.1.0/24
+    flatMode: ""
     gateway: ""
     master: eth0
     mode: ""
     podDefaultGateway: {}
     ranges:
-        - rangeEnd: 192.168.1.120
-          rangeStart: 192.168.1.100
-        - rangeEnd: 192.168.1.160
-          rangeStart: 192.168.1.150
-        - rangeEnd: 192.168.1.220
-          rangeStart: 192.168.1.200
+        - end: 192.168.1.120
+          start: 192.168.1.100
+        - end: 192.168.1.160
+          start: 192.168.1.150
+        - end: 192.168.1.220
+          start: 192.168.1.200
     vlan: 0
 status:
     failureMessage: ""

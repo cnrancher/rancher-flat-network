@@ -156,8 +156,8 @@ func (h *handler) ensureFlatNetworkIP(pod *corev1.Pod) (*flv1.IP, error) {
 		return nil, err
 	}
 	logrus.WithFields(fieldsPod(pod)).
-		Infof("request to create flat-network IP [%v/%v] IP [%v]",
-			pod.Namespace, pod.Name, createdFlatNetworkIP.Spec.CIDR)
+		Infof("request to create flat-network IP [%v/%v]",
+			pod.Namespace, pod.Name)
 
 	return createdFlatNetworkIP, nil
 }
@@ -177,11 +177,11 @@ func (h *handler) updatePodLabel(pod *corev1.Pod, ip *flv1.IP) error {
 	labels[flv1.LabelSelectedMac] = ""
 	labels[flv1.LabelFlatNetworkIPType] = "specific"
 
-	if ip.Status.Address != nil {
-		if ip.Status.Address.To4() != nil {
+	if ip.Status.Addr != nil {
+		if ip.Status.Addr.To4() != nil {
 			// TODO: IPv6 address contains invalid char ':'
 			// Set IPv4 labels only.
-			labels[flv1.LabelSelectedIP] = ip.Status.Address.String()
+			labels[flv1.LabelSelectedIP] = ip.Status.Addr.String()
 		}
 	}
 	if ip.Status.MAC != nil {

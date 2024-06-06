@@ -16,7 +16,7 @@ func Test_ip2UsedRanges(t *testing.T) {
 		{
 			Spec: flv1.IPSpec{},
 			Status: flv1.IPStatus{
-				Address: net.ParseIP("10.1.2.3"),
+				Addr: net.ParseIP("10.1.2.3"),
 			},
 		},
 	}
@@ -31,7 +31,7 @@ func Test_ip2UsedRanges(t *testing.T) {
 	IPs = append(IPs, &flv1.IP{
 		Spec: flv1.IPSpec{},
 		Status: flv1.IPStatus{
-			Address: net.ParseIP("10.1.2.4"),
+			Addr: net.ParseIP("10.1.2.4"),
 		},
 	})
 	usedIPs = ip2UsedRanges(IPs)
@@ -45,7 +45,7 @@ func Test_ip2UsedRanges(t *testing.T) {
 	IPs = append(IPs, &flv1.IP{
 		Spec: flv1.IPSpec{},
 		Status: flv1.IPStatus{
-			Address: net.ParseIP("10.10.1.1"),
+			Addr: net.ParseIP("10.10.1.1"),
 		},
 	})
 	usedIPs = ip2UsedRanges(IPs)
@@ -63,7 +63,7 @@ func Test_ip2UsedRanges(t *testing.T) {
 	IPs = append(IPs, &flv1.IP{
 		Spec: flv1.IPSpec{},
 		Status: flv1.IPStatus{
-			Address: net.ParseIP("10.10.1.2"),
+			Addr: net.ParseIP("10.10.1.2"),
 		},
 	})
 	usedIPs = ip2UsedRanges(IPs)

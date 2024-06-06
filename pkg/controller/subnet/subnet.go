@@ -85,6 +85,7 @@ func (h *handler) handleError(
 			return subnet, err
 		}
 
+		h.eventError(subnet, err)
 		err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			subnet, err := h.subnetCache.Get(subnet.Namespace, subnet.Name)
 			if err != nil {
@@ -133,6 +134,10 @@ func (h *handler) handleSubnet(
 }
 
 func (h *handler) onSubnetCreate(subnet *flv1.Subnet) (*flv1.Subnet, error) {
+	if err := h.validateSubnet(subnet); err != nil {
+		return subnet, err
+	}
+
 	// Update subnet labels.
 	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		result, err := h.subnetCache.Get(flv1.SubnetNamespace, subnet.Name)
@@ -190,7 +195,41 @@ func (h *handler) onSubnetCreate(subnet *flv1.Subnet) (*flv1.Subnet, error) {
 	return subnet, nil
 }
 
+func (h *handler) validateSubnet(subnet *flv1.Subnet) error {
+	switch subnet.Spec.FlatMode {
+	case "macvlan":
+	case "ipvlan":
+	default:
+		return fmt.Errorf("unrecognized subnet flatMode [%v]", subnet.Spec.FlatMode)
+	}
+
+	_, network, err := net.ParseCIDR(subnet.Spec.CIDR)
+	if err != nil {
+		return fmt.Errorf("failed to parse subnet CIDR [%v]: %w",
+			subnet.Spec.CIDR, err)
+	}
+
+	if len(subnet.Spec.Gateway) != 0 {
+		if !network.Contains(subnet.Spec.Gateway) {
+			return fmt.Errorf("invalid subnet gateway [%v] provided", subnet.Spec.Gateway)
+		}
+	}
+
+	if !isValidRanges(subnet) {
+		return fmt.Errorf("invalid subnet ranges provided: %v",
+			utils.PrintObject(subnet.Spec.Ranges))
+	}
+
+	// TODO: validate routes, podDefaultGateway
+
+	return nil
+}
+
 func (h *handler) onSubnetUpdate(subnet *flv1.Subnet) (*flv1.Subnet, error) {
+	if err := h.validateSubnet(subnet); err != nil {
+		return subnet, err
+	}
+
 	// List IPs using this subnet.
 	ips, err := h.ipCache.List("", labels.SelectorFromSet(labels.Set{
 		"subnet": subnet.Name,
@@ -257,19 +296,19 @@ func ip2UsedRanges(ips []*flv1.IP) []flv1.IPRange {
 		return usedIPs
 	}
 	slices.SortFunc(ips, func(a, b *flv1.IP) int {
-		if a.Status.Address == nil || b.Status.Address == nil {
+		if a.Status.Addr == nil || b.Status.Addr == nil {
 			return -1
 		}
-		return bytes.Compare(a.Status.Address, b.Status.Address)
+		return bytes.Compare(a.Status.Addr, b.Status.Addr)
 	})
 	for _, ip := range ips {
-		usedIPs = ipcalc.AddIPToRange(ip.Status.Address, usedIPs)
+		usedIPs = ipcalc.AddIPToRange(ip.Status.Addr, usedIPs)
 	}
 	return usedIPs
 }
 
-func (h *handler) eventError(pod *corev1.Pod, err error) {
-	h.recorder.Event(pod, corev1.EventTypeWarning, "FlatNetworkSubnetError", err.Error())
+func (h *handler) eventError(subnet *flv1.Subnet, err error) {
+	h.recorder.Event(subnet, corev1.EventTypeWarning, "FlatNetworkSubnetError", err.Error())
 }
 
 func fieldsSubnet(subnet *flv1.Subnet) logrus.Fields {

@@ -3,10 +3,8 @@ package utils
 import (
 	"bytes"
 	"encoding/json"
-	"net"
 	"runtime"
 	"strconv"
-	"strings"
 
 	flv1 "github.com/cnrancher/flat-network-operator/pkg/apis/flatnetwork.cattle.io/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -46,51 +44,6 @@ func IsPodEnabledFlatNetwork(pod *corev1.Pod) bool {
 	}
 	if pod.Annotations[flv1.AnnotationIP] == "" || pod.Annotations[flv1.AnnotationSubnet] == "" {
 		return false
-	}
-	return true
-}
-
-func IsSingleIP(ip string) bool {
-	return net.ParseIP(ip) != nil
-}
-
-func IsMultipleIP(ip string) bool {
-	if !strings.Contains(ip, "-") {
-		return false
-	}
-	ips := strings.Split(strings.TrimSpace(ip), "-")
-
-	if len(ips) < 2 {
-		return false
-	}
-
-	for _, v := range ips {
-		if net.ParseIP(v) == nil {
-			return false
-		}
-	}
-	return true
-}
-
-func IsSingleMAC(m string) bool {
-	_, err := net.ParseMAC(m)
-	return err == nil
-}
-
-func IsMultipleMAC(m string) bool {
-	if !strings.Contains(m, "-") {
-		return false
-	}
-	macs := strings.Split(strings.TrimSpace(m), "-")
-
-	if len(macs) < 2 {
-		return false
-	}
-
-	for _, v := range macs {
-		if _, err := net.ParseMAC(v); err != nil {
-			return false
-		}
 	}
 	return true
 }

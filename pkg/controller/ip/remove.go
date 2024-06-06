@@ -27,7 +27,7 @@ func (h *handler) handleIPRemove(s string, ip *flv1.IP) (*flv1.IP, error) {
 		}
 
 		result = result.DeepCopy()
-		result.Status.UsedIP = ipcalc.RemoveIPFromRange(ip.Status.Address, result.Status.UsedIP)
+		result.Status.UsedIP = ipcalc.RemoveIPFromRange(ip.Status.Addr, result.Status.UsedIP)
 		result.Status.UsedIPCount--
 		if len(ip.Status.MAC) != 0 {
 			result.Status.UsedMac = slices.DeleteFunc(result.Status.UsedMac, func(m net.HardwareAddr) bool {
@@ -44,11 +44,11 @@ func (h *handler) handleIPRemove(s string, ip *flv1.IP) (*flv1.IP, error) {
 	if ip.Status.MAC != nil {
 		logrus.WithFields(fieldsIP(ip)).
 			Infof("remove IP [%v] MAC [%v] from subnet [%v]",
-				ip.Status.Address, ip.Status.MAC, ip.Spec.Subnet)
+				ip.Status.Addr, ip.Status.MAC, ip.Spec.Subnet)
 	} else {
 		logrus.WithFields(fieldsIP(ip)).
 			Infof("remove IP [%v] from subnet [%v]",
-				ip.Status.Address, ip.Spec.Subnet)
+				ip.Status.Addr, ip.Spec.Subnet)
 	}
 
 	return ip, nil

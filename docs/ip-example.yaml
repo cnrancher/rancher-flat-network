@@ -1,15 +1,15 @@
-apiVersion: macvlan.cluster.cattle.io/v1
-kind: MacvlanIP
+apiVersion: flatnetwork.cattle.io/v1
+kind: IP
 metadata:
     creationTimestamp: null
     name: example-ip
 spec:
-    ip: ""
-    mac: aa:bb:cc:dd:ee:ff
+    addrs: []
+    macs: []
     podId: DE6F1529-3C77-4E4E-8D46-8294E025DE80
     subnet: example-subnet
 status:
+    addr: ""
     failureMessage: ""
-    ip: ""
     mac: null
     phase: ""

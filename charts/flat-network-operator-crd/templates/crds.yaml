@@ -23,12 +23,18 @@ spec:
         properties:
           spec:
             properties:
-              ip:
+              addrs:
+                items:
+                  nullable: true
+                  type: string
                 nullable: true
-                type: string
-              mac:
+                type: array
+              macs:
+                items:
+                  nullable: true
+                  type: string
                 nullable: true
-                type: string
+                type: array
               podId:
                 nullable: true
                 type: string
@@ -38,7 +44,7 @@ spec:
             type: object
           status:
             properties:
-              address:
+              addr:
                 nullable: true
                 type: string
               failureMessage:

@@ -30,7 +30,7 @@ func (h *handler) handleSubnetRemove(
 
 		usedMap := map[string]net.IP{}
 		for _, ip := range ips {
-			usedMap[ip.Name] = ip.Status.Address
+			usedMap[ip.Name] = ip.Status.Addr
 		}
 		logrus.WithFields(fieldsSubnet(subnet)).
 			Warnf("subnet [%v] deleted, but still have following IPs in use: %v",

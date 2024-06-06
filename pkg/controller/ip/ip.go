@@ -101,6 +101,7 @@ func (h *handler) handleError(
 		if ip.Status.FailureMessage == message {
 			return ip, err
 		}
+		h.eventError(ip, err)
 
 		err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			ip, err := h.ipCache.Get(ip.Namespace, ip.Name)
@@ -170,7 +171,6 @@ func (h *handler) onIPCreate(ip *flv1.IP) (*flv1.IP, error) {
 	if err != nil {
 		logrus.WithFields(fieldsIP(ip)).
 			Errorf("failed to allocate IP address: %v", err)
-		h.eventError(pod, err)
 		return ip, err
 	}
 	allocatedMAC, err := allocateMAC(ip, subnet)
@@ -215,7 +215,7 @@ func (h *handler) onIPCreate(ip *flv1.IP) (*flv1.IP, error) {
 		}
 
 		result = result.DeepCopy()
-		result.Status.Address = allocatedIP
+		result.Status.Addr = allocatedIP
 		result.Status.MAC = allocatedMAC
 		result.Status.Phase = flatNetworkIPActivePhase
 		result, err = h.ipClient.UpdateStatus(result)
@@ -251,9 +251,13 @@ func (h *handler) onIPCreate(ip *flv1.IP) (*flv1.IP, error) {
 	}
 	logrus.WithFields(fieldsIP(ip)).
 		Infof("allocated IP subnet [%v] MAC [%v] address [%v]",
-			ip.Spec.Subnet, macString, ip.Status.Address.String())
+			ip.Spec.Subnet, macString, ip.Status.Addr.String())
 
 	return ip, nil
+}
+
+func (h *handler) validateIP(ip *flv1.IP) error {
+	return nil
 }
 
 func (h *handler) onIPUpdate(ip *flv1.IP) (*flv1.IP, error) {
@@ -298,8 +302,8 @@ func (h *handler) onIPUpdate(ip *flv1.IP) (*flv1.IP, error) {
 	return ip, nil
 }
 
-func (h *handler) eventError(pod *corev1.Pod, err error) {
-	h.recorder.Event(pod, corev1.EventTypeWarning, "FlatNetworkIPError", err.Error())
+func (h *handler) eventError(ip *flv1.IP, err error) {
+	h.recorder.Event(ip, corev1.EventTypeWarning, "FlatNetworkIPError", err.Error())
 }
 
 func fieldsIP(ip *flv1.IP) logrus.Fields {

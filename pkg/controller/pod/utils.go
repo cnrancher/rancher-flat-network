@@ -3,6 +3,8 @@ package pod
 import (
 	"crypto/sha1"
 	"fmt"
+	"net"
+	"strings"
 
 	flv1 "github.com/cnrancher/flat-network-operator/pkg/apis/flatnetwork.cattle.io/v1"
 	"github.com/cnrancher/flat-network-operator/pkg/utils"
@@ -19,19 +21,34 @@ func (h *handler) newFlatNetworkIP(pod *corev1.Pod) (*flv1.IP, error) {
 	annotationMAC := pod.Annotations[flv1.AnnotationMac]
 	annotationSubnet := pod.Annotations[flv1.AnnotationSubnet]
 	flatNetworkIPType := "specific"
+
+	var (
+		ipAddrs  []net.IP
+		macAddrs []net.HardwareAddr
+	)
 	switch annotationIP {
 	case "auto":
 		flatNetworkIPType = "auto"
 	default:
-		if !utils.IsSingleIP(annotationIP) && !utils.IsMultipleIP(annotationIP) {
-			return nil, fmt.Errorf("newFlatNetworkIP: invalid annotation [%v: %v]",
-				flv1.AnnotationIP, annotationIP)
+		spec := strings.Split(annotationIP, "-")
+		for _, s := range spec {
+			a := net.ParseIP(s)
+			if len(a) == 0 {
+				return nil, fmt.Errorf("newFlatNetworkIP: invalid annotation [%v: %v]",
+					flv1.AnnotationIP, annotationIP)
+			}
+			ipAddrs = append(ipAddrs, a)
 		}
 	}
 	if annotationMAC != "" {
-		if !utils.IsSingleMAC(annotationMAC) && !utils.IsMultipleMAC(annotationMAC) {
-			return nil, fmt.Errorf("newFlatNetworkIP: invalid annotation [%v: %v]",
-				flv1.AnnotationMac, annotationMAC)
+		spec := strings.Split(annotationIP, "-")
+		for _, s := range spec {
+			a, err := net.ParseMAC(s)
+			if len(a) == 0 || err != nil {
+				return nil, fmt.Errorf("newFlatNetworkIP: invalid annotation [%v: %v]",
+					flv1.AnnotationMac, annotationMAC)
+			}
+			macAddrs = append(macAddrs, a)
 		}
 	}
 	subnet, err := h.subnetCache.Get(flv1.SubnetNamespace, annotationSubnet)
@@ -60,8 +77,8 @@ func (h *handler) newFlatNetworkIP(pod *corev1.Pod) (*flv1.IP, error) {
 			},
 		},
 		Spec: flv1.IPSpec{
-			CIDR:   annotationIP,
-			MAC:    annotationMAC,
+			Addrs:  ipAddrs,
+			MACs:   macAddrs,
 			PodID:  string(pod.GetUID()),
 			Subnet: subnet.Name,
 		},

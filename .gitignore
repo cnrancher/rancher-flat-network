@@ -22,6 +22,7 @@
 go.work
 
 # Dapper
+.dapper.tmp
 .dapper
 /Dockerfile.dapper*
 !/Dockerfile.dapper

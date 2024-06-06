@@ -23,8 +23,8 @@ func Test_IP(t *testing.T) {
 		Spec: flv1.IPSpec{
 			Subnet: "example-subnet",
 			PodID:  "DE6F1529-3C77-4E4E-8D46-8294E025DE80",
-			// CIDR:   "192.168.0.0/24",
-			MAC: "aa:bb:cc:dd:ee:ff",
+			Addrs:  []net.IP{},
+			MACs:   []net.HardwareAddr{},
 		},
 	}
 
