@@ -33,15 +33,7 @@ var subnet = flv1.FlatNetworkSubnet{
 		Ranges: []flv1.IPRange{
 			{
 				Start: net.ParseIP("192.168.1.100"),
-				End:   net.ParseIP("192.168.1.120"),
-			},
-			{
-				Start: net.ParseIP("192.168.1.150"),
-				End:   net.ParseIP("192.168.1.160"),
-			},
-			{
-				Start: net.ParseIP("192.168.1.200"),
-				End:   net.ParseIP("192.168.1.220"),
+				End:   net.ParseIP("192.168.1.200"),
 			},
 		},
 		Routes: []flv1.Route{},
@@ -72,6 +64,22 @@ func Test_FlatNetworkSubnet_Macvlan(t *testing.T) {
 	}
 }
 
+func Test_FlatNetworkSubnet_Macvlan_IPv6(t *testing.T) {
+	subnet.Name = "example-macvlan-subnet-ipv6"
+	subnet.Spec.FlatMode = "macvlan"
+	subnet.Spec.CIDR = "fd00:aaaa::/64"
+	subnet.Spec.Ranges = []flv1.IPRange{
+		{
+			Start: net.ParseIP("fd00:aaaa::1000"),
+			End:   net.ParseIP("fd00:aaaa::ffff"),
+		},
+	}
+	err := saveYaml(subnet, "../../../../docs/macvlan/subnet-example-ipv6.yaml")
+	if err != nil {
+		t.Error(err)
+	}
+}
+
 func Test_FlatNetworkSubnet_IPvlan(t *testing.T) {
 	subnet.Name = "example-ipvaln-subnet"
 	subnet.Spec.FlatMode = "ipvlan"
@@ -83,6 +91,21 @@ func Test_FlatNetworkSubnet_IPvlan(t *testing.T) {
 		},
 	}
 	err := saveYaml(subnet, "../../../../docs/ipvlan/subnet-example.yaml")
+	if err != nil {
+		t.Error(err)
+	}
+}
+
+func Test_FlatNetworkSubnet_IPvlan_IPv6(t *testing.T) {
+	subnet.Name = "example-ipvlan-subnet-ipv6"
+	subnet.Spec.FlatMode = "ipvlan"
+	subnet.Spec.Ranges = []flv1.IPRange{
+		{
+			Start: net.ParseIP("fd00:eeee::1000"),
+			End:   net.ParseIP("fd00:eeee::ffff"),
+		},
+	}
+	err := saveYaml(subnet, "../../../../docs/ipvlan/subnet-example-ipv6.yaml")
 	if err != nil {
 		t.Error(err)
 	}

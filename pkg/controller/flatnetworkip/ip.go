@@ -256,10 +256,6 @@ func (h *handler) onIPCreate(ip *flv1.FlatNetworkIP) (*flv1.FlatNetworkIP, error
 	return ip, nil
 }
 
-func (h *handler) validateIP(ip *flv1.FlatNetworkIP) error {
-	return nil
-}
-
 func (h *handler) onIPUpdate(ip *flv1.FlatNetworkIP) (*flv1.FlatNetworkIP, error) {
 	// Ensure the subnet resource exists.
 	subnet, err := h.subnetCache.Get(flv1.SubnetNamespace, ip.Spec.Subnet)
