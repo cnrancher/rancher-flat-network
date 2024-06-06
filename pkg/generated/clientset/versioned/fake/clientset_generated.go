@@ -20,8 +20,8 @@ package fake
 
 import (
 	clientset "github.com/cnrancher/flat-network-operator/pkg/generated/clientset/versioned"
-	flatnetworkv1 "github.com/cnrancher/flat-network-operator/pkg/generated/clientset/versioned/typed/flatnetwork.cattle.io/v1"
-	fakeflatnetworkv1 "github.com/cnrancher/flat-network-operator/pkg/generated/clientset/versioned/typed/flatnetwork.cattle.io/v1/fake"
+	flatnetworkv1 "github.com/cnrancher/flat-network-operator/pkg/generated/clientset/versioned/typed/flatnetwork.pandaria.io/v1"
+	fakeflatnetworkv1 "github.com/cnrancher/flat-network-operator/pkg/generated/clientset/versioned/typed/flatnetwork.pandaria.io/v1/fake"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"

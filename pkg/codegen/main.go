@@ -17,7 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	flatnetworkv1 "github.com/cnrancher/flat-network-operator/pkg/apis/flatnetwork.cattle.io/v1"
+	flatnetworkv1 "github.com/cnrancher/flat-network-operator/pkg/apis/flatnetwork.pandaria.io/v1"
 )
 
 func main() {
@@ -27,10 +27,10 @@ func main() {
 		OutputPackage: "github.com/cnrancher/flat-network-operator/pkg/generated",
 		Boilerplate:   "pkg/codegen/boilerplate.go.txt",
 		Groups: map[string]args.Group{
-			"flatnetwork.cattle.io": {
+			"flatnetwork.pandaria.io": {
 				Types: []any{
-					flatnetworkv1.IP{},
-					flatnetworkv1.Subnet{},
+					flatnetworkv1.FlatNetworkIP{},
+					flatnetworkv1.FlatNetworkSubnet{},
 				},
 				GenerateTypes:     true,
 				GenerateClients:   true,
@@ -71,21 +71,23 @@ func main() {
 
 	var crds []crd.CRD
 
-	ipConfig := newCRD(&flatnetworkv1.IP{}, func(c crd.CRD) crd.CRD {
+	ipConfig := newCRD(&flatnetworkv1.FlatNetworkIP{}, func(c crd.CRD) crd.CRD {
 		if c.Schema == nil {
 			c.Schema = &v1.JSONSchemaProps{}
 		}
 		c.ShortNames = []string{
+			"flatnetworkip",
 			"flip",
 			"flips",
 		}
 		return c
 	})
-	subnetConfig := newCRD(&flatnetworkv1.Subnet{}, func(c crd.CRD) crd.CRD {
+	subnetConfig := newCRD(&flatnetworkv1.FlatNetworkSubnet{}, func(c crd.CRD) crd.CRD {
 		if c.Schema == nil {
 			c.Schema = &v1.JSONSchemaProps{}
 		}
 		c.ShortNames = []string{
+			"flatnetworksubnet",
 			"flsubnet",
 			"flsubnets",
 		}
@@ -117,7 +119,7 @@ func main() {
 func newCRD(obj any, customize func(crd.CRD) crd.CRD) crd.CRD {
 	crd := crd.CRD{
 		GVK: schema.GroupVersionKind{
-			Group:   "flatnetwork.cattle.io",
+			Group:   "flatnetwork.pandaria.io",
 			Version: "v1",
 		},
 		Status:       true,

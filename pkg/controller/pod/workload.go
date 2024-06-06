@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	flv1 "github.com/cnrancher/flat-network-operator/pkg/apis/flatnetwork.cattle.io/v1"
+	flv1 "github.com/cnrancher/flat-network-operator/pkg/apis/flatnetwork.pandaria.io/v1"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -71,7 +71,7 @@ func (h *handler) findOwnerWorkload(pod *corev1.Pod) (string, string, types.UID,
 	return "", "", "", fmt.Errorf("%s owner workload not found", pod.Name)
 }
 
-func (h *handler) setIfStatefulSetOwnerRef(flatNetworkIP *flv1.IP, pod *corev1.Pod) {
+func (h *handler) setIfStatefulSetOwnerRef(flatNetworkIP *flv1.FlatNetworkIP, pod *corev1.Pod) {
 	ownerName, ownerKind, ownerUID, err := h.findOwnerWorkload(pod)
 	if err != nil {
 		return
@@ -92,7 +92,7 @@ func (h *handler) setIfStatefulSetOwnerRef(flatNetworkIP *flv1.IP, pod *corev1.P
 	}
 }
 
-func (h *handler) setWorkloadAndProjectLabel(flatNetworkIP *flv1.IP, pod *corev1.Pod) {
+func (h *handler) setWorkloadAndProjectLabel(flatNetworkIP *flv1.FlatNetworkIP, pod *corev1.Pod) {
 	// get name from pod's owner
 	ns, err := h.namespaceCache.Get(pod.Namespace)
 	if err != nil {

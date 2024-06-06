@@ -6,7 +6,7 @@ import (
 	"net"
 	"strings"
 
-	flv1 "github.com/cnrancher/flat-network-operator/pkg/apis/flatnetwork.cattle.io/v1"
+	flv1 "github.com/cnrancher/flat-network-operator/pkg/apis/flatnetwork.pandaria.io/v1"
 	"github.com/cnrancher/flat-network-operator/pkg/utils"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
@@ -15,7 +15,7 @@ import (
 )
 
 // newFlatNetworkIP returns a new flat-network IP struct object by Pod.
-func (h *handler) newFlatNetworkIP(pod *corev1.Pod) (*flv1.IP, error) {
+func (h *handler) newFlatNetworkIP(pod *corev1.Pod) (*flv1.FlatNetworkIP, error) {
 	// Valid pod annotation
 	annotationIP := pod.Annotations[flv1.AnnotationIP]
 	annotationMAC := pod.Annotations[flv1.AnnotationMac]
@@ -57,7 +57,7 @@ func (h *handler) newFlatNetworkIP(pod *corev1.Pod) (*flv1.IP, error) {
 			annotationSubnet, err)
 	}
 
-	flatNetworkIP := &flv1.IP{
+	flatNetworkIP := &flv1.FlatNetworkIP{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        pod.Name,
 			Namespace:   pod.Namespace,
@@ -93,7 +93,7 @@ func calcHash(ip, mac string) string {
 	return fmt.Sprintf("hash-%x", sha1.Sum([]byte(ip+mac)))
 }
 
-func flatNetworkIPUpdated(a, b *flv1.IP) bool {
+func flatNetworkIPUpdated(a, b *flv1.FlatNetworkIP) bool {
 	if a == nil || b == nil {
 		return false
 	}

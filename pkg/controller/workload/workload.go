@@ -10,7 +10,7 @@ import (
 	batchv1 "k8s.io/api/batch/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	flv1 "github.com/cnrancher/flat-network-operator/pkg/apis/flatnetwork.cattle.io/v1"
+	flv1 "github.com/cnrancher/flat-network-operator/pkg/apis/flatnetwork.pandaria.io/v1"
 	appscontroller "github.com/cnrancher/flat-network-operator/pkg/generated/controllers/apps/v1"
 	batchcontroller "github.com/cnrancher/flat-network-operator/pkg/generated/controllers/batch/v1"
 	"github.com/cnrancher/flat-network-operator/pkg/utils"

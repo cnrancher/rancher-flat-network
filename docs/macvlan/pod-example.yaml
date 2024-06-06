@@ -1,0 +1,17 @@
+kind: Pod
+apiVersion: v1
+metadata:
+  name: example-pod
+  namespace: "default"
+  annotations:
+    flatnetwork.pandaria.io/ip: "auto"
+    flatnetwork.pandaria.io/subnet: "example-macvlan-subnet"
+    flatnetwork.pandaria.io/mac: ""
+spec:
+  containers:
+  - name: alpine
+    image: alpine
+    command:
+    - "sleep"
+    args:
+    - "infinity"

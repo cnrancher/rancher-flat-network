@@ -24,7 +24,7 @@ import (
 	time "time"
 
 	versioned "github.com/cnrancher/flat-network-operator/pkg/generated/clientset/versioned"
-	flatnetworkcattleio "github.com/cnrancher/flat-network-operator/pkg/generated/informers/externalversions/flatnetwork.cattle.io"
+	flatnetworkpandariaio "github.com/cnrancher/flat-network-operator/pkg/generated/informers/externalversions/flatnetwork.pandaria.io"
 	internalinterfaces "github.com/cnrancher/flat-network-operator/pkg/generated/informers/externalversions/internalinterfaces"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
@@ -243,9 +243,9 @@ type SharedInformerFactory interface {
 	// client.
 	InformerFor(obj runtime.Object, newFunc internalinterfaces.NewInformerFunc) cache.SharedIndexInformer
 
-	Flatnetwork() flatnetworkcattleio.Interface
+	Flatnetwork() flatnetworkpandariaio.Interface
 }
 
-func (f *sharedInformerFactory) Flatnetwork() flatnetworkcattleio.Interface {
-	return flatnetworkcattleio.New(f, f.namespace, f.tweakListOptions)
+func (f *sharedInformerFactory) Flatnetwork() flatnetworkpandariaio.Interface {
+	return flatnetworkpandariaio.New(f, f.namespace, f.tweakListOptions)
 }

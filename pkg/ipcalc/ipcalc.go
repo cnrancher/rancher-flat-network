@@ -6,7 +6,7 @@ import (
 	"net"
 	"slices"
 
-	flv1 "github.com/cnrancher/flat-network-operator/pkg/apis/flatnetwork.cattle.io/v1"
+	flv1 "github.com/cnrancher/flat-network-operator/pkg/apis/flatnetwork.pandaria.io/v1"
 )
 
 var (

@@ -22,7 +22,7 @@ import (
 	"fmt"
 	"net/http"
 
-	flatnetworkv1 "github.com/cnrancher/flat-network-operator/pkg/generated/clientset/versioned/typed/flatnetwork.cattle.io/v1"
+	flatnetworkv1 "github.com/cnrancher/flat-network-operator/pkg/generated/clientset/versioned/typed/flatnetwork.pandaria.io/v1"
 	discovery "k8s.io/client-go/discovery"
 	rest "k8s.io/client-go/rest"
 	flowcontrol "k8s.io/client-go/util/flowcontrol"

@@ -14,11 +14,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/util/retry"
 
-	flv1 "github.com/cnrancher/flat-network-operator/pkg/apis/flatnetwork.cattle.io/v1"
+	flv1 "github.com/cnrancher/flat-network-operator/pkg/apis/flatnetwork.pandaria.io/v1"
 	appscontroller "github.com/cnrancher/flat-network-operator/pkg/generated/controllers/apps/v1"
 	batchcontroller "github.com/cnrancher/flat-network-operator/pkg/generated/controllers/batch/v1"
 	corecontroller "github.com/cnrancher/flat-network-operator/pkg/generated/controllers/core/v1"
-	flcontroller "github.com/cnrancher/flat-network-operator/pkg/generated/controllers/flatnetwork.cattle.io/v1"
+	flcontroller "github.com/cnrancher/flat-network-operator/pkg/generated/controllers/flatnetwork.pandaria.io/v1"
 )
 
 const (
@@ -28,10 +28,10 @@ const (
 type handler struct {
 	podClient    corecontroller.PodClient
 	podCache     corecontroller.PodCache
-	ipClient     flcontroller.IPClient
-	ipCache      flcontroller.IPCache
-	subnetCache  flcontroller.SubnetCache
-	subnetClient flcontroller.SubnetController
+	ipClient     flcontroller.FlatNetworkIPClient
+	ipCache      flcontroller.FlatNetworkIPCache
+	subnetCache  flcontroller.FlatNetworkSubnetCache
+	subnetClient flcontroller.FlatNetworkSubnetController
 
 	namespaceCache   corecontroller.NamespaceCache
 	deploymentCache  appscontroller.DeploymentCache
@@ -52,10 +52,10 @@ func Register(
 	h := &handler{
 		podClient:    wctx.Core.Pod(),
 		podCache:     wctx.Core.Pod().Cache(),
-		ipClient:     wctx.FlatNetwork.IP(),
-		ipCache:      wctx.FlatNetwork.IP().Cache(),
-		subnetCache:  wctx.FlatNetwork.Subnet().Cache(),
-		subnetClient: wctx.FlatNetwork.Subnet(),
+		ipClient:     wctx.FlatNetwork.FlatNetworkIP(),
+		ipCache:      wctx.FlatNetwork.FlatNetworkIP().Cache(),
+		subnetCache:  wctx.FlatNetwork.FlatNetworkSubnet().Cache(),
+		subnetClient: wctx.FlatNetwork.FlatNetworkSubnet(),
 
 		namespaceCache:   wctx.Core.Namespace().Cache(),
 		deploymentCache:  wctx.Apps.Deployment().Cache(),
@@ -126,7 +126,7 @@ func (h *handler) sync(name string, pod *corev1.Pod) (*corev1.Pod, error) {
 }
 
 // ensureFlatNetworkIP ensure the FlatNetworkIP resource exists.
-func (h *handler) ensureFlatNetworkIP(pod *corev1.Pod) (*flv1.IP, error) {
+func (h *handler) ensureFlatNetworkIP(pod *corev1.Pod) (*flv1.FlatNetworkIP, error) {
 	existFlatNetworkIP, err := h.ipCache.Get(pod.Namespace, pod.Name)
 	if err != nil {
 		if !apierrors.IsNotFound(err) {
@@ -162,7 +162,7 @@ func (h *handler) ensureFlatNetworkIP(pod *corev1.Pod) (*flv1.IP, error) {
 	return createdFlatNetworkIP, nil
 }
 
-func (h *handler) updatePodLabel(pod *corev1.Pod, ip *flv1.IP) error {
+func (h *handler) updatePodLabel(pod *corev1.Pod, ip *flv1.FlatNetworkIP) error {
 	if pod.Labels == nil {
 		pod.Labels = make(map[string]string)
 	}

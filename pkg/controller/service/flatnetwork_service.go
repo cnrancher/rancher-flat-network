@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	flv1 "github.com/cnrancher/flat-network-operator/pkg/apis/flatnetwork.cattle.io/v1"
+	flv1 "github.com/cnrancher/flat-network-operator/pkg/apis/flatnetwork.pandaria.io/v1"
 	"github.com/cnrancher/flat-network-operator/pkg/utils"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"

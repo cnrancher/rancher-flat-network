@@ -1,0 +1,30 @@
+apiVersion: flatnetwork.pandaria.io/v1
+kind: FlatNetworkSubnet
+metadata:
+    creationTimestamp: null
+    labels:
+        project: ""
+    name: example-macvlan-subnet
+    namespace: kube-system
+spec:
+    cidr: 192.168.1.0/24
+    flatMode: macvlan
+    gateway: ""
+    master: eth0
+    mode: ""
+    podDefaultGateway: {}
+    ranges:
+        - end: 192.168.1.120
+          start: 192.168.1.100
+        - end: 192.168.1.160
+          start: 192.168.1.150
+        - end: 192.168.1.220
+          start: 192.168.1.200
+    vlan: 0
+status:
+    failureMessage: ""
+    gateway: ""
+    phase: ""
+    usedIP: null
+    usedIPCount: 0
+    usedMac: null

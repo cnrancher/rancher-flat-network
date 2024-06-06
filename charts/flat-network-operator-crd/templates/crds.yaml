@@ -4,16 +4,17 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     helm.sh/resource-policy: keep
-  name: ips.flatnetwork.cattle.io
+  name: flatnetworkips.flatnetwork.pandaria.io
 spec:
-  group: flatnetwork.cattle.io
+  group: flatnetwork.pandaria.io
   names:
-    kind: IP
-    plural: ips
+    kind: FlatNetworkIP
+    plural: flatnetworkips
     shortNames:
+    - flatnetworkip
     - flip
     - flips
-    singular: ip
+    singular: flatnetworkip
   preserveUnknownFields: false
   scope: Namespaced
   versions:
@@ -68,16 +69,17 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     helm.sh/resource-policy: keep
-  name: subnets.flatnetwork.cattle.io
+  name: flatnetworksubnets.flatnetwork.pandaria.io
 spec:
-  group: flatnetwork.cattle.io
+  group: flatnetwork.pandaria.io
   names:
-    kind: Subnet
-    plural: subnets
+    kind: FlatNetworkSubnet
+    plural: flatnetworksubnets
     shortNames:
+    - flatnetworksubnet
     - flsubnet
     - flsubnets
-    singular: subnet
+    singular: flatnetworksubnet
   preserveUnknownFields: false
   scope: Namespaced
   versions:

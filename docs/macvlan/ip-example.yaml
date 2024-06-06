@@ -1,0 +1,15 @@
+apiVersion: flatnetwork.pandaria.io/v1
+kind: IP
+metadata:
+    creationTimestamp: null
+    name: example-ip
+spec:
+    addrs: []
+    macs: []
+    podId: DE6F1529-3C77-4E4E-8D46-8294E025DE80
+    subnet: example-macvlan-subnet
+status:
+    addr: ""
+    failureMessage: ""
+    mac: null
+    phase: ""
