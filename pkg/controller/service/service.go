@@ -15,8 +15,8 @@ import (
 )
 
 const (
-	handlerName              = "flatnetwork-service"
-	macvlanServiceNameSuffix = "-macvlan"
+	handlerName                  = "flatnetwork-service"
+	flatNetworkServiceNameSuffix = "-flatnetwork"
 )
 
 type handler struct {
@@ -76,14 +76,14 @@ func (h *handler) handleDefaultService(svc *corev1.Service) (*corev1.Service, er
 	}
 
 	// Create if the flat-network service not exists.
-	expectedService := newMacvlanService(svc)
+	expectedService := newFlatNetworkService(svc)
 	existService, err := h.serviceCache.Get(expectedService.Namespace, expectedService.Name)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			// if strings.HasSuffix(svc.Name, macvlanServiceNameSuffix) {
+			// if strings.HasSuffix(svc.Name, flatNetworkServiceNameSuffix) {
 			// 	logrus.WithFields(fieldsService(svc)).
 			// 		Infof("skip create [%v/%v] as the origional svc have %q suffix",
-			// 			svc.Namespace, expectedService.Name, macvlanServiceNameSuffix)
+			// 			svc.Namespace, expectedService.Name, flatNetworkServiceNameSuffix)
 			// 	return svc, nil
 			// }
 			logrus.WithFields(fieldsService(svc)).
@@ -105,7 +105,7 @@ func (h *handler) handleDefaultService(svc *corev1.Service) (*corev1.Service, er
 		return svc, err
 	}
 
-	// Skip if the macvlan service is already updated.
+	// Skip if the flat-network service is already updated.
 	if flatNetworkServiceUpdated(existService, expectedService) {
 		logrus.WithFields(fieldsService(svc)).
 			Debugf("flat-network service [%v/%v] already updated, skip",

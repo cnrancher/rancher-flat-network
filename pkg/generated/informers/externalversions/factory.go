@@ -24,8 +24,8 @@ import (
 	time "time"
 
 	versioned "github.com/cnrancher/flat-network-operator/pkg/generated/clientset/versioned"
+	flatnetworkcattleio "github.com/cnrancher/flat-network-operator/pkg/generated/informers/externalversions/flatnetwork.cattle.io"
 	internalinterfaces "github.com/cnrancher/flat-network-operator/pkg/generated/informers/externalversions/internalinterfaces"
-	macvlanclustercattleio "github.com/cnrancher/flat-network-operator/pkg/generated/informers/externalversions/macvlan.cluster.cattle.io"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
@@ -243,9 +243,9 @@ type SharedInformerFactory interface {
 	// client.
 	InformerFor(obj runtime.Object, newFunc internalinterfaces.NewInformerFunc) cache.SharedIndexInformer
 
-	Macvlan() macvlanclustercattleio.Interface
+	Flatnetwork() flatnetworkcattleio.Interface
 }
 
-func (f *sharedInformerFactory) Macvlan() macvlanclustercattleio.Interface {
-	return macvlanclustercattleio.New(f, f.namespace, f.tweakListOptions)
+func (f *sharedInformerFactory) Flatnetwork() flatnetworkcattleio.Interface {
+	return flatnetworkcattleio.New(f, f.namespace, f.tweakListOptions)
 }

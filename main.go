@@ -10,10 +10,10 @@ import (
 
 	nested "github.com/antonfisher/nested-logrus-formatter"
 	"github.com/cnrancher/flat-network-operator/pkg/controller/ingress"
-	"github.com/cnrancher/flat-network-operator/pkg/controller/macvlanip"
-	"github.com/cnrancher/flat-network-operator/pkg/controller/macvlansubnet"
+	"github.com/cnrancher/flat-network-operator/pkg/controller/ip"
 	"github.com/cnrancher/flat-network-operator/pkg/controller/pod"
 	"github.com/cnrancher/flat-network-operator/pkg/controller/service"
+	"github.com/cnrancher/flat-network-operator/pkg/controller/subnet"
 	"github.com/cnrancher/flat-network-operator/pkg/controller/workload"
 	"github.com/cnrancher/flat-network-operator/pkg/controller/wrangler"
 	"github.com/cnrancher/flat-network-operator/pkg/utils"
@@ -85,8 +85,8 @@ func main() {
 	}
 
 	// Register handlers
-	macvlanip.Register(ctx, wctx)
-	macvlansubnet.Register(ctx, wctx)
+	ip.Register(ctx, wctx)
+	subnet.Register(ctx, wctx)
 	service.Register(ctx, wctx.Core.Service(), wctx.Core.Pod())
 	pod.Register(ctx, wctx)
 	ingress.Register(ctx, wctx.Networking.Ingress(), wctx.Core.Service())

@@ -4,16 +4,16 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     helm.sh/resource-policy: keep
-  name: macvlanips.macvlan.cluster.cattle.io
+  name: ips.flatnetwork.cattle.io
 spec:
-  group: macvlan.cluster.cattle.io
+  group: flatnetwork.cattle.io
   names:
-    kind: MacvlanIP
-    plural: macvlanips
+    kind: IP
+    plural: ips
     shortNames:
-    - mip
-    - mips
-    singular: macvlanip
+    - flip
+    - flips
+    singular: ip
   preserveUnknownFields: false
   scope: Namespaced
   versions:
@@ -38,10 +38,10 @@ spec:
             type: object
           status:
             properties:
-              failureMessage:
+              address:
                 nullable: true
                 type: string
-              ip:
+              failureMessage:
                 nullable: true
                 type: string
               mac:
@@ -62,16 +62,16 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     helm.sh/resource-policy: keep
-  name: macvlansubnets.macvlan.cluster.cattle.io
+  name: subnets.flatnetwork.cattle.io
 spec:
-  group: macvlan.cluster.cattle.io
+  group: flatnetwork.cattle.io
   names:
-    kind: MacvlanSubnet
-    plural: macvlansubnets
+    kind: Subnet
+    plural: subnets
     shortNames:
-    - msubnet
-    - msubnets
-    singular: macvlansubnet
+    - flsubnet
+    - flsubnets
+    singular: subnet
   preserveUnknownFields: false
   scope: Namespaced
   versions:
@@ -84,11 +84,12 @@ spec:
               cidr:
                 nullable: true
                 type: string
+              flatMode:
+                nullable: true
+                type: string
               gateway:
                 nullable: true
                 type: string
-              ipDelayReuse:
-                type: integer
               master:
                 nullable: true
                 type: string
@@ -99,17 +100,17 @@ spec:
                 properties:
                   enable:
                     type: boolean
-                  serviceCidr:
+                  serviceCIDR:
                     nullable: true
                     type: string
                 type: object
               ranges:
                 items:
                   properties:
-                    rangeEnd:
+                    end:
                       nullable: true
                       type: string
-                    rangeStart:
+                    start:
                       nullable: true
                       type: string
                   type: object
@@ -118,13 +119,13 @@ spec:
               routes:
                 items:
                   properties:
-                    dst:
+                    destination:
                       nullable: true
                       type: string
-                    gw:
+                    gateway:
                       nullable: true
                       type: string
-                    iface:
+                    interface:
                       nullable: true
                       type: string
                   type: object
@@ -147,10 +148,10 @@ spec:
               usedIP:
                 items:
                   properties:
-                    rangeEnd:
+                    end:
                       nullable: true
                       type: string
-                    rangeStart:
+                    start:
                       nullable: true
                       type: string
                   type: object

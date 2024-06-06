@@ -4,7 +4,7 @@ import (
 	"crypto/sha1"
 	"fmt"
 
-	macvlanv1 "github.com/cnrancher/flat-network-operator/pkg/apis/macvlan.cluster.cattle.io/v1"
+	flv1 "github.com/cnrancher/flat-network-operator/pkg/apis/flatnetwork.cattle.io/v1"
 	"github.com/cnrancher/flat-network-operator/pkg/utils"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
@@ -12,42 +12,42 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// newMacvlanIP returns a new macvlanIP struct object by Pod.
-func (h *handler) newMacvlanIP(pod *corev1.Pod) (*macvlanv1.MacvlanIP, error) {
+// newFlatNetworkIP returns a new flat-network IP struct object by Pod.
+func (h *handler) newFlatNetworkIP(pod *corev1.Pod) (*flv1.IP, error) {
 	// Valid pod annotation
-	annotationIP := pod.Annotations[macvlanv1.AnnotationIP]
-	annotationMAC := pod.Annotations[macvlanv1.AnnotationMac]
-	annotationSubnet := pod.Annotations[macvlanv1.AnnotationSubnet]
-	macvlanIPType := "specific"
+	annotationIP := pod.Annotations[flv1.AnnotationIP]
+	annotationMAC := pod.Annotations[flv1.AnnotationMac]
+	annotationSubnet := pod.Annotations[flv1.AnnotationSubnet]
+	flatNetworkIPType := "specific"
 	switch annotationIP {
 	case "auto":
-		macvlanIPType = "auto"
+		flatNetworkIPType = "auto"
 	default:
 		if !utils.IsSingleIP(annotationIP) && !utils.IsMultipleIP(annotationIP) {
-			return nil, fmt.Errorf("newMacvlanIP: invalid annotation [%v: %v]",
-				macvlanv1.AnnotationIP, annotationIP)
+			return nil, fmt.Errorf("newFlatNetworkIP: invalid annotation [%v: %v]",
+				flv1.AnnotationIP, annotationIP)
 		}
 	}
 	if annotationMAC != "" {
 		if !utils.IsSingleMAC(annotationMAC) && !utils.IsMultipleMAC(annotationMAC) {
-			return nil, fmt.Errorf("newMacvlanIP: invalid annotation [%v: %v]",
-				macvlanv1.AnnotationMac, annotationMAC)
+			return nil, fmt.Errorf("newFlatNetworkIP: invalid annotation [%v: %v]",
+				flv1.AnnotationMac, annotationMAC)
 		}
 	}
-	subnet, err := h.macvlanSubnetCache.Get(macvlanv1.SubnetNamespace, annotationSubnet)
+	subnet, err := h.subnetCache.Get(flv1.SubnetNamespace, annotationSubnet)
 	if err != nil {
-		return nil, fmt.Errorf("newMacvlanIP: failed to get subnet [%v]: %w",
+		return nil, fmt.Errorf("newFlatNetworkIP: failed to get subnet [%v]: %w",
 			annotationSubnet, err)
 	}
 
-	macvlanIP := &macvlanv1.MacvlanIP{
+	flatNetworkIP := &flv1.IP{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        pod.Name,
 			Namespace:   pod.Namespace,
 			Annotations: map[string]string{},
 			Labels: map[string]string{
-				"subnet":                     subnet.Name,
-				macvlanv1.LabelMacvlanIPType: macvlanIPType,
+				"subnet":                    subnet.Name,
+				flv1.LabelFlatNetworkIPType: flatNetworkIPType,
 			},
 			OwnerReferences: []metav1.OwnerReference{
 				{
@@ -59,24 +59,24 @@ func (h *handler) newMacvlanIP(pod *corev1.Pod) (*macvlanv1.MacvlanIP, error) {
 				},
 			},
 		},
-		Spec: macvlanv1.MacvlanIPSpec{
+		Spec: flv1.IPSpec{
 			CIDR:   annotationIP,
 			MAC:    annotationMAC,
 			PodID:  string(pod.GetUID()),
 			Subnet: subnet.Name,
 		},
 	}
-	if subnet.Annotations[macvlanv1.AnnotationsIPv6to4] != "" {
-		macvlanIP.Annotations[macvlanv1.AnnotationsIPv6to4] = "true"
+	if subnet.Annotations[flv1.AnnotationsIPv6to4] != "" {
+		flatNetworkIP.Annotations[flv1.AnnotationsIPv6to4] = "true"
 	}
-	return macvlanIP, nil
+	return flatNetworkIP, nil
 }
 
 func calcHash(ip, mac string) string {
 	return fmt.Sprintf("hash-%x", sha1.Sum([]byte(ip+mac)))
 }
 
-func macvlanIPUpdated(a, b *macvlanv1.MacvlanIP) bool {
+func flatNetworkIPUpdated(a, b *flv1.IP) bool {
 	if a == nil || b == nil {
 		return false
 	}

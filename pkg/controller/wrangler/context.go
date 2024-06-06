@@ -4,15 +4,15 @@ import (
 	"context"
 	"fmt"
 
-	macvlanscheme "github.com/cnrancher/flat-network-operator/pkg/generated/clientset/versioned/scheme"
+	flscheme "github.com/cnrancher/flat-network-operator/pkg/generated/clientset/versioned/scheme"
 	"github.com/cnrancher/flat-network-operator/pkg/generated/controllers/apps"
 	appsv1 "github.com/cnrancher/flat-network-operator/pkg/generated/controllers/apps/v1"
 	"github.com/cnrancher/flat-network-operator/pkg/generated/controllers/batch"
 	batchv1 "github.com/cnrancher/flat-network-operator/pkg/generated/controllers/batch/v1"
 	"github.com/cnrancher/flat-network-operator/pkg/generated/controllers/core"
 	corecontroller "github.com/cnrancher/flat-network-operator/pkg/generated/controllers/core/v1"
-	macvlan "github.com/cnrancher/flat-network-operator/pkg/generated/controllers/macvlan.cluster.cattle.io"
-	macvlanv1 "github.com/cnrancher/flat-network-operator/pkg/generated/controllers/macvlan.cluster.cattle.io/v1"
+	fl "github.com/cnrancher/flat-network-operator/pkg/generated/controllers/flatnetwork.cattle.io"
+	flv1 "github.com/cnrancher/flat-network-operator/pkg/generated/controllers/flatnetwork.cattle.io/v1"
 	"github.com/cnrancher/flat-network-operator/pkg/generated/controllers/networking.k8s.io"
 	networkingv1 "github.com/cnrancher/flat-network-operator/pkg/generated/controllers/networking.k8s.io/v1"
 	"github.com/rancher/wrangler/v2/pkg/leader"
@@ -30,12 +30,12 @@ import (
 type Context struct {
 	RESTConfig *rest.Config
 
-	Macvlan    macvlanv1.Interface
-	Core       corecontroller.Interface
-	Apps       appsv1.Interface
-	Networking networkingv1.Interface
-	Batch      batchv1.Interface
-	Recorder   record.EventRecorder
+	FlatNetwork flv1.Interface
+	Core        corecontroller.Interface
+	Apps        appsv1.Interface
+	Networking  networkingv1.Interface
+	Batch       batchv1.Interface
+	Recorder    record.EventRecorder
 
 	leadership *leader.Manager
 	starters   []start.Starter
@@ -45,7 +45,7 @@ func NewContext(
 	restCfg *rest.Config,
 ) (*Context, error) {
 	// panic on error
-	macvlan := macvlan.NewFactoryFromConfigOrDie(restCfg)
+	flatnetwork := fl.NewFactoryFromConfigOrDie(restCfg)
 	core := core.NewFactoryFromConfigOrDie(restCfg)
 	apps := apps.NewFactoryFromConfigOrDie(restCfg)
 	networking := networking.NewFactoryFromConfigOrDie(restCfg)
@@ -56,7 +56,7 @@ func NewContext(
 		return nil, fmt.Errorf("failed to build clientset: %w", err)
 	}
 
-	utilruntime.Must(macvlanscheme.AddToScheme(scheme.Scheme))
+	utilruntime.Must(flscheme.AddToScheme(scheme.Scheme))
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartLogging(logrus.Warnf)
 	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: clientSet.CoreV1().Events("")})
@@ -69,17 +69,17 @@ func NewContext(
 	leadership := leader.NewManager("", "flat-network-operator", k8s)
 
 	c := &Context{
-		RESTConfig: restCfg,
-		Macvlan:    macvlan.Macvlan().V1(),
-		Core:       core.Core().V1(),
-		Apps:       apps.Apps().V1(),
-		Networking: networking.Networking().V1(),
-		Batch:      batch.Batch().V1(),
-		Recorder:   recorder,
+		RESTConfig:  restCfg,
+		FlatNetwork: flatnetwork.Flatnetwork().V1(),
+		Core:        core.Core().V1(),
+		Apps:        apps.Apps().V1(),
+		Networking:  networking.Networking().V1(),
+		Batch:       batch.Batch().V1(),
+		Recorder:    recorder,
 
 		leadership: leadership,
 	}
-	c.starters = append(c.starters, macvlan, core, apps, networking, batch)
+	c.starters = append(c.starters, flatnetwork, core, apps, networking, batch)
 	return c, nil
 }
 

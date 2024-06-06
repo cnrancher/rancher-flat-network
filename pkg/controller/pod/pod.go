@@ -14,11 +14,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/util/retry"
 
-	macvlanv1 "github.com/cnrancher/flat-network-operator/pkg/apis/macvlan.cluster.cattle.io/v1"
+	flv1 "github.com/cnrancher/flat-network-operator/pkg/apis/flatnetwork.cattle.io/v1"
 	appscontroller "github.com/cnrancher/flat-network-operator/pkg/generated/controllers/apps/v1"
 	batchcontroller "github.com/cnrancher/flat-network-operator/pkg/generated/controllers/batch/v1"
 	corecontroller "github.com/cnrancher/flat-network-operator/pkg/generated/controllers/core/v1"
-	macvlancontroller "github.com/cnrancher/flat-network-operator/pkg/generated/controllers/macvlan.cluster.cattle.io/v1"
+	flcontroller "github.com/cnrancher/flat-network-operator/pkg/generated/controllers/flatnetwork.cattle.io/v1"
 )
 
 const (
@@ -26,13 +26,12 @@ const (
 )
 
 type handler struct {
-	podClient corecontroller.PodClient
-	podCache  corecontroller.PodCache
-	// macvlanIP macvlancontroller.
-	macvlanIPClient     macvlancontroller.MacvlanIPClient
-	macvlanIPCache      macvlancontroller.MacvlanIPCache
-	macvlanSubnetCache  macvlancontroller.MacvlanSubnetCache
-	macvlanSubnetClient macvlancontroller.MacvlanSubnetController
+	podClient    corecontroller.PodClient
+	podCache     corecontroller.PodCache
+	ipClient     flcontroller.IPClient
+	ipCache      flcontroller.IPCache
+	subnetCache  flcontroller.SubnetCache
+	subnetClient flcontroller.SubnetController
 
 	namespaceCache   corecontroller.NamespaceCache
 	deploymentCache  appscontroller.DeploymentCache
@@ -51,12 +50,12 @@ func Register(
 	wctx *wrangler.Context,
 ) {
 	h := &handler{
-		podClient:           wctx.Core.Pod(),
-		podCache:            wctx.Core.Pod().Cache(),
-		macvlanIPClient:     wctx.Macvlan.MacvlanIP(),
-		macvlanIPCache:      wctx.Macvlan.MacvlanIP().Cache(),
-		macvlanSubnetCache:  wctx.Macvlan.MacvlanSubnet().Cache(),
-		macvlanSubnetClient: wctx.Macvlan.MacvlanSubnet(),
+		podClient:    wctx.Core.Pod(),
+		podCache:     wctx.Core.Pod().Cache(),
+		ipClient:     wctx.FlatNetwork.IP(),
+		ipCache:      wctx.FlatNetwork.IP().Cache(),
+		subnetCache:  wctx.FlatNetwork.Subnet().Cache(),
+		subnetClient: wctx.FlatNetwork.Subnet(),
 
 		namespaceCache:   wctx.Core.Namespace().Cache(),
 		deploymentCache:  wctx.Apps.Deployment().Cache(),
@@ -87,10 +86,10 @@ func (h *handler) handleError(
 	}
 }
 
-// sync ensures macvlanIP resource exists.
+// sync ensures flat-network IP resource exists.
 func (h *handler) sync(name string, pod *corev1.Pod) (*corev1.Pod, error) {
-	// Skip non-macvlan pods
-	if !utils.IsMacvlanPod(pod) {
+	// Skip non-flat-network pods
+	if !utils.IsPodEnabledFlatNetwork(pod) {
 		return pod, nil
 	}
 	if pod.DeletionTimestamp != nil {
@@ -102,17 +101,16 @@ func (h *handler) sync(name string, pod *corev1.Pod) (*corev1.Pod, error) {
 		return pod, fmt.Errorf("failed to get pod from cache: %v", err)
 	}
 
-	// Ensure FlatNetwork IP (macvlanIP) resource created.
-	macvlanIP, err := h.ensureFlatNetworkIP(pod)
+	// Ensure FlatNetwork IP resource created.
+	flatnetworkIP, err := h.ensureFlatNetworkIP(pod)
 	if err != nil {
-		// h.eventMacvlanIPError(pod, err)
 		return pod, fmt.Errorf("ensureFlatNetworkIP: %w", err)
 	}
-	if macvlanIP == nil || macvlanIP.Status.Phase != "Active" {
+	if flatnetworkIP == nil || flatnetworkIP.Status.Phase != "Active" {
 		logrus.WithFields(fieldsPod(pod)).
-			Infof("waiting for macvlanIP status to active")
+			Infof("waiting for flat-network IP status to active")
 
-		// Requeue in few seconds to wait for macvlanIP status active.
+		// Requeue in few seconds to wait for IP status active.
 		// This will not block the pod creation process and just waiting for
 		// a few seconds to update the pod flatnetwork labels.
 		h.podEnqueueAfter(pod.Namespace, pod.Name, time.Second*5)
@@ -120,78 +118,77 @@ func (h *handler) sync(name string, pod *corev1.Pod) (*corev1.Pod, error) {
 	}
 
 	// Ensure Pod label updated with the FlatNetworkIP.
-	if err = h.updatePodLabel(pod, macvlanIP); err != nil {
-		// h.eventMacvlanIPError(pod, err)
+	if err = h.updatePodLabel(pod, flatnetworkIP); err != nil {
 		return pod, err
 	}
 
 	return pod, nil
 }
 
-// ensureFlatNetworkIP ensure the FlatNetworkIP (macvlanIP) resource exists.
-func (h *handler) ensureFlatNetworkIP(pod *corev1.Pod) (*macvlanv1.MacvlanIP, error) {
-	existMacvlanIP, err := h.macvlanIPCache.Get(pod.Namespace, pod.Name)
+// ensureFlatNetworkIP ensure the FlatNetworkIP resource exists.
+func (h *handler) ensureFlatNetworkIP(pod *corev1.Pod) (*flv1.IP, error) {
+	existFlatNetworkIP, err := h.ipCache.Get(pod.Namespace, pod.Name)
 	if err != nil {
 		if !apierrors.IsNotFound(err) {
 			logrus.WithFields(fieldsPod(pod)).
-				Errorf("failed to get macvlanIP: %v", err)
+				Errorf("failed to get flat-network IP: %v", err)
 			return nil, err
 		}
 	}
-	expectedIP, err := h.newMacvlanIP(pod)
+	expectedIP, err := h.newFlatNetworkIP(pod)
 	if err != nil {
 		return expectedIP, err
 	}
 	h.setIfStatefulSetOwnerRef(expectedIP, pod)
 	h.setWorkloadAndProjectLabel(expectedIP, pod)
-	if macvlanIPUpdated(existMacvlanIP, expectedIP) {
-		return existMacvlanIP, nil
+	if flatNetworkIPUpdated(existFlatNetworkIP, expectedIP) {
+		return existFlatNetworkIP, nil
 	}
 
-	createdMacvlanIP, err := h.macvlanIPClient.Create(expectedIP)
+	createdFlatNetworkIP, err := h.ipClient.Create(expectedIP)
 	if err != nil {
 		if apierrors.IsAlreadyExists(err) {
-			// The macvlanIP may just created and the informer cache may not
+			// The IP may just created and the informer cache may not
 			// synced yet, ignore error, return the expectedIP directly
-			// and requeue to wait for macvlanIP status to active.
+			// and requeue to wait for IP status to active.
 			return expectedIP, nil
 		}
 		return nil, err
 	}
 	logrus.WithFields(fieldsPod(pod)).
-		Infof("request to create macvlanIP [%v/%v] IP [%v]",
-			pod.Namespace, pod.Name, createdMacvlanIP.Spec.CIDR)
+		Infof("request to create flat-network IP [%v/%v] IP [%v]",
+			pod.Namespace, pod.Name, createdFlatNetworkIP.Spec.CIDR)
 
-	return createdMacvlanIP, nil
+	return createdFlatNetworkIP, nil
 }
 
-func (h *handler) updatePodLabel(pod *corev1.Pod, macvlanIP *macvlanv1.MacvlanIP) error {
+func (h *handler) updatePodLabel(pod *corev1.Pod, ip *flv1.IP) error {
 	if pod.Labels == nil {
 		pod.Labels = make(map[string]string)
 	}
-	annotationIP := pod.Annotations[macvlanv1.AnnotationIP]
-	annotationSubnet := pod.Annotations[macvlanv1.AnnotationSubnet]
-	annotationMac := pod.Annotations[macvlanv1.AnnotationMac]
+	annotationIP := pod.Annotations[flv1.AnnotationIP]
+	annotationSubnet := pod.Annotations[flv1.AnnotationSubnet]
+	annotationMac := pod.Annotations[flv1.AnnotationMac]
 
 	labels := map[string]string{}
-	labels[macvlanv1.LabelMultipleIPHash] = calcHash(annotationIP, annotationMac)
-	labels[macvlanv1.LabelSubnet] = annotationSubnet
-	labels[macvlanv1.LabelSelectedIP] = ""
-	labels[macvlanv1.LabelSelectedMac] = ""
-	labels[macvlanv1.LabelMacvlanIPType] = "specific"
+	labels[flv1.LabelMultipleIPHash] = calcHash(annotationIP, annotationMac)
+	labels[flv1.LabelSubnet] = annotationSubnet
+	labels[flv1.LabelSelectedIP] = ""
+	labels[flv1.LabelSelectedMac] = ""
+	labels[flv1.LabelFlatNetworkIPType] = "specific"
 
-	if macvlanIP.Status.IP != nil {
-		if macvlanIP.Status.IP.To4() != nil {
+	if ip.Status.Address != nil {
+		if ip.Status.Address.To4() != nil {
 			// TODO: IPv6 address contains invalid char ':'
 			// Set IPv4 labels only.
-			labels[macvlanv1.LabelSelectedIP] = macvlanIP.Status.IP.String()
+			labels[flv1.LabelSelectedIP] = ip.Status.Address.String()
 		}
 	}
-	if macvlanIP.Status.MAC != nil {
-		labels[macvlanv1.LabelSelectedMac] = strings.ReplaceAll(macvlanIP.Status.MAC.String(), ":", "_")
+	if ip.Status.MAC != nil {
+		labels[flv1.LabelSelectedMac] = strings.ReplaceAll(ip.Status.MAC.String(), ":", "_")
 	}
 	if annotationIP == "auto" {
-		labels[macvlanv1.LabelMacvlanIPType] = "auto"
+		labels[flv1.LabelFlatNetworkIPType] = "auto"
 	}
 	skip := true
 	for k, v := range labels {

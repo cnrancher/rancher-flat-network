@@ -10,7 +10,7 @@ import (
 	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 
-	macvlanv1 "github.com/cnrancher/flat-network-operator/pkg/apis/macvlan.cluster.cattle.io/v1"
+	flv1 "github.com/cnrancher/flat-network-operator/pkg/apis/flatnetwork.cattle.io/v1"
 	corecontroller "github.com/cnrancher/flat-network-operator/pkg/generated/controllers/core/v1"
 	networkingcontroller "github.com/cnrancher/flat-network-operator/pkg/generated/controllers/networking.k8s.io/v1"
 	"github.com/cnrancher/flat-network-operator/pkg/utils"
@@ -20,7 +20,7 @@ const (
 	handlerName = "flatnetwork-ingress"
 
 	k8sCNINetworksKey = "k8s.v1.cni.cncf.io/networks"
-	netAttatchDefName = "static-macvlan-cni-attach"
+	netAttatchDefName = "static-flat-network-cni-attach"
 )
 
 type handler struct {
@@ -68,7 +68,7 @@ func (h *handler) syncIngress(
 			svcName := path.Backend.Service.Name
 			// Only sync service with name has prefix 'ingress-'.
 			flatNetworkEnabled := false
-			if ingress.Annotations[macvlanv1.AnnotationIngress] == "true" {
+			if ingress.Annotations[flv1.AnnotationIngress] == "true" {
 				flatNetworkEnabled = true
 			}
 			// Get service from the informer cache.
@@ -127,7 +127,7 @@ func (h *handler) handleIngressService(
 	}
 
 	logrus.WithFields(fieldsIngress(ingress)).
-		Infof("ingress[%s] service[%s] update macvlan enabled [%v]",
+		Infof("ingress[%s] service[%s] update flat-network enabled [%v]",
 			ingress.Name, service.Name, flatNetworkEnabled)
 	return nil
 }

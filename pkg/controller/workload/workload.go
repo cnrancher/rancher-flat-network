@@ -10,7 +10,7 @@ import (
 	batchv1 "k8s.io/api/batch/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	macvlanv1 "github.com/cnrancher/flat-network-operator/pkg/apis/macvlan.cluster.cattle.io/v1"
+	flv1 "github.com/cnrancher/flat-network-operator/pkg/apis/flatnetwork.cattle.io/v1"
 	appscontroller "github.com/cnrancher/flat-network-operator/pkg/generated/controllers/apps/v1"
 	batchcontroller "github.com/cnrancher/flat-network-operator/pkg/generated/controllers/batch/v1"
 	"github.com/cnrancher/flat-network-operator/pkg/utils"
@@ -122,7 +122,7 @@ func getFlatNetworkLabel(w metav1.Object) (isFlatNetworkEnabled bool, labels map
 		ipType string
 		subnet string
 	)
-	switch a[macvlanv1.LabelMacvlanIPType] {
+	switch a[flv1.LabelFlatNetworkIPType] {
 	case "auto":
 		ipType = "auto"
 		isFlatNetworkEnabled = true
@@ -131,11 +131,11 @@ func getFlatNetworkLabel(w metav1.Object) (isFlatNetworkEnabled bool, labels map
 		ipType = "specific"
 		isFlatNetworkEnabled = true
 	}
-	subnet = a[macvlanv1.AnnotationSubnet]
+	subnet = a[flv1.AnnotationSubnet]
 
 	labels = map[string]string{
-		macvlanv1.LabelMacvlanIPType: ipType,
-		macvlanv1.LabelSubnet:        subnet,
+		flv1.LabelFlatNetworkIPType: ipType,
+		flv1.LabelSubnet:            subnet,
 	}
 	return
 }

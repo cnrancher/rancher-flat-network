@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	macvlanv1 "github.com/cnrancher/flat-network-operator/pkg/apis/macvlan.cluster.cattle.io/v1"
+	flv1 "github.com/cnrancher/flat-network-operator/pkg/apis/flatnetwork.cattle.io/v1"
 	"github.com/cnrancher/flat-network-operator/pkg/utils"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
@@ -44,7 +44,7 @@ func (h *handler) shouldDeleteFlatNetworkService(svc *corev1.Service) (bool, err
 		return true, nil
 	}
 
-	originalServiceName := strings.TrimSuffix(svc.Name, macvlanServiceNameSuffix)
+	originalServiceName := strings.TrimSuffix(svc.Name, flatNetworkServiceNameSuffix)
 	originalService, err := h.serviceCache.Get(svc.Namespace, originalServiceName)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
@@ -76,10 +76,10 @@ func (h *handler) shouldDeleteFlatNetworkService(svc *corev1.Service) (bool, err
 			continue
 		}
 		annotations := pod.Annotations
-		if annotations != nil && annotations[macvlanv1.AnnotationMacvlanService] == "disabled" {
+		if annotations != nil && annotations[flv1.AnnotationFlatNetworkService] == "disabled" {
 			logrus.WithFields(fieldsService(svc)).
 				Infof("annotation [%v: disabled] found, flat-network service disabled",
-					macvlanv1.AnnotationMacvlanService)
+					flv1.AnnotationFlatNetworkService)
 			return true, nil
 		}
 	}
@@ -90,7 +90,7 @@ func (h *handler) shouldDeleteFlatNetworkService(svc *corev1.Service) (bool, err
 		if pod == nil {
 			continue
 		}
-		if utils.IsMacvlanPod(pod) {
+		if utils.IsPodEnabledFlatNetwork(pod) {
 			podUseFlatNetwork = true
 			break
 		}

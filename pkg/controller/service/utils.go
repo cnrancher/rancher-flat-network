@@ -13,12 +13,12 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
-	macvlanv1 "github.com/cnrancher/flat-network-operator/pkg/apis/macvlan.cluster.cattle.io/v1"
+	flv1 "github.com/cnrancher/flat-network-operator/pkg/apis/flatnetwork.cattle.io/v1"
 )
 
 const (
 	k8sCNINetworksKey = "k8s.v1.cni.cncf.io/networks"
-	netAttatchDefName = "static-macvlan-cni-attach"
+	netAttatchDefName = "static-flat-network-cni-attach"
 )
 
 // isIngressService detects if this svc is owned by Rancher managed ingress.
@@ -39,11 +39,11 @@ func isIngressService(svc *corev1.Service) bool {
 	return false
 }
 
-// Check if this service is a flat-network macvlan service.
+// Check if this service is a flat-network service.
 // A Flat-Network Service is a ClusterIP typed headless service, name ends with
-// '-macvlan' suffix.
+// '-flatnetwork' suffix.
 func isFlatNetworkService(svc *corev1.Service) bool {
-	if !strings.HasSuffix(svc.Name, macvlanServiceNameSuffix) {
+	if !strings.HasSuffix(svc.Name, flatNetworkServiceNameSuffix) {
 		return false
 	}
 	if svc.Spec.Type != "ClusterIP" {
@@ -79,7 +79,7 @@ func (h *handler) isWorkloadDisabledFlatNetwork(svc *corev1.Service) (bool, erro
 			continue
 		}
 		annotations := pod.Annotations
-		if annotations != nil && annotations[macvlanv1.AnnotationMacvlanService] == "disabled" {
+		if annotations != nil && annotations[flv1.AnnotationFlatNetworkService] == "disabled" {
 			return true, nil
 		}
 	}
@@ -90,7 +90,7 @@ func (h *handler) isWorkloadDisabledFlatNetwork(svc *corev1.Service) (bool, erro
 		if pod == nil {
 			continue
 		}
-		if utils.IsMacvlanPod(pod) {
+		if utils.IsPodEnabledFlatNetwork(pod) {
 			podUseFlatNetwork = true
 			break
 		}
@@ -99,9 +99,9 @@ func (h *handler) isWorkloadDisabledFlatNetwork(svc *corev1.Service) (bool, erro
 	return !podUseFlatNetwork, nil
 }
 
-// newMacvlanService returns a macvlan headless sercive struct based on
+// newFlatNetworkService returns a flat-network headless sercive struct based on
 // the provided existing service.
-func newMacvlanService(svc *corev1.Service) *corev1.Service {
+func newFlatNetworkService(svc *corev1.Service) *corev1.Service {
 	svc = svc.DeepCopy()
 	ports := []corev1.ServicePort{}
 	for _, v := range svc.Spec.Ports {
@@ -126,7 +126,7 @@ func newMacvlanService(svc *corev1.Service) *corev1.Service {
 
 	s := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            fmt.Sprintf("%s%s", svc.Name, macvlanServiceNameSuffix),
+			Name:            fmt.Sprintf("%s%s", svc.Name, flatNetworkServiceNameSuffix),
 			Namespace:       svc.Namespace,
 			OwnerReferences: ownerReference,
 			Annotations: map[string]string{
@@ -148,7 +148,7 @@ func newMacvlanService(svc *corev1.Service) *corev1.Service {
 	return s
 }
 
-// flatNetworkServiceUpdated returns true if the macvlan service already updated
+// flatNetworkServiceUpdated returns true if the flat-network service already updated
 func flatNetworkServiceUpdated(a, b *corev1.Service) bool {
 	if a == nil || b == nil {
 		return false

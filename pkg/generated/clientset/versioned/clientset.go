@@ -22,7 +22,7 @@ import (
 	"fmt"
 	"net/http"
 
-	macvlanv1 "github.com/cnrancher/flat-network-operator/pkg/generated/clientset/versioned/typed/macvlan.cluster.cattle.io/v1"
+	flatnetworkv1 "github.com/cnrancher/flat-network-operator/pkg/generated/clientset/versioned/typed/flatnetwork.cattle.io/v1"
 	discovery "k8s.io/client-go/discovery"
 	rest "k8s.io/client-go/rest"
 	flowcontrol "k8s.io/client-go/util/flowcontrol"
@@ -30,18 +30,18 @@ import (
 
 type Interface interface {
 	Discovery() discovery.DiscoveryInterface
-	MacvlanV1() macvlanv1.MacvlanV1Interface
+	FlatnetworkV1() flatnetworkv1.FlatnetworkV1Interface
 }
 
 // Clientset contains the clients for groups.
 type Clientset struct {
 	*discovery.DiscoveryClient
-	macvlanV1 *macvlanv1.MacvlanV1Client
+	flatnetworkV1 *flatnetworkv1.FlatnetworkV1Client
 }
 
-// MacvlanV1 retrieves the MacvlanV1Client
-func (c *Clientset) MacvlanV1() macvlanv1.MacvlanV1Interface {
-	return c.macvlanV1
+// FlatnetworkV1 retrieves the FlatnetworkV1Client
+func (c *Clientset) FlatnetworkV1() flatnetworkv1.FlatnetworkV1Interface {
+	return c.flatnetworkV1
 }
 
 // Discovery retrieves the DiscoveryClient
@@ -88,7 +88,7 @@ func NewForConfigAndClient(c *rest.Config, httpClient *http.Client) (*Clientset,
 
 	var cs Clientset
 	var err error
-	cs.macvlanV1, err = macvlanv1.NewForConfigAndClient(&configShallowCopy, httpClient)
+	cs.flatnetworkV1, err = flatnetworkv1.NewForConfigAndClient(&configShallowCopy, httpClient)
 	if err != nil {
 		return nil, err
 	}
@@ -113,7 +113,7 @@ func NewForConfigOrDie(c *rest.Config) *Clientset {
 // New creates a new Clientset for the given RESTClient.
 func New(c rest.Interface) *Clientset {
 	var cs Clientset
-	cs.macvlanV1 = macvlanv1.New(c)
+	cs.flatnetworkV1 = flatnetworkv1.New(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClient(c)
 	return &cs

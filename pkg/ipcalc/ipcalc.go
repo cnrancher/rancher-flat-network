@@ -6,7 +6,7 @@ import (
 	"net"
 	"slices"
 
-	macvlanv1 "github.com/cnrancher/flat-network-operator/pkg/apis/macvlan.cluster.cattle.io/v1"
+	flv1 "github.com/cnrancher/flat-network-operator/pkg/apis/flatnetwork.cattle.io/v1"
 )
 
 var (
@@ -51,7 +51,7 @@ func GetDefaultGateway(CIDR string) (net.IP, error) {
 }
 
 // IPInRanges checks whether the address is in the IPRange.
-func IPInRanges(ip net.IP, ipRanges []macvlanv1.IPRange) bool {
+func IPInRanges(ip net.IP, ipRanges []flv1.IPRange) bool {
 	if len(ipRanges) == 0 {
 		return false
 	}
@@ -61,11 +61,11 @@ func IPInRanges(ip net.IP, ipRanges []macvlanv1.IPRange) bool {
 	}
 
 	for _, ipRange := range ipRanges {
-		if ipRange.RangeStart == nil || ipRange.RangeEnd == nil {
+		if ipRange.Start == nil || ipRange.End == nil {
 			continue
 		}
-		start := ipRange.RangeStart.To16()
-		end := ipRange.RangeEnd.To16()
+		start := ipRange.Start.To16()
+		end := ipRange.End.To16()
 		if bytes.Compare(a, start) >= 0 && bytes.Compare(a, end) <= 0 {
 			return true
 		}
@@ -76,7 +76,7 @@ func IPInRanges(ip net.IP, ipRanges []macvlanv1.IPRange) bool {
 // GetAvailableIP gets a **16bytes length** IP address by CIDR and IPRange.
 // ErrNoAvailableIP error will be returned if no IP address resource available.
 func GetAvailableIP(
-	cidr string, ipRanges []macvlanv1.IPRange, usedIPs []macvlanv1.IPRange,
+	cidr string, ipRanges []flv1.IPRange, usedIPs []flv1.IPRange,
 ) (net.IP, error) {
 	ip, network, err := net.ParseCIDR(cidr)
 	if err != nil {
@@ -86,13 +86,13 @@ func GetAvailableIP(
 	// Iterate to get an available IP address from defined IPRanges.
 	if len(ipRanges) > 0 {
 		for _, r := range ipRanges {
-			start := slices.Clone(r.RangeStart.To16())
-			end := r.RangeEnd.To16()
+			start := slices.Clone(r.Start.To16())
+			end := r.End.To16()
 			// Skip the already used range to increase performance.
 			if len(usedIPs) != 0 {
 				for _, u := range usedIPs {
-					if u.RangeStart.Equal(start) {
-						start = slices.Clone(u.RangeEnd.To16())
+					if u.Start.Equal(start) {
+						start = slices.Clone(u.End.To16())
 					}
 				}
 			}
@@ -120,8 +120,8 @@ func GetAvailableIP(
 	// Skip the already used range to increase performance.
 	if len(usedIPs) != 0 {
 		for _, u := range usedIPs {
-			if u.RangeStart.Equal(start) {
-				start = slices.Clone(u.RangeEnd.To16())
+			if u.Start.Equal(start) {
+				start = slices.Clone(u.End.To16())
 			}
 		}
 	}
@@ -140,43 +140,43 @@ func GetAvailableIP(
 }
 
 // AddIPToRange adds an IP address to IPRange.
-func AddIPToRange(ip net.IP, ipRanges []macvlanv1.IPRange) []macvlanv1.IPRange {
+func AddIPToRange(ip net.IP, ipRanges []flv1.IPRange) []flv1.IPRange {
 	if ip == nil {
 		return ipRanges
 	}
 	if len(ipRanges) == 0 {
-		ipRanges = []macvlanv1.IPRange{}
+		ipRanges = []flv1.IPRange{}
 	}
 	if IPInRanges(ip, ipRanges) {
 		// Skip if ip already in ranges.
 		return ipRanges
 	}
 	for i := range ipRanges {
-		var s1 net.IP = bytes.Clone(ipRanges[i].RangeStart)
-		var s2 net.IP = bytes.Clone(ipRanges[i].RangeEnd)
+		var s1 net.IP = bytes.Clone(ipRanges[i].Start)
+		var s2 net.IP = bytes.Clone(ipRanges[i].End)
 		IPDecrease(s1)
 		IPIncrease(s2)
 		if ip.Equal(s1) {
-			ipRanges[i].RangeStart = s1
+			ipRanges[i].Start = s1
 			return ipRanges
 		}
 		if ip.Equal(s2) {
-			ipRanges[i].RangeEnd = s2
+			ipRanges[i].End = s2
 			return ipRanges
 		}
 	}
-	ipRanges = append(ipRanges, macvlanv1.IPRange{
-		RangeStart: bytes.Clone(ip),
-		RangeEnd:   bytes.Clone(ip),
+	ipRanges = append(ipRanges, flv1.IPRange{
+		Start: bytes.Clone(ip),
+		End:   bytes.Clone(ip),
 	})
-	slices.SortFunc(ipRanges, func(a, b macvlanv1.IPRange) int {
-		return bytes.Compare(a.RangeStart, b.RangeStart)
+	slices.SortFunc(ipRanges, func(a, b flv1.IPRange) int {
+		return bytes.Compare(a.Start, b.Start)
 	})
 	return ipRanges
 }
 
 // RemoveIPFromRange removes an IP address from IPRange.
-func RemoveIPFromRange(ip net.IP, ipRanges []macvlanv1.IPRange) []macvlanv1.IPRange {
+func RemoveIPFromRange(ip net.IP, ipRanges []flv1.IPRange) []flv1.IPRange {
 	ip = ip.To16() // ensure 16 bytes length.
 	if ip == nil {
 		return ipRanges
@@ -185,10 +185,10 @@ func RemoveIPFromRange(ip net.IP, ipRanges []macvlanv1.IPRange) []macvlanv1.IPRa
 		// Skip if ip not in ranges.
 		return ipRanges
 	}
-	newRanges := []macvlanv1.IPRange{}
+	newRanges := []flv1.IPRange{}
 	for _, r := range ipRanges {
-		start := r.RangeStart.To16()
-		end := r.RangeEnd.To16()
+		start := r.Start.To16()
+		end := r.End.To16()
 		a := bytes.Compare(start, ip)
 		b := bytes.Compare(end, ip)
 		switch {
@@ -197,38 +197,38 @@ func RemoveIPFromRange(ip net.IP, ipRanges []macvlanv1.IPRange) []macvlanv1.IPRa
 			var s2 net.IP = bytes.Clone(ip)
 			IPDecrease(s1)
 			IPIncrease(s2)
-			newRanges = append(newRanges, macvlanv1.IPRange{
-				RangeStart: start,
-				RangeEnd:   s1,
+			newRanges = append(newRanges, flv1.IPRange{
+				Start: start,
+				End:   s1,
 			})
-			newRanges = append(newRanges, macvlanv1.IPRange{
-				RangeStart: s2,
-				RangeEnd:   end,
+			newRanges = append(newRanges, flv1.IPRange{
+				Start: s2,
+				End:   end,
 			})
 		case a == 0 && b > 0:
 			var s1 net.IP = bytes.Clone(ip)
 			IPIncrease(s1)
-			newRanges = append(newRanges, macvlanv1.IPRange{
-				RangeStart: s1,
-				RangeEnd:   end,
+			newRanges = append(newRanges, flv1.IPRange{
+				Start: s1,
+				End:   end,
 			})
 		case a < 0 && b == 0:
 			var s2 net.IP = bytes.Clone(ip)
 			IPDecrease(s2)
-			newRanges = append(newRanges, macvlanv1.IPRange{
-				RangeStart: start,
-				RangeEnd:   s2,
+			newRanges = append(newRanges, flv1.IPRange{
+				Start: start,
+				End:   s2,
 			})
 		case a == 0 && b == 0:
 		default:
-			newRanges = append(newRanges, macvlanv1.IPRange{
-				RangeStart: start,
-				RangeEnd:   end,
+			newRanges = append(newRanges, flv1.IPRange{
+				Start: start,
+				End:   end,
 			})
 		}
 	}
-	slices.SortFunc(newRanges, func(a, b macvlanv1.IPRange) int {
-		return bytes.Compare(a.RangeStart, b.RangeStart)
+	slices.SortFunc(newRanges, func(a, b flv1.IPRange) int {
+		return bytes.Compare(a.Start, b.Start)
 	})
 	return newRanges
 }

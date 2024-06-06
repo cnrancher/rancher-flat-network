@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	macvlanv1 "github.com/cnrancher/flat-network-operator/pkg/apis/macvlan.cluster.cattle.io/v1"
+	flv1 "github.com/cnrancher/flat-network-operator/pkg/apis/flatnetwork.cattle.io/v1"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -36,15 +36,15 @@ func Value[T valueTypes](p *T) T {
 	return *p
 }
 
-// IsMacvlanPod returns true if the pod enables macvlan
-func IsMacvlanPod(pod *corev1.Pod) bool {
+// IsPodEnabledFlatNetwork returns true if the pod enables flatnetwork
+func IsPodEnabledFlatNetwork(pod *corev1.Pod) bool {
 	if pod == nil {
 		return false
 	}
 	if pod.Annotations == nil {
 		return false
 	}
-	if pod.Annotations[macvlanv1.AnnotationIP] == "" || pod.Annotations[macvlanv1.AnnotationSubnet] == "" {
+	if pod.Annotations[flv1.AnnotationIP] == "" || pod.Annotations[flv1.AnnotationSubnet] == "" {
 		return false
 	}
 	return true

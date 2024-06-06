@@ -20,8 +20,8 @@ package fake
 
 import (
 	clientset "github.com/cnrancher/flat-network-operator/pkg/generated/clientset/versioned"
-	macvlanv1 "github.com/cnrancher/flat-network-operator/pkg/generated/clientset/versioned/typed/macvlan.cluster.cattle.io/v1"
-	fakemacvlanv1 "github.com/cnrancher/flat-network-operator/pkg/generated/clientset/versioned/typed/macvlan.cluster.cattle.io/v1/fake"
+	flatnetworkv1 "github.com/cnrancher/flat-network-operator/pkg/generated/clientset/versioned/typed/flatnetwork.cattle.io/v1"
+	fakeflatnetworkv1 "github.com/cnrancher/flat-network-operator/pkg/generated/clientset/versioned/typed/flatnetwork.cattle.io/v1/fake"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
@@ -79,7 +79,7 @@ var (
 	_ testing.FakeClient  = &Clientset{}
 )
 
-// MacvlanV1 retrieves the MacvlanV1Client
-func (c *Clientset) MacvlanV1() macvlanv1.MacvlanV1Interface {
-	return &fakemacvlanv1.FakeMacvlanV1{Fake: &c.Fake}
+// FlatnetworkV1 retrieves the FlatnetworkV1Client
+func (c *Clientset) FlatnetworkV1() flatnetworkv1.FlatnetworkV1Interface {
+	return &fakeflatnetworkv1.FakeFlatnetworkV1{Fake: &c.Fake}
 }

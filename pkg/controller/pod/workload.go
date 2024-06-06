@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	macvlanv1 "github.com/cnrancher/flat-network-operator/pkg/apis/macvlan.cluster.cattle.io/v1"
+	flv1 "github.com/cnrancher/flat-network-operator/pkg/apis/flatnetwork.cattle.io/v1"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -71,7 +71,7 @@ func (h *handler) findOwnerWorkload(pod *corev1.Pod) (string, string, types.UID,
 	return "", "", "", fmt.Errorf("%s owner workload not found", pod.Name)
 }
 
-func (h *handler) setIfStatefulSetOwnerRef(macvlanIP *macvlanv1.MacvlanIP, pod *corev1.Pod) {
+func (h *handler) setIfStatefulSetOwnerRef(flatNetworkIP *flv1.IP, pod *corev1.Pod) {
 	ownerName, ownerKind, ownerUID, err := h.findOwnerWorkload(pod)
 	if err != nil {
 		return
@@ -80,7 +80,7 @@ func (h *handler) setIfStatefulSetOwnerRef(macvlanIP *macvlanv1.MacvlanIP, pod *
 	if ownerKind == "StatefulSet" {
 		logrus.Infof("%s is own by workload %s", pod.Name, ownerName)
 		controller := true
-		macvlanIP.ObjectMeta.OwnerReferences = []metav1.OwnerReference{
+		flatNetworkIP.ObjectMeta.OwnerReferences = []metav1.OwnerReference{
 			{
 				APIVersion: "v1",
 				Kind:       "StatefulSet",
@@ -92,20 +92,20 @@ func (h *handler) setIfStatefulSetOwnerRef(macvlanIP *macvlanv1.MacvlanIP, pod *
 	}
 }
 
-func (h *handler) setWorkloadAndProjectLabel(macvlanIP *macvlanv1.MacvlanIP, pod *corev1.Pod) {
+func (h *handler) setWorkloadAndProjectLabel(flatNetworkIP *flv1.IP, pod *corev1.Pod) {
 	// get name from pod's owner
 	ns, err := h.namespaceCache.Get(pod.Namespace)
 	if err != nil {
 		return
 	}
 
-	if macvlanIP.Labels == nil {
-		macvlanIP.Labels = map[string]string{}
+	if flatNetworkIP.Labels == nil {
+		flatNetworkIP.Labels = map[string]string{}
 	}
-	macvlanIP.Labels[macvlanv1.LabelProjectID] = ns.Labels[macvlanv1.LabelProjectID]
-	macvlanIP.Labels[macvlanv1.LabelWorkloadSelector] = pod.Labels[macvlanv1.LabelWorkloadSelector]
+	flatNetworkIP.Labels[flv1.LabelProjectID] = ns.Labels[flv1.LabelProjectID]
+	flatNetworkIP.Labels[flv1.LabelWorkloadSelector] = pod.Labels[flv1.LabelWorkloadSelector]
 
-	if macvlanIP.Labels[macvlanv1.LabelWorkloadSelector] == "" {
+	if flatNetworkIP.Labels[flv1.LabelWorkloadSelector] == "" {
 		if pod.OwnerReferences != nil {
 			for _, podOwner := range pod.OwnerReferences {
 				switch podOwner.Kind {
@@ -115,13 +115,13 @@ func (h *handler) setWorkloadAndProjectLabel(macvlanIP *macvlanv1.MacvlanIP, pod
 						return
 					}
 					if j.OwnerReferences == nil || len(j.OwnerReferences) == 0 {
-						macvlanIP.Labels[macvlanv1.LabelWorkloadSelector] = fmt.Sprintf("%s-%s-%s", "job", pod.Namespace, j.Name)
+						flatNetworkIP.Labels[flv1.LabelWorkloadSelector] = fmt.Sprintf("%s-%s-%s", "job", pod.Namespace, j.Name)
 						return
 					}
 					for _, jobOwner := range j.OwnerReferences {
 						switch jobOwner.Kind {
 						case "CronJob":
-							macvlanIP.Labels[macvlanv1.LabelWorkloadSelector] = fmt.Sprintf("%s-%s-%s", "cronjob", pod.Namespace, jobOwner.Name)
+							flatNetworkIP.Labels[flv1.LabelWorkloadSelector] = fmt.Sprintf("%s-%s-%s", "cronjob", pod.Namespace, jobOwner.Name)
 							return
 						}
 					}
