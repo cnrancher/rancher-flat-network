@@ -46,3 +46,6 @@ go.work
 
 # Temp files
 /tmp*
+
+# vendor
+/vendor

@@ -78,7 +78,8 @@ func (h *handler) setIfStatefulSetOwnerRef(flatNetworkIP *flv1.FlatNetworkIP, po
 	}
 
 	if ownerKind == "StatefulSet" {
-		logrus.Infof("%s is own by workload %s", pod.Name, ownerName)
+		logrus.WithFields(fieldsPod(pod)).
+			Infof("%s is own by workload %s", pod.Name, ownerName)
 		controller := true
 		flatNetworkIP.ObjectMeta.OwnerReferences = []metav1.OwnerReference{
 			{

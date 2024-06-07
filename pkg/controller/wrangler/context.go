@@ -2,7 +2,7 @@ package wrangler
 
 import (
 	"context"
-	"fmt"
+	"sync"
 
 	flscheme "github.com/cnrancher/flat-network-operator/pkg/generated/clientset/versioned/scheme"
 	"github.com/cnrancher/flat-network-operator/pkg/generated/controllers/apps"
@@ -15,10 +15,12 @@ import (
 	flv1 "github.com/cnrancher/flat-network-operator/pkg/generated/controllers/flatnetwork.pandaria.io/v1"
 	"github.com/cnrancher/flat-network-operator/pkg/generated/controllers/networking.k8s.io"
 	networkingv1 "github.com/cnrancher/flat-network-operator/pkg/generated/controllers/networking.k8s.io/v1"
+	"github.com/rancher/lasso/pkg/controller"
 	"github.com/rancher/wrangler/v2/pkg/leader"
 	"github.com/rancher/wrangler/v2/pkg/start"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -28,7 +30,8 @@ import (
 )
 
 type Context struct {
-	RESTConfig *rest.Config
+	RESTConfig        *rest.Config
+	ControllerFactory controller.SharedControllerFactory
 
 	FlatNetwork flv1.Interface
 	Core        corecontroller.Interface
@@ -37,13 +40,14 @@ type Context struct {
 	Batch       batchv1.Interface
 	Recorder    record.EventRecorder
 
-	leadership *leader.Manager
-	starters   []start.Starter
+	leadership     *leader.Manager
+	starters       []start.Starter
+	controllerLock sync.Mutex
 }
 
-func NewContext(
+func NewContextOrDie(
 	restCfg *rest.Config,
-) (*Context, error) {
+) *Context {
 	// panic on error
 	flatnetwork := fl.NewFactoryFromConfigOrDie(restCfg)
 	core := core.NewFactoryFromConfigOrDie(restCfg)
@@ -53,7 +57,12 @@ func NewContext(
 
 	clientSet, err := kubernetes.NewForConfig(restCfg)
 	if err != nil {
-		return nil, fmt.Errorf("failed to build clientset: %w", err)
+		logrus.Fatalf("failed to build clientset: %v", err)
+	}
+
+	controllerFactory, err := controller.NewSharedControllerFactoryFromConfig(restCfg, runtime.NewScheme())
+	if err != nil {
+		logrus.Fatalf("failed to build shared controller factory: %v", err)
 	}
 
 	utilruntime.Must(flscheme.AddToScheme(scheme.Scheme))
@@ -64,12 +73,14 @@ func NewContext(
 
 	k8s, err := kubernetes.NewForConfig(restCfg)
 	if err != nil {
-		return nil, err
+		logrus.Fatalf("kubernetes.NewForConfig: %v", err)
 	}
 	leadership := leader.NewManager("", "flat-network-operator", k8s)
 
 	c := &Context{
-		RESTConfig:  restCfg,
+		RESTConfig:        restCfg,
+		ControllerFactory: controllerFactory,
+
 		FlatNetwork: flatnetwork.Flatnetwork().V1(),
 		Core:        core.Core().V1(),
 		Apps:        apps.Apps().V1(),
@@ -80,15 +91,26 @@ func NewContext(
 		leadership: leadership,
 	}
 	c.starters = append(c.starters, flatnetwork, core, apps, networking, batch)
-	return c, nil
+	return c
 }
 
 func (w *Context) OnLeader(f func(ctx context.Context) error) {
-	// w.leadership.OnLeader(f)
+	w.leadership.OnLeader(f)
+}
+
+func (c *Context) WaitForCacheSyncOrDie(ctx context.Context) {
+	if err := c.ControllerFactory.SharedCacheFactory().Start(ctx); err != nil {
+		logrus.Panicf("failed to start shared cache factory: %v", err)
+	}
+	c.ControllerFactory.SharedCacheFactory().WaitForCacheSync(ctx)
+	logrus.Infof("Done waiting for cache synced")
 }
 
 func (c *Context) Start(ctx context.Context, worker int) error {
-	// c.leadership.Start(ctx)
+	c.controllerLock.Lock()
+	defer c.controllerLock.Unlock()
+
+	c.leadership.Start(ctx)
 
 	return start.All(ctx, worker, c.starters...)
 }

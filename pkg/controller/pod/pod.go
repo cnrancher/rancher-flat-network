@@ -11,7 +11,6 @@ import (
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/util/retry"
 
 	flv1 "github.com/cnrancher/flat-network-operator/pkg/apis/flatnetwork.pandaria.io/v1"
@@ -78,9 +77,8 @@ func (h *handler) handleError(
 	return func(s string, pod *corev1.Pod) (*corev1.Pod, error) {
 		podSynced, err := sync(s, pod)
 		if err != nil {
-			logrus.WithFields(fieldsPod(pod)).
-				Errorf("failed to sync pod: %v", err)
-			return podSynced, err
+			logrus.WithFields(fieldsPod(pod)).Error(err)
+			return pod, err
 		}
 		return podSynced, nil
 	}
@@ -95,10 +93,6 @@ func (h *handler) sync(name string, pod *corev1.Pod) (*corev1.Pod, error) {
 	if pod.DeletionTimestamp != nil {
 		// The pod is deleting.
 		return pod, nil
-	}
-	pod, err := h.podCache.Get(pod.Namespace, pod.Name)
-	if err != nil {
-		return pod, fmt.Errorf("failed to get pod from cache: %v", err)
 	}
 
 	// Ensure FlatNetwork IP resource created.
@@ -205,7 +199,7 @@ func (h *handler) updatePodLabel(pod *corev1.Pod, ip *flv1.FlatNetworkIP) error 
 	// Pod may just created and updated by other kube-controllers,
 	// use retry to avoid conflict.
 	if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-		result, err := h.podClient.Get(pod.Namespace, pod.Name, metav1.GetOptions{})
+		result, err := h.podCache.Get(pod.Namespace, pod.Name)
 		if err != nil {
 			logrus.WithFields(fieldsPod(pod)).
 				Errorf("failed to get latest version of pod: %v", err)

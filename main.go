@@ -57,7 +57,7 @@ func main() {
 	flag.Parse()
 
 	if worker > 50 || worker < 1 {
-		logrus.Warnf("invalid worker num: %v, set to default: 5", worker)
+		logrus.Warnf("invalid worker num: %v, should be 1-50, set to default: 5", worker)
 		worker = 5
 	}
 	if debug {
@@ -79,10 +79,8 @@ func main() {
 		logrus.Fatalf("Error building kubeconfig: %v", err)
 	}
 
-	wctx, err := wrangler.NewContext(cfg)
-	if err != nil {
-		logrus.Fatalf("Error build wrangler context: %v", err)
-	}
+	wctx := wrangler.NewContextOrDie(cfg)
+	wctx.WaitForCacheSyncOrDie(ctx)
 
 	// Register handlers
 	flatnetworkip.Register(ctx, wctx)
@@ -95,6 +93,9 @@ func main() {
 
 	wctx.OnLeader(func(ctx context.Context) error {
 		logrus.Infof("TODO: ON LEADER")
+		if err := wctx.Start(ctx, worker); err != nil {
+			return err
+		}
 		return nil
 	})
 

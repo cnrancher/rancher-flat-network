@@ -51,7 +51,7 @@ type handler struct {
 	recorder record.EventRecorder
 
 	// allocateMutex is the mutex for allocating IP & MAC address from subnet.
-	// FIXME: Use leader election lock instead of memory mutex!
+	// FIXME: Use lease lock instead of memory mutex!
 	allocateMutex sync.Mutex
 }
 
@@ -156,7 +156,7 @@ func (h *handler) onIPCreate(ip *flv1.FlatNetworkIP) (*flv1.FlatNetworkIP, error
 				ip.Spec.PodID, pod.UID)
 	}
 
-	// FIXME: Use leader election lock instead of memory mutex!
+	// FIXME: Use lease lock instead of memory mutex!
 	h.allocateMutex.Lock()
 	defer h.allocateMutex.Unlock()
 
@@ -238,8 +238,9 @@ func (h *handler) onIPCreate(ip *flv1.FlatNetworkIP) (*flv1.FlatNetworkIP, error
 		}
 		subnet, err = h.subnetClient.UpdateStatus(subnet)
 		if err != nil {
-			logrus.Warnf("failed to update subnet [%v] status: %v",
-				subnet.Name, err)
+			logrus.WithFields(fieldsIP(ip)).
+				Warnf("failed to update (fallback) subnet [%v] status: %v",
+					subnet.Name, err)
 		}
 		return ip, fmt.Errorf("failed to update IP [%v/%v] addr status: %w",
 			ip.Namespace, ip.Name, err)

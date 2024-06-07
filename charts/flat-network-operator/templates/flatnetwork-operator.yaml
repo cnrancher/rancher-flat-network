@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: network-controller
+  namespace: kube-system
+  labels:
+    app: network-controller
+spec:
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: network-controller
+  template:
+    metadata:
+      namespace: kube-system
+      labels:
+        app: network-controller
+    spec:
+      serviceAccountName: multus
+      containers:
+      - image: {{ template "registry_url" . }}{{ .Values.image.networkController.repository }}:{{ .Values.image.networkController.tag }}
+        name: network-controller
+        env:
+        - name: PANDARIA_MACVLAN_CNI_ARP_POLICY
+          value: "{{ .Values.arpPolicy }}"
+        - name: PANDARIA_MACVLAN_CNI_PROXY_ARP
+          value: "{{ .Values.proxyARP }}"
+        imagePullPolicy: IfNotPresent
+        resources:
+          limits:
+            memory: {{ .Values.ncResources.limits.memory | quote }}
+        volumeMounts:
+        - name: webhook-certs
+          mountPath: /etc/webhook/certs
+      volumes:
+      - name: webhook-certs
+        secret:
+          secretName: network-controller-webhook-certs

@@ -8,4 +8,3 @@ cd $(dirname $0)
 ./test.sh
 ./build.sh
 ./package.sh
-./package-helm.sh

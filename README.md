@@ -4,11 +4,12 @@ Rancher Flat-Network Operator based on [Wrangler](https://github.com/rancher/wra
 
 ## Features
 
-- [x] FlatNetwork subnet supports both Macvlan & IPvlan.
+- [x] FlatNetwork subnet IPAM supports for both Macvlan & IPvlan.
 - [x] Support for both IPv4 and IPv6 addresses.
 - [x] IPAM supports custom specified IP address or allocate IP address automatically.
 - [x] Custom IP Range to allocate IP address.
 - [x] Auto create FlatNetwork headless ClusterIP service.
+- [ ] Leader election support to run operator in multi-replicas (HA).
 - [ ] Update FlatNetwork Service Endpoints IP address.
 - [ ] Admission webhook server.
 - [ ] Upgrade resource migrator from `macvlan.cluster.cattle.io` to `flatnetwork.pandaria.io`.
@@ -35,6 +36,14 @@ To build and run flat-network operator manually:
     $ kubectl apply -f ./docs/macvlan
     $ kubectl apply -f ./docs/ipvlan
     ```
+
+## Environment variables
+
+- `CATTLE_RESYNC_DEFAULT`: period to resync resources in minutes, default `600` (10h).
+- `CATTLE_DEV_MODE`: debug mode to allow debugger attach, default `false`.
+- `CATTLE_ELECTION_LEASE_DURATION`: leader election lease duration, default `45s`.
+- `CATTLE_ELECTION_RENEW_DEADLINE`: leader election renew deadline, default `30s`.
+- `CATTLE_ELECTION_RETRY_PERIOD`: leader election retry period, default `2s`.
 
 ## License
 
