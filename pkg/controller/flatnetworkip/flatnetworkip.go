@@ -5,14 +5,16 @@ import (
 	"fmt"
 	"net"
 	"slices"
-	"sync"
 	"time"
 
 	"github.com/cnrancher/flat-network-operator/pkg/controller/wrangler"
 	"github.com/cnrancher/flat-network-operator/pkg/ipcalc"
 	"github.com/cnrancher/flat-network-operator/pkg/utils"
+	"github.com/rancher/wrangler/v2/pkg/leader"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/retry"
@@ -50,9 +52,8 @@ type handler struct {
 
 	recorder record.EventRecorder
 
-	// allocateMutex is the mutex for allocating IP & MAC address from subnet.
-	// FIXME: Use lease lock instead of memory mutex!
-	allocateMutex sync.Mutex
+	wctx       *wrangler.Context
+	leadership *leader.Manager
 }
 
 func Register(
@@ -67,6 +68,8 @@ func Register(
 		podClient:    wctx.Core.Pod(),
 		podCache:     wctx.Core.Pod().Cache(),
 		recorder:     wctx.Recorder,
+		wctx:         wctx,
+		leadership:   wctx.Leadership,
 
 		ipEnqueueAfter: wctx.FlatNetwork.FlatNetworkIP().EnqueueAfter,
 		ipEnqueue:      wctx.FlatNetwork.FlatNetworkSubnet().Enqueue,
@@ -125,7 +128,7 @@ func (h *handler) handleError(
 	}
 }
 
-func (h *handler) handleIP(s string, ip *flv1.FlatNetworkIP) (*flv1.FlatNetworkIP, error) {
+func (h *handler) handleIP(_ string, ip *flv1.FlatNetworkIP) (*flv1.FlatNetworkIP, error) {
 	if ip == nil || ip.Name == "" || ip.DeletionTimestamp != nil {
 		return ip, nil
 	}
@@ -147,6 +150,9 @@ func (h *handler) onIPCreate(ip *flv1.FlatNetworkIP) (*flv1.FlatNetworkIP, error
 	// Ensure the pod exists.
 	pod, err := h.podCache.Get(ip.Namespace, ip.Name)
 	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return ip, h.ipClient.Delete(ip.Namespace, ip.Name, &metav1.DeleteOptions{})
+		}
 		return ip, fmt.Errorf("onIPCreate: failed to get pod [%v/%v]: %w",
 			ip.Namespace, ip.Name, err)
 	}
@@ -156,9 +162,8 @@ func (h *handler) onIPCreate(ip *flv1.FlatNetworkIP) (*flv1.FlatNetworkIP, error
 				ip.Spec.PodID, pod.UID)
 	}
 
-	// FIXME: Use lease lock instead of memory mutex!
-	h.allocateMutex.Lock()
-	defer h.allocateMutex.Unlock()
+	h.leadership.Lock()
+	defer h.leadership.Unlock()
 
 	// Ensure the flat-network subnet resource exists.
 	subnet, err := h.subnetCache.Get(flv1.SubnetNamespace, ip.Spec.Subnet)
@@ -261,6 +266,10 @@ func (h *handler) onIPUpdate(ip *flv1.FlatNetworkIP) (*flv1.FlatNetworkIP, error
 	// Ensure the subnet resource exists.
 	subnet, err := h.subnetCache.Get(flv1.SubnetNamespace, ip.Spec.Subnet)
 	if err != nil {
+		if apierrors.IsNotFound(err) {
+			err = h.ipClient.Delete(ip.Namespace, ip.Name, &metav1.DeleteOptions{})
+			return ip, err
+		}
 		return ip, fmt.Errorf("onIPUpdate: failed to get subnet [%v] of ip [%v/%v]: %w",
 			ip.Spec.Subnet, ip.Namespace, ip.Name, err)
 	}

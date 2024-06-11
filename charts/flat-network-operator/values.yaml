@@ -6,6 +6,27 @@ flatNetworkOperator:
   image:
     repository: cnrancher/flat-network-operator
     tag: v0.0.0
+    pullPolicy: Always
+multus:
+  cni:
+    version: "v0.3.1"
+    kubeconfig: ""
+  cniVersion: ""
+  image:
+    repository: ""
+    tag: ""
+    pullPolicy: IfNotPresent
+staticMacvlan:
+  image:
+    repository: ""
+    tag: ""
+    pullPolicy: IfNotPresent
+admission:
+  image:
+    repository: ""
+    tag: ""
+    pullPolicy: IfNotPresent
+
 
 additionalTrustedCAs: false
 ## Node labels for pod assignment
@@ -17,3 +38,7 @@ tolerations: []
 
 ## PriorityClassName assigned to deployment.
 priorityClassName: ""
+
+ncResources:
+  limits:
+    memory: "100M"

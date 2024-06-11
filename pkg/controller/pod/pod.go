@@ -11,6 +11,7 @@ import (
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/util/retry"
 
 	flv1 "github.com/cnrancher/flat-network-operator/pkg/apis/flatnetwork.pandaria.io/v1"
@@ -92,6 +93,13 @@ func (h *handler) sync(name string, pod *corev1.Pod) (*corev1.Pod, error) {
 	}
 	if pod.DeletionTimestamp != nil {
 		// The pod is deleting.
+		err := h.ipClient.Delete(pod.Namespace, pod.Name, &metav1.DeleteOptions{})
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				return pod, nil
+			}
+			return pod, err
+		}
 		return pod, nil
 	}
 
@@ -172,11 +180,9 @@ func (h *handler) updatePodLabel(pod *corev1.Pod, ip *flv1.FlatNetworkIP) error 
 	labels[flv1.LabelFlatNetworkIPType] = "specific"
 
 	if ip.Status.Addr != nil {
-		if ip.Status.Addr.To4() != nil {
-			// TODO: IPv6 address contains invalid char ':'
-			// Set IPv4 labels only.
-			labels[flv1.LabelSelectedIP] = ip.Status.Addr.String()
-		}
+		// IPv6 address contains invalid char ':'
+		s := ip.Status.Addr.String()
+		labels[flv1.LabelSelectedIP] = strings.ReplaceAll(s, ":", ".")
 	}
 	if ip.Status.MAC != nil {
 		labels[flv1.LabelSelectedMac] = strings.ReplaceAll(ip.Status.MAC.String(), ":", "_")

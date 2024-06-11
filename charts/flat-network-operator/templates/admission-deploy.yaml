@@ -1,25 +1,25 @@
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: flaynetwork-admission-deploy
-  namespace: kube-system
-spec:
-  strategy:
-    type: Recreate
-  selector:
-    matchLabels:
-      app: flaynetwork-admission-deploy
-  template:
-    metadata:
-      labels:
-        app: flaynetwork-admission-deploy
-    spec:
-      containers:
-      - image: {{ template "registry_url" . }}{{ .Values.image.admission.repository }}:{{ .Values.image.admission.tag }}
-        name: flaynetwork-admission-deploy
-        imagePullPolicy: IfNotPresent
-        lifecycle:
-          preStop:
-            exec:
-              command: ["/bin/bash","-c","/pre-stop-hook.sh"]
-      serviceAccountName: multus
+# apiVersion: apps/v1
+# kind: Deployment
+# metadata:
+#   name: flaynetwork-admission-deploy
+#   namespace: kube-system
+# spec:
+#   strategy:
+#     type: Recreate
+#   selector:
+#     matchLabels:
+#       app: flaynetwork-admission-deploy
+#   template:
+#     metadata:
+#       labels:
+#         app: flaynetwork-admission-deploy
+#     spec:
+#       containers:
+#       - image: {{ template "system_default_registry" . }}{{ .Values.admission.image.repository }}:{{ .Values.admission.image.tag }}
+#         name: flaynetwork-admission-deploy
+#         imagePullPolicy: {{ .Values.admission.image.pullPolicy }}
+#         lifecycle:
+#           preStop:
+#             exec:
+#               command: ["/bin/bash","-c","/pre-stop-hook.sh"]
+#       serviceAccountName: multus

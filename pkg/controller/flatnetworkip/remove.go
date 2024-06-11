@@ -9,6 +9,7 @@ import (
 	flv1 "github.com/cnrancher/flat-network-operator/pkg/apis/flatnetwork.pandaria.io/v1"
 	"github.com/cnrancher/flat-network-operator/pkg/ipcalc"
 	"github.com/sirupsen/logrus"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/util/retry"
 )
 
@@ -17,12 +18,16 @@ func (h *handler) handleIPRemove(s string, ip *flv1.FlatNetworkIP) (*flv1.FlatNe
 		return ip, nil
 	}
 
-	h.allocateMutex.Lock()
-	defer h.allocateMutex.Unlock()
+	h.leadership.Lock()
+	defer h.leadership.Unlock()
 
 	err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		result, err := h.subnetCache.Get(flv1.SubnetNamespace, ip.Spec.Subnet)
 		if err != nil {
+			if errors.IsNotFound(err) {
+				// The subnet is deleted, return directly.
+				return nil
+			}
 			return fmt.Errorf("failed to get subnet from cache: %w", err)
 		}
 

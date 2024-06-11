@@ -92,15 +92,13 @@ func main() {
 		wctx.Apps.Deployment(), wctx.Apps.DaemonSet(), wctx.Apps.ReplicaSet(), wctx.Apps.StatefulSet())
 
 	wctx.OnLeader(func(ctx context.Context) error {
-		logrus.Infof("TODO: ON LEADER")
-		if err := wctx.Start(ctx, worker); err != nil {
-			return err
-		}
-		return nil
+		logrus.Infof("ON LEADER")
+		// Sync controller when onLeader.
+		return wctx.Start(ctx, worker)
 	})
 
-	if err := wctx.Start(ctx, worker); err != nil {
-		logrus.Fatalf("Failed to start context: %v", err)
+	if err := wctx.StartLeader(ctx); err != nil {
+		logrus.Fatalf("Failed to start leadership: %v", err)
 	}
 
 	<-ctx.Done()

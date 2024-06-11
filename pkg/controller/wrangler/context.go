@@ -40,7 +40,7 @@ type Context struct {
 	Batch       batchv1.Interface
 	Recorder    record.EventRecorder
 
-	leadership     *leader.Manager
+	Leadership     *leader.Manager
 	starters       []start.Starter
 	controllerLock sync.Mutex
 }
@@ -88,14 +88,14 @@ func NewContextOrDie(
 		Batch:       batch.Batch().V1(),
 		Recorder:    recorder,
 
-		leadership: leadership,
+		Leadership: leadership,
 	}
 	c.starters = append(c.starters, flatnetwork, core, apps, networking, batch)
 	return c
 }
 
 func (w *Context) OnLeader(f func(ctx context.Context) error) {
-	w.leadership.OnLeader(f)
+	w.Leadership.OnLeader(f)
 }
 
 func (c *Context) WaitForCacheSyncOrDie(ctx context.Context) {
@@ -106,11 +106,14 @@ func (c *Context) WaitForCacheSyncOrDie(ctx context.Context) {
 	logrus.Infof("Done waiting for cache synced")
 }
 
-func (c *Context) Start(ctx context.Context, worker int) error {
+func (c *Context) StartLeader(ctx context.Context) error {
 	c.controllerLock.Lock()
 	defer c.controllerLock.Unlock()
 
-	c.leadership.Start(ctx)
+	c.Leadership.Start(ctx)
+	return nil
+}
 
+func (c *Context) Start(ctx context.Context, worker int) error {
 	return start.All(ctx, worker, c.starters...)
 }

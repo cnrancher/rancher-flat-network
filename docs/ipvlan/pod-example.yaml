@@ -5,7 +5,7 @@ metadata:
   namespace: "default"
   annotations:
     flatnetwork.pandaria.io/ip: "auto"
-    flatnetwork.pandaria.io/subnet: "example-macvlan-subnet"
+    flatnetwork.pandaria.io/subnet: "example-ipvlan-subnet"
     flatnetwork.pandaria.io/mac: ""
 spec:
   containers:

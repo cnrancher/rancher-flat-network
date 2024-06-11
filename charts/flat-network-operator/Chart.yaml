@@ -14,7 +14,7 @@ annotations:
   catalog.cattle.io/namespace: cattle-system
   catalog.cattle.io/os: linux
   catalog.cattle.io/permits-os: linux
-  catalog.cattle.io/provides-gvr: macvlanips.flatnetwork.pandaria.io
+  catalog.cattle.io/provides-gvr: flatnetworkips.flatnetwork.pandaria.io
   catalog.cattle.io/rancher-version: ">= 2.6.0-alpha"
   catalog.cattle.io/release-name: rancher-flat-network-operator
   catalog.cattle.io/scope: management

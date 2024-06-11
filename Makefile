@@ -1,4 +1,4 @@
-SCRIPTS := build test ci validate
+SCRIPTS := build test ci validate image
 .PHONY: $(SCRIPTS) clean generate help
 
 .dapper:
