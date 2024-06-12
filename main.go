@@ -6,6 +6,7 @@ package main
 import (
 	"context"
 	"flag"
+	"os"
 	"time"
 
 	nested "github.com/antonfisher/nested-logrus-formatter"
@@ -24,7 +25,7 @@ import (
 
 var (
 	masterURL         string
-	kubeconfigFile    string
+	kubeConfigFile    string
 	port              int
 	address           string
 	cert              string
@@ -37,30 +38,30 @@ var (
 
 func init() {
 	logrus.SetFormatter(&nested.Formatter{
-		HideKeys: false,
-		// TimestampFormat: time.DateTime,
-		TimestampFormat: time.RFC3339Nano,
-		FieldsOrder:     []string{"GID", "POD", "SVC", "IP", "SUBNET"},
+		HideKeys:        false,
+		TimestampFormat: time.DateTime,
+		// TimestampFormat: time.RFC3339Nano,
+		FieldsOrder: []string{"GID", "POD", "SVC", "IP", "SUBNET"},
 	})
 }
 
 func main() {
-	flag.StringVar(&kubeconfigFile, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
-	flag.StringVar(&masterURL, "master", "", "The address of the Kubernetes API server. Overrides any value in kubeconfig. Only required if out-of-cluster.")
-	flag.IntVar(&port, "port", 443, "The port on which to serve.")
-	flag.StringVar(&address, "bind-address", "0.0.0.0", "The IP address on which to listen for the --port port.")
-	flag.StringVar(&cert, "tls-cert-file", "/etc/webhook/certs/tls.crt", "File containing the default x509 Certificate for HTTPS.")
-	flag.StringVar(&key, "tls-private-key-file", "/etc/webhook/certs/tls.key", "File containing the default x509 private key matching --tls-cert-file.")
-	flag.BoolVar(&debug, "debug", false, "Enable debug log output.")
-	flag.BoolVar(&version, "v", false, "Show version.")
-	flag.IntVar(&worker, "worker", 5, "Worker number (1-50).")
+	flag.StringVar(&kubeConfigFile, "kubeconfig", "", "Kube-config file (optional)")
+	flag.StringVar(&masterURL, "master", "", "The address of the Kubernetes API server (optional)")
+	flag.IntVar(&port, "port", 443, "Webhook server port")
+	flag.StringVar(&address, "bind-address", "0.0.0.0", "Webhook server bind address")
+	flag.StringVar(&cert, "tls-cert-file", "/etc/webhook/certs/tls.crt", "Webhook server TLS x509 certificate")
+	flag.StringVar(&key, "tls-private-key-file", "/etc/webhook/certs/tls.key", "Webhook server TLS x509 private key")
+	flag.BoolVar(&debug, "debug", false, "Enable debug log output")
+	flag.BoolVar(&version, "v", false, "Output version")
+	flag.IntVar(&worker, "worker", 5, "Worker number (1-50)")
 	flag.Parse()
 
 	if worker > 50 || worker < 1 {
 		logrus.Warnf("invalid worker num: %v, should be 1-50, set to default: 5", worker)
 		worker = 5
 	}
-	if debug {
+	if debug || os.Getenv("CATTLE_DEV_MODE") != "" {
 		logrus.SetLevel(logrus.DebugLevel)
 		logrus.Debugf("debug output enabled")
 	}
@@ -74,7 +75,7 @@ func main() {
 	}
 
 	ctx := signals.SetupSignalContext()
-	cfg, err := kubeconfig.GetNonInteractiveClientConfig(kubeconfigFile).ClientConfig()
+	cfg, err := kubeconfig.GetNonInteractiveClientConfig(kubeConfigFile).ClientConfig()
 	if err != nil {
 		logrus.Fatalf("Error building kubeconfig: %v", err)
 	}
@@ -92,15 +93,12 @@ func main() {
 		wctx.Apps.Deployment(), wctx.Apps.DaemonSet(), wctx.Apps.ReplicaSet(), wctx.Apps.StatefulSet())
 
 	wctx.OnLeader(func(ctx context.Context) error {
-		logrus.Infof("ON LEADER")
-		// Sync controller when onLeader.
-		return wctx.Start(ctx, worker)
+		n, _ := os.Hostname()
+		logrus.Infof("pod [%v] is leader, starting handlers", n)
+
+		// Start controller when this pod becomes leader.
+		return wctx.StartHandler(ctx, worker)
 	})
 
-	if err := wctx.StartLeader(ctx); err != nil {
-		logrus.Fatalf("Failed to start leadership: %v", err)
-	}
-
-	<-ctx.Done()
-	logrus.Infof("flat-network-operator stopped gracefully")
+	wctx.Run(ctx)
 }

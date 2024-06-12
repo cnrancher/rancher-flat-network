@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"net"
 	"slices"
+	"sync"
 	"time"
 
 	"github.com/cnrancher/flat-network-operator/pkg/controller/wrangler"
 	"github.com/cnrancher/flat-network-operator/pkg/ipcalc"
 	"github.com/cnrancher/flat-network-operator/pkg/utils"
-	"github.com/rancher/wrangler/v2/pkg/leader"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -52,8 +52,8 @@ type handler struct {
 
 	recorder record.EventRecorder
 
-	wctx       *wrangler.Context
-	leadership *leader.Manager
+	// Mutex for allocating IP address.
+	allocateIPMutex sync.Mutex
 }
 
 func Register(
@@ -68,8 +68,6 @@ func Register(
 		podClient:    wctx.Core.Pod(),
 		podCache:     wctx.Core.Pod().Cache(),
 		recorder:     wctx.Recorder,
-		wctx:         wctx,
-		leadership:   wctx.Leadership,
 
 		ipEnqueueAfter: wctx.FlatNetwork.FlatNetworkIP().EnqueueAfter,
 		ipEnqueue:      wctx.FlatNetwork.FlatNetworkSubnet().Enqueue,
@@ -162,8 +160,8 @@ func (h *handler) onIPCreate(ip *flv1.FlatNetworkIP) (*flv1.FlatNetworkIP, error
 				ip.Spec.PodID, pod.UID)
 	}
 
-	h.leadership.Lock()
-	defer h.leadership.Unlock()
+	h.allocateIPMutex.Lock()
+	defer h.allocateIPMutex.Unlock()
 
 	// Ensure the flat-network subnet resource exists.
 	subnet, err := h.subnetCache.Get(flv1.SubnetNamespace, ip.Spec.Subnet)

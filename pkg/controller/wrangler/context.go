@@ -40,7 +40,7 @@ type Context struct {
 	Batch       batchv1.Interface
 	Recorder    record.EventRecorder
 
-	Leadership     *leader.Manager
+	leadership     *leader.Manager
 	starters       []start.Starter
 	controllerLock sync.Mutex
 }
@@ -75,7 +75,7 @@ func NewContextOrDie(
 	if err != nil {
 		logrus.Fatalf("kubernetes.NewForConfig: %v", err)
 	}
-	leadership := leader.NewManager("", "flat-network-operator", k8s)
+	leadership := leader.NewManager("kube-system", "flat-network-operator", k8s)
 
 	c := &Context{
 		RESTConfig:        restCfg,
@@ -88,32 +88,37 @@ func NewContextOrDie(
 		Batch:       batch.Batch().V1(),
 		Recorder:    recorder,
 
-		Leadership: leadership,
+		leadership: leadership,
 	}
 	c.starters = append(c.starters, flatnetwork, core, apps, networking, batch)
 	return c
 }
 
 func (w *Context) OnLeader(f func(ctx context.Context) error) {
-	w.Leadership.OnLeader(f)
+	w.leadership.OnLeader(f)
 }
 
 func (c *Context) WaitForCacheSyncOrDie(ctx context.Context) {
 	if err := c.ControllerFactory.SharedCacheFactory().Start(ctx); err != nil {
-		logrus.Panicf("failed to start shared cache factory: %v", err)
+		logrus.Fatalf("failed to start shared cache factory: %v", err)
 	}
 	c.ControllerFactory.SharedCacheFactory().WaitForCacheSync(ctx)
-	logrus.Infof("Done waiting for cache synced")
+	logrus.Infof("informer cache synced")
 }
 
-func (c *Context) StartLeader(ctx context.Context) error {
+// Run starts the leader-election process and block.
+func (c *Context) Run(ctx context.Context) {
+	c.controllerLock.Lock()
+	c.leadership.Start(ctx)
+	c.controllerLock.Unlock()
+
+	logrus.Infof("waiting for pod becomes leader")
+	select {}
+}
+
+func (c *Context) StartHandler(ctx context.Context, worker int) error {
 	c.controllerLock.Lock()
 	defer c.controllerLock.Unlock()
 
-	c.Leadership.Start(ctx)
-	return nil
-}
-
-func (c *Context) Start(ctx context.Context, worker int) error {
 	return start.All(ctx, worker, c.starters...)
 }

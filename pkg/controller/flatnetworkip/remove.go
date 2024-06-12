@@ -18,8 +18,8 @@ func (h *handler) handleIPRemove(s string, ip *flv1.FlatNetworkIP) (*flv1.FlatNe
 		return ip, nil
 	}
 
-	h.leadership.Lock()
-	defer h.leadership.Unlock()
+	h.allocateIPMutex.Lock()
+	defer h.allocateIPMutex.Unlock()
 
 	err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		result, err := h.subnetCache.Get(flv1.SubnetNamespace, ip.Spec.Subnet)
