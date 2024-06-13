@@ -3,15 +3,19 @@ package ipcalc
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"net"
 	"slices"
 
 	flv1 "github.com/cnrancher/flat-network-operator/pkg/apis/flatnetwork.pandaria.io/v1"
+	"github.com/cnrancher/flat-network-operator/pkg/utils"
 )
 
 var (
-	ErrNoAvailableIP  = errors.New("no available IP address")
-	ErrNoAvailableMac = errors.New("no available MAC address")
+	ErrNoAvailableIP    = errors.New("no available IP address")
+	ErrNoAvailableMac   = errors.New("no available MAC address")
+	ErrNetworkConflict  = errors.New("network CIDR conflict")
+	ErrIPRangesConflict = errors.New("ip ranges conflict")
 )
 
 // IPIncrease increases the provided IP address.
@@ -303,4 +307,67 @@ func IsAvailableIP(ip net.IP, network *net.IPNet) bool {
 	}
 
 	return !(IsBroadCast(ip, network) || IsNetwork(ip, network))
+}
+
+func CheckNetworkConflict(cidr1, cidr2 string) error {
+	ip1, n1, err := net.ParseCIDR(cidr1)
+	if err != nil {
+		return fmt.Errorf("failed to parse CIDR [%v]: %w",
+			cidr1, err)
+	}
+	ip2, n2, err := net.ParseCIDR(cidr1)
+	if err != nil {
+		return fmt.Errorf("failed to parse CIDR [%v]: %w",
+			cidr2, err)
+	}
+	if ip1.Equal(ip2) {
+		return fmt.Errorf("network [%v] already used in another subnet: %w",
+			cidr1, ErrNetworkConflict)
+	}
+	if n1.Contains(ip2) {
+		return fmt.Errorf("network [%v] contains CIDR [%v]: %w",
+			cidr1, cidr2, ErrNetworkConflict)
+	}
+	if n2.Contains(ip1) {
+		return fmt.Errorf("network [%v] contains CIDR [%v]: %w",
+			cidr2, cidr1, ErrNetworkConflict)
+	}
+
+	return nil
+}
+
+func CheckIPRangesConflict(ranges1, ranges2 []flv1.IPRange) error {
+	if len(ranges1) == 0 || len(ranges2) == 0 {
+		return nil
+	}
+
+	for _, r1 := range ranges1 {
+		for _, r2 := range ranges2 {
+			if err := ipRangeConflict(r1, r2); err != nil {
+				return fmt.Errorf("failed to validate range conflict on [%v] [%v]: %w",
+					r1, r2, err)
+			}
+		}
+	}
+	return nil
+}
+
+func ipRangeConflict(r1, r2 flv1.IPRange) error {
+	a1 := r1.From.To16()
+	a2 := r1.End.To16()
+	b1 := r2.From.To16()
+	b2 := r2.End.To16()
+	if a1 == nil || a2 == nil {
+		return fmt.Errorf("invalid IP Range provided: %v", utils.PrintObject(r1))
+	}
+	if b1 == nil || b2 == nil {
+		return fmt.Errorf("invalid IP Range provided: %v", utils.PrintObject(r2))
+	}
+	if bytes.Compare(a1, b1) >= 0 && bytes.Compare(a2, b2) <= 0 {
+		return ErrIPRangesConflict
+	}
+	if bytes.Compare(b1, a1) >= 0 && bytes.Compare(b2, a2) <= 0 {
+		return ErrIPRangesConflict
+	}
+	return nil
 }

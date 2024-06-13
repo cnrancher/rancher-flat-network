@@ -113,7 +113,6 @@ func (c *Context) Run(ctx context.Context) {
 	c.controllerLock.Unlock()
 
 	logrus.Infof("waiting for pod becomes leader")
-	select {}
 }
 
 func (c *Context) StartHandler(ctx context.Context, worker int) error {

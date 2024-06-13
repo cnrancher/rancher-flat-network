@@ -6,6 +6,8 @@ toolchain go1.22.2
 
 require (
 	github.com/antonfisher/nested-logrus-formatter v1.3.1
+	github.com/fsnotify/fsnotify v1.6.0
+	github.com/pkg/errors v0.9.1
 	github.com/rancher/lasso v0.0.0-20240123150939-7055397d6dfa
 	github.com/rancher/wrangler/v2 v2.1.4
 	github.com/sirupsen/logrus v1.9.3
@@ -43,7 +45,6 @@ require (
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
-	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/prometheus/client_golang v1.16.0 // indirect
 	github.com/prometheus/client_model v0.4.0 // indirect

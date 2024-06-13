@@ -10,6 +10,7 @@ import (
 	"time"
 
 	nested "github.com/antonfisher/nested-logrus-formatter"
+	"github.com/cnrancher/flat-network-operator/pkg/admission"
 	"github.com/cnrancher/flat-network-operator/pkg/controller/flatnetworkip"
 	"github.com/cnrancher/flat-network-operator/pkg/controller/flatnetworksubnet"
 	"github.com/cnrancher/flat-network-operator/pkg/controller/ingress"
@@ -17,6 +18,7 @@ import (
 	"github.com/cnrancher/flat-network-operator/pkg/controller/service"
 	"github.com/cnrancher/flat-network-operator/pkg/controller/workload"
 	"github.com/cnrancher/flat-network-operator/pkg/controller/wrangler"
+	"github.com/cnrancher/flat-network-operator/pkg/logserver"
 	"github.com/cnrancher/flat-network-operator/pkg/utils"
 	"github.com/rancher/wrangler/v2/pkg/kubeconfig"
 	"github.com/rancher/wrangler/v2/pkg/signals"
@@ -24,16 +26,15 @@ import (
 )
 
 var (
-	masterURL         string
-	kubeConfigFile    string
-	port              int
-	address           string
-	cert              string
-	key               string
-	isDeployAdmission bool
-	worker            int
-	version           bool
-	debug             bool
+	masterURL      string
+	kubeConfigFile string
+	port           int
+	address        string
+	cert           string
+	key            string
+	worker         int
+	version        bool
+	debug          bool
 )
 
 func init() {
@@ -75,6 +76,7 @@ func main() {
 	}
 
 	ctx := signals.SetupSignalContext()
+	logserver.StartServerWithDefaults(ctx)
 	cfg, err := kubeconfig.GetNonInteractiveClientConfig(kubeConfigFile).ClientConfig()
 	if err != nil {
 		logrus.Fatalf("Error building kubeconfig: %v", err)
@@ -99,6 +101,12 @@ func main() {
 		// Start controller when this pod becomes leader.
 		return wctx.StartHandler(ctx, worker)
 	})
-
 	wctx.Run(ctx)
+
+	webhook := admission.NewAdmissionWebhookServer(address, port, cert, key, wctx)
+	if err := webhook.Run(ctx); err != nil {
+		logrus.Fatalf("failed to start webhook: %v", err)
+	}
+
+	select {}
 }

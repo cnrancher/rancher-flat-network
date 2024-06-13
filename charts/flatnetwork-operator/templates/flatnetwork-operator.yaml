@@ -31,10 +31,10 @@ spec:
         resources:
           limits:
             memory: {{ .Values.ncResources.limits.memory | quote }}
-      #   volumeMounts:
-      #   - name: webhook-certs
-      #     mountPath: /etc/webhook/certs
-      # volumes:
-      # - name: webhook-certs
-      #   secret:
-      #     secretName: flatnetwork-operator-webhook-certs
+        volumeMounts:
+        - name: webhook-certs
+          mountPath: /etc/webhook/certs
+      volumes:
+      - name: webhook-certs
+        secret:
+          secretName: flatnetwork-operator-webhook-certs
