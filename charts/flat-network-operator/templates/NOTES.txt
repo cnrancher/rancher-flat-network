@@ -1,3 +1,0 @@
-You have deployed the Rancher FlatNetwork Operator
-Version: {{ .Chart.AppVersion }}
-Description: This operator manages flat network pods.

@@ -21,11 +21,11 @@ staticMacvlan:
     repository: ""
     tag: ""
     pullPolicy: IfNotPresent
-admission:
+webhookDeploy:
   image:
-    repository: ""
-    tag: ""
-    pullPolicy: IfNotPresent
+    repository: "cnrancher/flat-network-webhook-deploy"
+    tag: "v0.0.0"
+    pullPolicy: Always
 
 
 additionalTrustedCAs: false
