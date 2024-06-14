@@ -11,9 +11,10 @@ Rancher Flat-Network Operator based on [Wrangler](https://github.com/rancher/wra
 - [x] Auto create FlatNetwork headless ClusterIP service.
 - [x] Leader election support to run operator in multi-replicas (HA).
 - [ ] Update FlatNetwork Service Endpoints IP address.
-- [ ] Admission webhook server.
+- [x] Admission webhook server.
 - [ ] Upgrade resource migrator from `macvlan.cluster.cattle.io` to `flatnetwork.pandaria.io`.
 helm
+
 ## Usage
 
 To build and run flat-network operator manually:

@@ -6,7 +6,6 @@ toolchain go1.22.2
 
 require (
 	github.com/antonfisher/nested-logrus-formatter v1.3.1
-	github.com/fsnotify/fsnotify v1.6.0
 	github.com/pkg/errors v0.9.1
 	github.com/rancher/lasso v0.0.0-20240123150939-7055397d6dfa
 	github.com/rancher/wrangler/v2 v2.1.4

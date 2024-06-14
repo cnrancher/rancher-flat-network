@@ -67,7 +67,7 @@ func (h *Handler) checkSubnetConflict(subnet flatnetworkv1.FlatNetworkSubnet) er
 			continue
 		}
 		if err := ipcalc.CheckIPRangesConflict(s.Spec.Ranges, subnet.Spec.Ranges); err != nil {
-			return fmt.Errorf("subnet [%v] and [%v] have potential conflicts: %w",
+			return fmt.Errorf("iprange in subnet [%v] and [%v] have potential conflicts: %w",
 				s.Name, subnet.Name, err)
 		}
 		if err := ipcalc.CheckNetworkConflict(s.Spec.CIDR, subnet.Spec.CIDR); err != nil {

@@ -6,8 +6,8 @@
 
 set -euo pipefail
 
-service=${service:-"flatnetwork-operator-webhook-svc"}
-secret=${secret:-"flatnetwork-operator-webhook-certs"}
+service=${service:-"flatnetwork-webhook-svc"}
+secret=${secret:-"flatnetwork-webhook-certs"}
 namespace=${namespace:-"kube-system"}
 
 cd /certs
@@ -19,7 +19,7 @@ cat > ca-config.json <<EOF
       "expiry": "87600h"
     },
     "profiles": {
-      "flatnetwork-operator-webhook-server": {
+      "flatnetwork-webhook-server": {
         "usages": ["signing", "key encipherment", "server auth", "client auth"],
         "expiry": "87600h"
       }
@@ -81,7 +81,7 @@ cfssl gencert \
   -ca=ca.pem \
   -ca-key=ca-key.pem \
   -config=ca-config.json \
-  -profile=flatnetwork-operator-webhook-server \
+  -profile=flatnetwork-webhook-server \
   server-csr.json | cfssljson -bare server
 
 # Results: server-key.pem server.pem

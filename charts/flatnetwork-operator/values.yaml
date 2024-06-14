@@ -7,6 +7,8 @@ flatNetworkOperator:
     repository: cnrancher/flat-network-operator
     tag: v0.0.0
     pullPolicy: Always
+  limits:
+    memory: "100M"
 multus:
   cni:
     version: "v0.3.1"
@@ -39,6 +41,5 @@ tolerations: []
 ## PriorityClassName assigned to deployment.
 priorityClassName: ""
 
-ncResources:
-  limits:
-    memory: "100M"
+# Set to 'K3s' if using K3s cluster.
+clusterType: default

@@ -4,12 +4,10 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"net"
 	"net/http"
 
 	"github.com/sirupsen/logrus"
 
-	"github.com/cnrancher/flat-network-operator/pkg/admission/certman"
 	"github.com/cnrancher/flat-network-operator/pkg/admission/webhook"
 	"github.com/cnrancher/flat-network-operator/pkg/controller/wrangler"
 )
@@ -23,7 +21,7 @@ type Server struct {
 	wctx *wrangler.Context
 }
 
-// NewAdmissionWebhookServer create a server for admission macvlansubnets
+// NewAdmissionWebhookServer creates a server for admission FlatNetworkSubnets
 func NewAdmissionWebhookServer(
 	address string,
 	port int,
@@ -41,12 +39,10 @@ func NewAdmissionWebhookServer(
 }
 
 func (s *Server) Run(ctx context.Context) error {
-	cm, err := certman.New(s.certFile, s.keyFile)
+	pair, err := tls.LoadX509KeyPair(s.certFile, s.keyFile)
 	if err != nil {
-		return fmt.Errorf("failed to create cert loader: %w", err)
-	}
-	if err := cm.Watch(); err != nil {
-		return fmt.Errorf("failed to watch cert files: %w", err)
+		return fmt.Errorf("failed to load key pair [%v] [%v]: %w",
+			s.certFile, s.keyFile, err)
 	}
 
 	logrus.Infof("starting flat-network admission webhook server")
@@ -56,13 +52,8 @@ func (s *Server) Run(ctx context.Context) error {
 	http.HandleFunc("/validate", handler.ValidateHandler)
 
 	httpServer = &http.Server{
-		Addr: fmt.Sprintf("%s:%d", s.address, s.port),
-		TLSConfig: &tls.Config{
-			GetCertificate: cm.GetCertificate,
-		},
-		BaseContext: func(net.Listener) context.Context {
-			return ctx
-		},
+		Addr:      fmt.Sprintf("%s:%d", s.address, s.port),
+		TLSConfig: &tls.Config{Certificates: []tls.Certificate{pair}},
 	}
 
 	if err = httpServer.ListenAndServeTLS("", ""); err != nil {

@@ -1,0 +1,56 @@
+# Run webhook deploy when chart installed.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: flatnetwork-webhook-deploy
+  namespace: kube-system
+spec:
+  template:
+    metadata:
+      labels:
+        app: flatnetwork-webhook-deploy
+    spec:
+      serviceAccountName: multus
+      restartPolicy: OnFailure
+      containers:
+      - image: {{ template "system_default_registry" . }}{{ .Values.webhookDeploy.image.repository }}:{{ .Values.webhookDeploy.image.tag }}
+        name: flatnetwork-webhook-deploy
+        imagePullPolicy: {{ .Values.webhookDeploy.image.pullPolicy }}
+
+---
+# Run webhook deploy every month to renew certificate.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: flatnetwork-webhook-deploy
+  namespace: kube-system
+spec:
+  # min hour day month week
+  # Rollout tls secret every month
+  schedule: "0 0 1 * *"
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app: flatnetwork-webhook-deploy
+        spec:
+          serviceAccountName: multus
+          restartPolicy: OnFailure
+          containers:
+          - image: {{ template "system_default_registry" . }}{{ .Values.webhookDeploy.image.repository }}:{{ .Values.webhookDeploy.image.tag }}
+            name: flatnetwork-webhook-deploy
+            imagePullPolicy: {{ .Values.webhookDeploy.image.pullPolicy }}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: flatnetwork-webhook-svc
+  namespace: kube-system
+spec:
+  ports:
+  - port: 443
+    targetPort: 443
+  selector:
+    app: flatnetwork-operator

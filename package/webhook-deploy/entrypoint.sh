@@ -16,10 +16,6 @@ echo "Deploying flatnetwork operator validating webhook configurations..."
 cat ./validating-webhook.yaml | /webhook-patch-ca-bundle.sh | kubectl apply -f -
 echo
 
-echo "Deploying flatnetwork operator service..."
-kubectl apply -f ./service.yaml
-echo
-
 echo "Successfully deployed flatnetwork-operator webhook configurations..."
 echo "Done"
 exit 0

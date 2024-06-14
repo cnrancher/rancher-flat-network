@@ -7,15 +7,15 @@ metadata:
     name: example-macvlan-subnet-ipv6
     namespace: kube-system
 spec:
-    cidr: fd00:aaaa::/64
+    cidr: fd00:aaaa:abcd:abcd::/112
     flatMode: macvlan
     gateway: ""
     master: eth0
     mode: ""
     podDefaultGateway: {}
     ranges:
-        - end: fd00:aaaa::ffff
-          from: fd00:aaaa::1000
+        - from: fd00:aaaa:abcd:abcd::1000
+          end: fd00:aaaa:abcd:abcd::ffff
     vlan: 0
 status:
     failureMessage: ""

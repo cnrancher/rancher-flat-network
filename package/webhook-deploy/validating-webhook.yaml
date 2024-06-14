@@ -12,7 +12,7 @@ webhooks:
     timeoutSeconds: 5
     clientConfig:
       service:
-        name: flatnetwork-operator-webhook-svc
+        name: flatnetwork-webhook-svc
         namespace: kube-system
         path: "/validate"
       caBundle: ${CA_BUNDLE}
