@@ -16,12 +16,12 @@ cat > ca-config.json <<EOF
 {
   "signing": {
     "default": {
-      "expiry": "87600h"
+      "expiry": "8760h"
     },
     "profiles": {
       "flatnetwork-webhook-server": {
         "usages": ["signing", "key encipherment", "server auth", "client auth"],
-        "expiry": "87600h"
+        "expiry": "8760h"
       }
     }
   }
@@ -78,14 +78,14 @@ cat > server-csr.json <<EOF
 EOF
 
 cfssl gencert \
-  -ca=ca.pem \
-  -ca-key=ca-key.pem \
-  -config=ca-config.json \
-  -profile=flatnetwork-webhook-server \
-  server-csr.json | cfssljson -bare server
+    -ca=ca.pem \
+    -ca-key=ca-key.pem \
+    -config=ca-config.json \
+    -profile=flatnetwork-webhook-server \
+    server-csr.json | cfssljson -bare server
 
 # Results: server-key.pem server.pem
 
-# Create TLS secret for server
-kubectl delete -n ${namespace} secret ${secret} 2>&1 > /dev/null || true
+# Rotate TLS secret for server
+kubectl delete -n ${namespace} secret ${secret} &> /dev/null || true
 kubectl create -n ${namespace} secret tls ${secret} --cert=server.pem --key=server-key.pem

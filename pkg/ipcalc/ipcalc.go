@@ -315,14 +315,14 @@ func CheckNetworkConflict(cidr1, cidr2 string) error {
 		return fmt.Errorf("failed to parse CIDR [%v]: %w",
 			cidr1, err)
 	}
-	ip2, n2, err := net.ParseCIDR(cidr1)
+	ip2, n2, err := net.ParseCIDR(cidr2)
 	if err != nil {
 		return fmt.Errorf("failed to parse CIDR [%v]: %w",
 			cidr2, err)
 	}
 	if ip1.Equal(ip2) {
-		return fmt.Errorf("network [%v] already used in another subnet: %w",
-			cidr1, ErrNetworkConflict)
+		return fmt.Errorf("network [%v] already used in another subnet CIDR [%v]: %w",
+			cidr1, cidr2, ErrNetworkConflict)
 	}
 	if n1.Contains(ip2) {
 		return fmt.Errorf("network [%v] contains CIDR [%v]: %w",

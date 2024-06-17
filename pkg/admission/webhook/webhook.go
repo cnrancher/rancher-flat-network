@@ -2,6 +2,7 @@ package webhook
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 
@@ -141,15 +142,15 @@ func deserializeAdmissionReview(body []byte) (*admissionv1.AdmissionReview, erro
 func handleValidationError(w http.ResponseWriter, ar *admissionv1.AdmissionReview, orgErr error) {
 	err := prepareAdmissionReviewResponse(false, orgErr.Error(), ar)
 	if err != nil {
-		err := errors.Wrap(err, "error preparing AdmissionResponse")
+		err := fmt.Errorf("failed to prepare AdmissionResponse: %w", err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	writeResponse(w, ar)
 }
 
-func writeResponse(w http.ResponseWriter, ar *admissionv1.AdmissionReview) {
-	resp, _ := json.Marshal(ar)
+func writeResponse(w http.ResponseWriter, a any) {
+	resp, _ := json.Marshal(a)
 	w.Write(resp)
 }
 

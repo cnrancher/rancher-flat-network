@@ -629,3 +629,60 @@ func Test_IsAvailableIP(t *testing.T) {
 	assert.False(t, IsAvailableIP(net.ParseIP("fdaa:abab::ffff:ffff:ffff:ffff"), network))
 	assert.False(t, IsAvailableIP(net.ParseIP("fdaa::ffff:ffff:ffff:ffff"), network))
 }
+
+func Test_CheckNetworkConflict(t *testing.T) {
+	err := CheckNetworkConflict("", "")
+	assert.ErrorContains(t, err, "invalid")
+
+	// Same network CIDR
+	err = CheckNetworkConflict("10.1.2.0/24", "10.1.2.0/24")
+	assert.ErrorIs(t, err, ErrNetworkConflict)
+
+	// 10.1.2.0/24 is the subnet of 10.1.0.0/16
+	err = CheckNetworkConflict("10.1.0.0/16", "10.1.2.0/24")
+	assert.ErrorIs(t, err, ErrNetworkConflict)
+
+	// 10.1.0.0/16 is the subnet of 10.0.0.0/8
+	err = CheckNetworkConflict("10.1.0.0/16", "10.0.0.0/8")
+	assert.ErrorIs(t, err, ErrNetworkConflict)
+
+	err = CheckNetworkConflict("10.1.2.0/24", "10.2.3.0/24")
+	assert.ErrorIs(t, err, nil)
+}
+
+func Test_ipRangeConflict(t *testing.T) {
+	r1 := flv1.IPRange{}
+	r2 := flv1.IPRange{}
+	assert.ErrorContains(t, ipRangeConflict(r1, r2), "invalid")
+
+	r1 = flv1.IPRange{
+		From: net.ParseIP("192.168.10.110"),
+		End:  net.ParseIP("192.168.10.200"),
+	}
+	r2 = flv1.IPRange{}
+	assert.ErrorContains(t, ipRangeConflict(r1, r2), "invalid")
+
+	r2 = flv1.IPRange{
+		From: net.ParseIP("192.168.10.110"),
+		End:  net.ParseIP("192.168.10.110"),
+	}
+	assert.ErrorIs(t, ipRangeConflict(r1, r2), ErrIPRangesConflict)
+
+	r2 = flv1.IPRange{
+		From: net.ParseIP("192.168.10.110"),
+		End:  net.ParseIP("192.168.10.200"),
+	}
+	assert.ErrorIs(t, ipRangeConflict(r1, r2), ErrIPRangesConflict)
+
+	r2 = flv1.IPRange{
+		From: net.ParseIP("192.168.10.200"),
+		End:  net.ParseIP("192.168.10.200"),
+	}
+	assert.ErrorIs(t, ipRangeConflict(r1, r2), ErrIPRangesConflict)
+
+	r2 = flv1.IPRange{
+		From: net.ParseIP("192.168.10.1"),
+		End:  net.ParseIP("192.168.10.100"),
+	}
+	assert.ErrorIs(t, ipRangeConflict(r1, r2), nil)
+}

@@ -9,9 +9,5 @@ metadata:
     flatnetwork.pandaria.io/mac: ""
 spec:
   containers:
-  - name: alpine
-    image: alpine
-    command:
-    - "sleep"
-    args:
-    - "infinity"
+  - name: nginx
+    image: nginx

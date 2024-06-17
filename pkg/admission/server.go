@@ -45,19 +45,24 @@ func (s *Server) Run(ctx context.Context) error {
 			s.certFile, s.keyFile, err)
 	}
 
-	logrus.Infof("starting flat-network admission webhook server")
+	addr := fmt.Sprintf("%v:%v", s.address, s.port)
 	handler := webhook.NewWebhookHandler(s.wctx)
 
 	var httpServer *http.Server
+	http.HandleFunc("/ping", pingHandler)
+	http.HandleFunc("/hostname", hostnameHandler)
 	http.HandleFunc("/validate", handler.ValidateHandler)
-
 	httpServer = &http.Server{
-		Addr:      fmt.Sprintf("%s:%d", s.address, s.port),
-		TLSConfig: &tls.Config{Certificates: []tls.Certificate{pair}},
+		Addr: addr,
+		TLSConfig: &tls.Config{
+			Certificates: []tls.Certificate{
+				pair,
+			},
+		},
 	}
-
 	if err = httpServer.ListenAndServeTLS("", ""); err != nil {
 		return fmt.Errorf("failed to start admission web server: %w", err)
 	}
+	logrus.Infof("start listen flat-network admission webhook server on %v", addr)
 	return nil
 }

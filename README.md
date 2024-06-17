@@ -28,7 +28,7 @@ To build and run flat-network operator manually:
 1. Build and run flat-network operator.
 
     ```console
-    $ go build . && ./flat-network-operator
+    $ go build . && ./flat-network-operator --webhook-server=false
     ```
 
 1. Launch another terminal to create example workloads.

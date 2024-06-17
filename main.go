@@ -33,6 +33,7 @@ var (
 	cert           string
 	key            string
 	worker         int
+	webhookServer  bool
 	version        bool
 	debug          bool
 )
@@ -53,6 +54,7 @@ func main() {
 	flag.StringVar(&address, "bind-address", "0.0.0.0", "Webhook server bind address")
 	flag.StringVar(&cert, "tls-cert-file", "/etc/webhook/certs/tls.crt", "Webhook server TLS x509 certificate")
 	flag.StringVar(&key, "tls-private-key-file", "/etc/webhook/certs/tls.key", "Webhook server TLS x509 private key")
+	flag.BoolVar(&webhookServer, "webhook-server", true, "Enable the Admission Webhook server")
 	flag.BoolVar(&debug, "debug", false, "Enable debug log output")
 	flag.BoolVar(&version, "v", false, "Output version")
 	flag.IntVar(&worker, "worker", 5, "Worker number (1-50)")
@@ -103,9 +105,11 @@ func main() {
 	})
 	wctx.Run(ctx)
 
-	webhook := admission.NewAdmissionWebhookServer(address, port, cert, key, wctx)
-	if err := webhook.Run(ctx); err != nil {
-		logrus.Fatalf("failed to start webhook: %v", err)
+	if webhookServer {
+		webhook := admission.NewAdmissionWebhookServer(address, port, cert, key, wctx)
+		if err := webhook.Run(ctx); err != nil {
+			logrus.Fatalf("failed to start webhook: %v", err)
+		}
 	}
 
 	select {}

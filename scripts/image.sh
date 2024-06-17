@@ -6,6 +6,7 @@ cd $(dirname $0)/../
 WORKINGDIR=$(pwd)
 
 # TODO: DEBUG
+go mod tidy
 ./scripts/build.sh
 
 docker build -t flat-network-operator -f ./package/operator/Dockerfile .
