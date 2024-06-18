@@ -358,10 +358,10 @@ func ipRangeConflict(r1, r2 flv1.IPRange) error {
 	b1 := r2.From.To16()
 	b2 := r2.End.To16()
 	if a1 == nil || a2 == nil {
-		return fmt.Errorf("invalid IP Range provided: %v", utils.PrintObject(r1))
+		return fmt.Errorf("invalid IP Range provided: %v", utils.Print(r1))
 	}
 	if b1 == nil || b2 == nil {
-		return fmt.Errorf("invalid IP Range provided: %v", utils.PrintObject(r2))
+		return fmt.Errorf("invalid IP Range provided: %v", utils.Print(r2))
 	}
 	if bytes.Compare(a1, b1) >= 0 && bytes.Compare(a2, b2) <= 0 {
 		return ErrIPRangesConflict

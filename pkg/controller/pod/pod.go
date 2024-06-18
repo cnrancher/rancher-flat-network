@@ -239,7 +239,7 @@ func fieldsPod(pod *corev1.Pod) logrus.Fields {
 		return logrus.Fields{}
 	}
 	return logrus.Fields{
-		"GID": utils.GetGID(),
+		"GID": utils.GID(),
 		"POD": fmt.Sprintf("%v/%v", pod.Namespace, pod.Name),
 	}
 }

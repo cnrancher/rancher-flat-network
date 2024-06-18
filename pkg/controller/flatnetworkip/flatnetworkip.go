@@ -318,7 +318,7 @@ func fieldsIP(ip *flv1.FlatNetworkIP) logrus.Fields {
 		return logrus.Fields{}
 	}
 	return logrus.Fields{
-		"GID": utils.GetGID(),
+		"GID": utils.GID(),
 		"IP":  fmt.Sprintf("%v/%v", ip.Namespace, ip.Name),
 	}
 }

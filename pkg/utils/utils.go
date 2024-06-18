@@ -3,14 +3,26 @@ package utils
 import (
 	"bytes"
 	"encoding/json"
+	"os"
 	"runtime"
 	"strconv"
 
 	flv1 "github.com/cnrancher/flat-network-operator/pkg/apis/flatnetwork.pandaria.io/v1"
+	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 )
 
-func PrintObject(a any) string {
+var hostname string
+
+func init() {
+	var err error
+	hostname, err = os.Hostname()
+	if err != nil {
+		logrus.Errorf("failed to get hostname: %v", err)
+	}
+}
+
+func Print(a any) string {
 	b, _ := json.MarshalIndent(a, "", "  ")
 	return string(b)
 }
@@ -21,8 +33,8 @@ type valueTypes interface {
 		[]string
 }
 
-// Pointer gets the pointer of the variable.
-func Pointer[T valueTypes](i T) *T {
+// Ptr gets the pointer of the variable.
+func Ptr[T valueTypes](i T) *T {
 	return &i
 }
 
@@ -48,12 +60,17 @@ func IsPodEnabledFlatNetwork(pod *corev1.Pod) bool {
 	return true
 }
 
-// GetGID returns current go routine ID
-func GetGID() uint64 {
+// GID returns current go routine ID
+func GID() uint64 {
 	b := make([]byte, 64)
 	b = b[:runtime.Stack(b, false)]
 	b = bytes.TrimPrefix(b, []byte("goroutine "))
 	b = b[:bytes.IndexByte(b, ' ')]
 	n, _ := strconv.ParseUint(string(b), 10, 64)
 	return n
+}
+
+// Hostname returns current hostname.
+func Hostname() string {
+	return hostname
 }

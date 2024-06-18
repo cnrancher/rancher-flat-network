@@ -163,7 +163,7 @@ func (h *handler) onSubnetCreate(subnet *flv1.FlatNetworkSubnet) (*flv1.FlatNetw
 		}
 		logrus.WithFields(fieldsSubnet(subnet)).
 			Infof("update subnet label %q: %v",
-				subnet.Name, utils.PrintObject(result.Labels))
+				subnet.Name, utils.Print(result.Labels))
 		subnet = result
 		return nil
 	})
@@ -219,7 +219,7 @@ func (h *handler) validateSubnet(subnet *flv1.FlatNetworkSubnet) error {
 
 	if !isValidRanges(subnet) {
 		return fmt.Errorf("invalid subnet ranges provided: %v",
-			utils.PrintObject(subnet.Spec.Ranges))
+			utils.Print(subnet.Spec.Ranges))
 	}
 
 	// TODO: validate routes, podDefaultGateway
@@ -321,7 +321,7 @@ func fieldsSubnet(subnet *flv1.FlatNetworkSubnet) logrus.Fields {
 		return logrus.Fields{}
 	}
 	return logrus.Fields{
-		"GID":    utils.GetGID(),
+		"GID":    utils.GID(),
 		"SUBNET": fmt.Sprintf("%v", subnet.Name),
 	}
 }

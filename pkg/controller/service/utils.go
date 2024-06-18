@@ -1,13 +1,19 @@
 package service
 
 import (
+	"encoding/json"
 	"fmt"
 	"maps"
+	"regexp"
+	"sort"
 	"strings"
 
 	"github.com/cnrancher/flat-network-operator/pkg/utils"
+	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
+	"gopkg.in/k8snetworkplumbingwg/multus-cni.v4/pkg/types"
 	corev1 "k8s.io/api/core/v1"
+	discovery "k8s.io/api/discovery/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -17,8 +23,9 @@ import (
 )
 
 const (
-	k8sCNINetworksKey = "k8s.v1.cni.cncf.io/networks"
-	netAttatchDefName = "static-flat-network-cni-attach"
+	k8sCNINetworksKey       = "k8s.v1.cni.cncf.io/networks"
+	k8sCNINetworksStatusKey = "k8s.v1.cni.cncf.io/networks-status"
+	netAttatchDefName       = "static-flat-network-cni-attach"
 )
 
 // isIngressService detects if this svc is owned by Rancher managed ingress.
@@ -162,50 +169,237 @@ func flatNetworkServiceUpdated(a, b *corev1.Service) bool {
 	if !equality.Semantic.DeepEqual(a.OwnerReferences, b.OwnerReferences) {
 		logrus.WithFields(fieldsService(a)).
 			Debugf("service OwnerReferences mismatch, a: %v\nb: %v",
-				utils.PrintObject(a.OwnerReferences), utils.PrintObject(b.OwnerReferences))
+				utils.Print(a.OwnerReferences), utils.Print(b.OwnerReferences))
 		return false
 	}
 	if !equality.Semantic.DeepEqual(a.Annotations, b.Annotations) {
 		logrus.WithFields(fieldsService(a)).
 			Debugf("service Annotations mismatch: a: %v\n b: %v",
-				utils.PrintObject(a.Annotations), utils.PrintObject(b.Annotations))
+				utils.Print(a.Annotations), utils.Print(b.Annotations))
 		return false
 	}
 	if !equality.Semantic.DeepEqual(a.Spec.Ports, b.Spec.Ports) {
 		logrus.WithFields(fieldsService(a)).
 			Debugf("service spec.ports mismatch: a: %v\nb: %v",
-				utils.PrintObject(a.Spec.Ports), utils.PrintObject(b.Spec.Ports))
+				utils.Print(a.Spec.Ports), utils.Print(b.Spec.Ports))
 		return false
 	}
 	if !equality.Semantic.DeepEqual(a.Spec.Selector, b.Spec.Selector) {
 		logrus.WithFields(fieldsService(a)).
 			Debugf("service spec.selector mismatch: a: %v\nb: %v",
-				utils.PrintObject(a.Spec.Selector), utils.PrintObject(b.Spec.Selector))
+				utils.Print(a.Spec.Selector), utils.Print(b.Spec.Selector))
 		return false
 	}
 	if !equality.Semantic.DeepEqual(a.Spec.Selector, b.Spec.Selector) {
 		logrus.WithFields(fieldsService(a)).
 			Debugf("service spec.selector mismatch: a: %v\nb: %v",
-				utils.PrintObject(a.Spec.Selector), utils.PrintObject(b.Spec.Selector))
+				utils.Print(a.Spec.Selector), utils.Print(b.Spec.Selector))
 		return false
 	}
 	if !equality.Semantic.DeepEqual(a.Spec.ClusterIP, b.Spec.ClusterIP) {
 		logrus.WithFields(fieldsService(a)).
 			Debugf("service spec.clusterIP mismatch: a: %v\nb: %v",
-				utils.PrintObject(a.Spec.ClusterIP), utils.PrintObject(b.Spec.ClusterIP))
+				utils.Print(a.Spec.ClusterIP), utils.Print(b.Spec.ClusterIP))
 		return false
 	}
 	if !equality.Semantic.DeepEqual(a.Spec.ClusterIPs, b.Spec.ClusterIPs) {
 		logrus.WithFields(fieldsService(a)).
 			Debugf("service spec.clusterIPs mismatch: a: %v\nb: %v",
-				utils.PrintObject(a.Spec.ClusterIPs), utils.PrintObject(b.Spec.ClusterIPs))
+				utils.Print(a.Spec.ClusterIPs), utils.Print(b.Spec.ClusterIPs))
 		return false
 	}
 	if !equality.Semantic.DeepEqual(a.Spec.Type, b.Spec.Type) {
 		logrus.WithFields(fieldsService(a)).
 			Debugf("service spec.type mismatch: a: %v\nb: %v",
-				utils.PrintObject(a.Spec.Type), utils.PrintObject(b.Spec.Type))
+				utils.Print(a.Spec.Type), utils.Print(b.Spec.Type))
 		return false
 	}
 	return true
+}
+
+func getNetworkAnnotations(obj interface{}) string {
+	metaObject := obj.(metav1.Object)
+	annotations, ok := metaObject.GetAnnotations()[k8sCNINetworksKey]
+	if !ok {
+		return ""
+	}
+	return annotations
+}
+
+// NOTE: two below functions are copied from the net-attach-def admission controller, to be replaced with better implementation
+func parsePodNetworkSelections(podNetworks, defaultNamespace string) ([]*types.NetworkSelectionElement, error) {
+	var networkSelections []*types.NetworkSelectionElement
+
+	if len(podNetworks) == 0 {
+		err := errors.New("empty string passed as network selection elements list")
+		logrus.Error(err)
+		return nil, err
+	}
+
+	/* try to parse as JSON array */
+	err := json.Unmarshal([]byte(podNetworks), &networkSelections)
+
+	/* if failed, try to parse as comma separated */
+	if err != nil {
+		logrus.Infof("'%s' is not in JSON format: %s... trying to parse as comma separated network selections list", podNetworks, err)
+		for _, networkSelection := range strings.Split(podNetworks, ",") {
+			networkSelection = strings.TrimSpace(networkSelection)
+			networkSelectionElement, err := parsePodNetworkSelectionElement(networkSelection, defaultNamespace)
+			if err != nil {
+				err := errors.Wrap(err, "error parsing network selection element")
+				logrus.Error(err)
+				return nil, err
+			}
+			networkSelections = append(networkSelections, networkSelectionElement)
+		}
+	}
+
+	/* fill missing namespaces with default value */
+	for _, networkSelection := range networkSelections {
+		if networkSelection.Namespace == "" {
+			networkSelection.Namespace = defaultNamespace
+		}
+	}
+
+	return networkSelections, nil
+}
+
+func parsePodNetworkSelectionElement(selection, defaultNamespace string) (*types.NetworkSelectionElement, error) {
+	var namespace, name, netInterface string
+	var networkSelectionElement *types.NetworkSelectionElement
+
+	units := strings.Split(selection, "/")
+	switch len(units) {
+	case 1:
+		namespace = defaultNamespace
+		name = units[0]
+	case 2:
+		namespace = units[0]
+		name = units[1]
+	default:
+		err := errors.Errorf("invalid network selection element - more than one '/' rune in: '%s'", selection)
+		logrus.Error(err)
+		return networkSelectionElement, err
+	}
+
+	units = strings.Split(name, "@")
+	switch len(units) {
+	case 1:
+		name = units[0]
+		netInterface = ""
+	case 2:
+		name = units[0]
+		netInterface = units[1]
+	default:
+		err := errors.Errorf("invalid network selection element - more than one '@' rune in: '%s'", selection)
+		logrus.Error(err)
+		return networkSelectionElement, err
+	}
+
+	validNameRegex, _ := regexp.Compile(`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`)
+	for _, unit := range []string{namespace, name, netInterface} {
+		ok := validNameRegex.MatchString(unit)
+		if !ok && len(unit) > 0 {
+			err := errors.Errorf("at least one of the network selection units is invalid: error found at '%s'", unit)
+			logrus.Error(err)
+			return networkSelectionElement, err
+		}
+	}
+
+	networkSelectionElement = &types.NetworkSelectionElement{
+		Namespace:        namespace,
+		Name:             name,
+		InterfaceRequest: netInterface,
+	}
+
+	return networkSelectionElement, nil
+}
+
+func isInNetworkSelectionElementsArray(name, namespace string, networks []*types.NetworkSelectionElement) bool {
+	// https://github.com/k8snetworkplumbingwg/multus-cni/blob/v3.7.2/pkg/types/conf.go#L109
+	var netName, netNamespace string
+	units := strings.SplitN(name, "/", 2)
+	switch len(units) {
+	case 1:
+		netName = units[0]
+		netNamespace = namespace
+	case 2:
+		netNamespace = units[0]
+		netName = units[1]
+	default:
+		// TODO: err := errors.Errorf("invalid network status - '%s'", name)
+		// logrus.Error(err)
+		return false
+	}
+	for i := range networks {
+		if netName == networks[i].Name && netNamespace == networks[i].Namespace {
+			return true
+		}
+	}
+	return false
+}
+
+// addressToEndpoint converts an address from an Endpoints resource to an
+// EndpointSlice endpoint.
+func addressToEndpoint(address corev1.EndpointAddress) discovery.Endpoint {
+	endpoint := discovery.Endpoint{
+		Addresses: []string{address.IP},
+		Conditions: discovery.EndpointConditions{
+			Ready: utils.Ptr(true),
+		},
+		TargetRef: address.TargetRef,
+	}
+
+	if address.NodeName != nil {
+		endpoint.NodeName = address.NodeName
+	}
+	if address.Hostname != "" {
+		endpoint.Hostname = &address.Hostname
+	}
+
+	return endpoint
+}
+
+// epPortsToEpsPorts converts ports from an Endpoints resource to ports for an
+// EndpointSlice resource.
+func epPortsToEpsPorts(epPorts []corev1.EndpointPort) []discovery.EndpointPort {
+	epsPorts := []discovery.EndpointPort{}
+	for _, epPort := range epPorts {
+		epp := epPort.DeepCopy() // TODO:
+		epsPorts = append(epsPorts, discovery.EndpointPort{
+			Name:        &epp.Name,
+			Port:        &epp.Port,
+			Protocol:    &epp.Protocol,
+			AppProtocol: epp.AppProtocol,
+		})
+	}
+	return epsPorts
+}
+
+func sortEpsEndpoints(eps []discovery.Endpoint) {
+	sort.Slice(eps, func(i, j int) bool {
+		return strings.Compare(eps[i].TargetRef.Name, eps[j].TargetRef.Name) > 0
+	})
+}
+
+func sortEpsPorts(ports []discovery.EndpointPort) {
+	sort.Slice(ports, func(i, j int) bool {
+		return strings.Compare(*ports[i].Name, *ports[j].Name) > 0
+	})
+}
+
+func filterEpsList(eps []*discovery.EndpointSlice) []*discovery.EndpointSlice {
+	result := []*discovery.EndpointSlice{}
+	if len(eps) == 0 {
+		return result
+	}
+
+	for _, e := range eps {
+		if e.AddressType != discovery.AddressTypeIPv4 || e.DeletionTimestamp != nil {
+			continue
+		}
+		result = append(result, e)
+	}
+
+	return result
 }

@@ -34,7 +34,7 @@ func (h *handler) handleSubnetRemove(
 		}
 		logrus.WithFields(fieldsSubnet(subnet)).
 			Warnf("subnet [%v] deleted, but still have following IPs in use: %v",
-				subnet.Name, utils.PrintObject(usedMap))
+				subnet.Name, utils.Print(usedMap))
 	}
 
 	subnet = subnet.DeepCopy()

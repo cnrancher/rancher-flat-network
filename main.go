@@ -20,8 +20,8 @@ import (
 	"github.com/cnrancher/flat-network-operator/pkg/controller/wrangler"
 	"github.com/cnrancher/flat-network-operator/pkg/logserver"
 	"github.com/cnrancher/flat-network-operator/pkg/utils"
-	"github.com/rancher/wrangler/v2/pkg/kubeconfig"
-	"github.com/rancher/wrangler/v2/pkg/signals"
+	"github.com/rancher/wrangler/pkg/kubeconfig"
+	"github.com/rancher/wrangler/pkg/signals"
 	"github.com/sirupsen/logrus"
 )
 
@@ -90,15 +90,14 @@ func main() {
 	// Register handlers
 	flatnetworkip.Register(ctx, wctx)
 	flatnetworksubnet.Register(ctx, wctx)
-	service.Register(ctx, wctx.Core.Service(), wctx.Core.Pod())
+	service.Register(ctx, wctx)
 	pod.Register(ctx, wctx)
 	ingress.Register(ctx, wctx.Networking.Ingress(), wctx.Core.Service())
 	workload.Register(ctx,
 		wctx.Apps.Deployment(), wctx.Apps.DaemonSet(), wctx.Apps.ReplicaSet(), wctx.Apps.StatefulSet())
 
 	wctx.OnLeader(func(ctx context.Context) error {
-		n, _ := os.Hostname()
-		logrus.Infof("pod [%v] is leader, starting handlers", n)
+		logrus.Infof("pod [%v] is leader, starting handlers", utils.Hostname())
 
 		// Start controller when this pod becomes leader.
 		return wctx.StartHandler(ctx, worker)

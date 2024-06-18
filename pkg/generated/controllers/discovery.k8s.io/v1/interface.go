@@ -22,7 +22,7 @@ import (
 	"github.com/rancher/lasso/pkg/controller"
 	"github.com/rancher/wrangler/v2/pkg/generic"
 	"github.com/rancher/wrangler/v2/pkg/schemes"
-	v1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/discovery/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
@@ -31,10 +31,7 @@ func init() {
 }
 
 type Interface interface {
-	Endpoints() EndpointsController
-	Namespace() NamespaceController
-	Pod() PodController
-	Service() ServiceController
+	EndpointSlice() EndpointSliceController
 }
 
 func New(controllerFactory controller.SharedControllerFactory) Interface {
@@ -47,18 +44,6 @@ type version struct {
 	controllerFactory controller.SharedControllerFactory
 }
 
-func (v *version) Endpoints() EndpointsController {
-	return generic.NewController[*v1.Endpoints, *v1.EndpointsList](schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Endpoints"}, "endpoints", true, v.controllerFactory)
-}
-
-func (v *version) Namespace() NamespaceController {
-	return generic.NewNonNamespacedController[*v1.Namespace, *v1.NamespaceList](schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Namespace"}, "namespaces", v.controllerFactory)
-}
-
-func (v *version) Pod() PodController {
-	return generic.NewController[*v1.Pod, *v1.PodList](schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"}, "pods", true, v.controllerFactory)
-}
-
-func (v *version) Service() ServiceController {
-	return generic.NewController[*v1.Service, *v1.ServiceList](schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Service"}, "services", true, v.controllerFactory)
+func (v *version) EndpointSlice() EndpointSliceController {
+	return generic.NewController[*v1.EndpointSlice, *v1.EndpointSliceList](schema.GroupVersionKind{Group: "discovery.k8s.io", Version: "v1", Kind: "EndpointSlice"}, "endpointslices", true, v.controllerFactory)
 }

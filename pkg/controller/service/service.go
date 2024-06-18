@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/cnrancher/flat-network-operator/pkg/controller/wrangler"
 	"github.com/cnrancher/flat-network-operator/pkg/utils"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
@@ -12,6 +13,7 @@ import (
 	"k8s.io/client-go/util/retry"
 
 	corecontroller "github.com/cnrancher/flat-network-operator/pkg/generated/controllers/core/v1"
+	discoverycontroller "github.com/cnrancher/flat-network-operator/pkg/generated/controllers/discovery.k8s.io/v1"
 )
 
 const (
@@ -20,9 +22,15 @@ const (
 )
 
 type handler struct {
-	serviceClient corecontroller.ServiceClient
-	serviceCache  corecontroller.ServiceCache
-	podCache      corecontroller.PodCache
+	serviceClient       corecontroller.ServiceClient
+	serviceCache        corecontroller.ServiceCache
+	podCache            corecontroller.PodCache
+	endpointsCache      corecontroller.EndpointsCache
+	endpointsClient     corecontroller.EndpointsClient
+	endpointSliceCache  discoverycontroller.EndpointSliceCache
+	endpointSliceClient discoverycontroller.EndpointSliceClient
+
+	supportDiscoveryV1 bool
 
 	serviceEnqueueAfter func(string, string, time.Duration)
 	serviceEnqueue      func(string, string)
@@ -30,19 +38,23 @@ type handler struct {
 
 func Register(
 	ctx context.Context,
-	services corecontroller.ServiceController,
-	pods corecontroller.PodController,
+	wctx *wrangler.Context,
 ) {
 	h := &handler{
-		serviceClient: services,
-		serviceCache:  services.Cache(),
-		podCache:      pods.Cache(),
+		serviceClient:       wctx.Core.Service(),
+		serviceCache:        wctx.Core.Service().Cache(),
+		podCache:            wctx.Core.Pod().Cache(),
+		endpointsCache:      wctx.Core.Endpoints().Cache(),
+		endpointsClient:     wctx.Core.Endpoints(),
+		endpointSliceCache:  wctx.Discovery.EndpointSlice().Cache(),
+		endpointSliceClient: wctx.Discovery.EndpointSlice(),
+		supportDiscoveryV1:  wctx.SupportDiscoveryV1(),
 
-		serviceEnqueueAfter: services.EnqueueAfter,
-		serviceEnqueue:      services.Enqueue,
+		serviceEnqueueAfter: wctx.Core.Service().EnqueueAfter,
+		serviceEnqueue:      wctx.Core.Service().Enqueue,
 	}
 
-	services.OnChange(ctx, handlerName, h.syncService)
+	wctx.Core.Service().OnChange(ctx, handlerName, h.syncService)
 }
 
 func (h *handler) syncService(name string, svc *corev1.Service) (*corev1.Service, error) {
@@ -151,7 +163,7 @@ func fieldsService(svc *corev1.Service) logrus.Fields {
 		return logrus.Fields{}
 	}
 	return logrus.Fields{
-		"GID": utils.GetGID(),
+		"GID": utils.GID(),
 		"SVC": fmt.Sprintf("%v/%v", svc.Namespace, svc.Name),
 	}
 }

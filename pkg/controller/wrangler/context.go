@@ -6,20 +6,16 @@ import (
 
 	flscheme "github.com/cnrancher/flat-network-operator/pkg/generated/clientset/versioned/scheme"
 	"github.com/cnrancher/flat-network-operator/pkg/generated/controllers/apps"
-	appsv1 "github.com/cnrancher/flat-network-operator/pkg/generated/controllers/apps/v1"
 	"github.com/cnrancher/flat-network-operator/pkg/generated/controllers/batch"
-	batchv1 "github.com/cnrancher/flat-network-operator/pkg/generated/controllers/batch/v1"
 	"github.com/cnrancher/flat-network-operator/pkg/generated/controllers/core"
 	corecontroller "github.com/cnrancher/flat-network-operator/pkg/generated/controllers/core/v1"
+	"github.com/cnrancher/flat-network-operator/pkg/generated/controllers/discovery.k8s.io"
 	fl "github.com/cnrancher/flat-network-operator/pkg/generated/controllers/flatnetwork.pandaria.io"
-	flv1 "github.com/cnrancher/flat-network-operator/pkg/generated/controllers/flatnetwork.pandaria.io/v1"
 	"github.com/cnrancher/flat-network-operator/pkg/generated/controllers/networking.k8s.io"
-	networkingv1 "github.com/cnrancher/flat-network-operator/pkg/generated/controllers/networking.k8s.io/v1"
 	"github.com/rancher/lasso/pkg/controller"
 	"github.com/rancher/wrangler/v2/pkg/leader"
 	"github.com/rancher/wrangler/v2/pkg/start"
 	"github.com/sirupsen/logrus"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes"
@@ -27,10 +23,18 @@ import (
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/record"
+
+	appsv1 "github.com/cnrancher/flat-network-operator/pkg/generated/controllers/apps/v1"
+	batchv1 "github.com/cnrancher/flat-network-operator/pkg/generated/controllers/batch/v1"
+	discoveryv1 "github.com/cnrancher/flat-network-operator/pkg/generated/controllers/discovery.k8s.io/v1"
+	flv1 "github.com/cnrancher/flat-network-operator/pkg/generated/controllers/flatnetwork.pandaria.io/v1"
+	networkingv1 "github.com/cnrancher/flat-network-operator/pkg/generated/controllers/networking.k8s.io/v1"
+	corev1 "k8s.io/api/core/v1"
 )
 
 type Context struct {
 	RESTConfig        *rest.Config
+	Kubernetes        kubernetes.Interface
 	ControllerFactory controller.SharedControllerFactory
 
 	FlatNetwork flv1.Interface
@@ -38,7 +42,11 @@ type Context struct {
 	Apps        appsv1.Interface
 	Networking  networkingv1.Interface
 	Batch       batchv1.Interface
+	Discovery   discoveryv1.Interface
 	Recorder    record.EventRecorder
+
+	supportDiscoveryV1 bool
+	supportIngressV1   bool
 
 	leadership     *leader.Manager
 	starters       []start.Starter
@@ -54,6 +62,7 @@ func NewContextOrDie(
 	apps := apps.NewFactoryFromConfigOrDie(restCfg)
 	networking := networking.NewFactoryFromConfigOrDie(restCfg)
 	batch := batch.NewFactoryFromConfigOrDie(restCfg)
+	discovery := discovery.NewFactoryFromConfigOrDie(restCfg)
 
 	clientSet, err := kubernetes.NewForConfig(restCfg)
 	if err != nil {
@@ -77,8 +86,15 @@ func NewContextOrDie(
 	}
 	leadership := leader.NewManager("kube-system", "flat-network-operator", k8s)
 
+	supportDiscoveryV1, err := serverSupportDiscoveryV1(restCfg)
+	if err != nil {
+		logrus.Fatal(err)
+	}
+	supportIngressV1 := serverSupportsIngressV1(k8s)
+
 	c := &Context{
 		RESTConfig:        restCfg,
+		Kubernetes:        k8s,
 		ControllerFactory: controllerFactory,
 
 		FlatNetwork: flatnetwork.Flatnetwork().V1(),
@@ -86,12 +102,25 @@ func NewContextOrDie(
 		Apps:        apps.Apps().V1(),
 		Networking:  networking.Networking().V1(),
 		Batch:       batch.Batch().V1(),
+		Discovery:   discovery.Discovery().V1(),
 		Recorder:    recorder,
+
+		supportDiscoveryV1: supportDiscoveryV1,
+		supportIngressV1:   supportIngressV1,
 
 		leadership: leadership,
 	}
-	c.starters = append(c.starters, flatnetwork, core, apps, networking, batch)
+	c.starters = append(c.starters, flatnetwork, core, apps, networking, batch, discovery)
+
 	return c
+}
+
+func (w *Context) SupportDiscoveryV1() bool {
+	return w.supportDiscoveryV1
+}
+
+func (w *Context) SupportIngressV1() bool {
+	return w.supportIngressV1
 }
 
 func (w *Context) OnLeader(f func(ctx context.Context) error) {

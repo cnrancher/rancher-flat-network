@@ -12,6 +12,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	discoveryv1 "k8s.io/api/discovery/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -43,7 +44,7 @@ func main() {
 					corev1.Service{},
 					corev1.Namespace{},
 					// corev1.Secret{},
-					// corev1.Endpoints{},
+					corev1.Endpoints{},
 					// corev1.ConfigMap{},
 				},
 			},
@@ -59,6 +60,11 @@ func main() {
 				Types: []any{
 					batchv1.CronJob{},
 					batchv1.Job{},
+				},
+			},
+			discoveryv1.GroupName: {
+				Types: []any{
+					discoveryv1.EndpointSlice{},
 				},
 			},
 			networkingv1.GroupName: {
@@ -111,7 +117,7 @@ func main() {
 		data = append(data, []byte("---\n")...)
 		data = append(data, b...)
 	}
-	if err := saveCRDYaml("flat-network-operator-crd", string(data)); err != nil {
+	if err := saveCRDYaml("rancher-flatnetwork-operator-crd", string(data)); err != nil {
 		panic(err)
 	}
 }

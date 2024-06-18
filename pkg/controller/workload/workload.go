@@ -170,7 +170,7 @@ func (h *handler) updateWorkloadLabel(
 	}
 	logrus.WithFields(fieldsWorkload(w)).
 		Infof("request to update workload [%v/%v] label: %v",
-			w.GetNamespace(), w.GetName(), utils.PrintObject(labels))
+			w.GetNamespace(), w.GetName(), utils.Print(labels))
 
 	switch o := w.(type) {
 	case *appsv1.Deployment:
@@ -194,7 +194,7 @@ func fieldsWorkload(obj metav1.Object) logrus.Fields {
 		return logrus.Fields{}
 	}
 	fields := logrus.Fields{
-		"GID": utils.GetGID(),
+		"GID": utils.GID(),
 	}
 	s := fmt.Sprintf("%v/%v", obj.GetNamespace(), obj.GetName())
 	switch obj.(type) {

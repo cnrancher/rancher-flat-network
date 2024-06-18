@@ -72,7 +72,7 @@ func (h *handler) newFlatNetworkIP(pod *corev1.Pod) (*flv1.FlatNetworkIP, error)
 					Kind:       "Pod",
 					UID:        pod.UID,
 					Name:       pod.Name,
-					Controller: utils.Pointer(true),
+					Controller: utils.Ptr(true),
 				},
 				{
 					APIVersion: "v1",
