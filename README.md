@@ -1,6 +1,9 @@
-# flat-network-operator
+# rancher-flat-network-operator
 
-Rancher Flat-Network Operator based on [Wrangler](https://github.com/rancher/wrangler/).
+Rancher Flat-Network Operator based on [Wrangler V2](https://github.com/rancher/wrangler/) for managing
+pods using the flat-networks (Macvlan/IPvlan).
+
+**THIS PROJECT IS CURRENTLY WORKING IN PROGRESS AND NOT AVAILABLE TO USE IN PRODUCTION YET.**
 
 ## Features
 
@@ -9,15 +12,17 @@ Rancher Flat-Network Operator based on [Wrangler](https://github.com/rancher/wra
 - [x] IPAM supports custom specified IP address or allocate IP address automatically.
 - [x] Custom IP Range to allocate IP address.
 - [x] Auto create FlatNetwork headless ClusterIP service.
-- [x] Leader election support to run operator in multi-replicas (HA).
-- [ ] Update FlatNetwork Service Endpoints IP address.
+- [x] Leader election support to run operator & webhook server in multi-replicas (HA).
+- [x] Update FlatNetwork Service Endpoints IP address.
 - [x] Admission webhook server.
+- [ ] `rancher-flat-network-cni` CNI plugin for `macvlan` and `ipvlan`, etc.
 - [ ] Upgrade resource migrator from `macvlan.cluster.cattle.io` to `flatnetwork.pandaria.io`.
-helm
 
 ## Usage
 
-To build and run flat-network operator manually:
+To build and run this flat-network operator manually:
+
+1. Prepare a clean Kubernetes cluster for testing purpose.
 
 1. Apply CRDs.
 
@@ -40,8 +45,8 @@ To build and run flat-network operator manually:
 
 ## Environment variables
 
+- `CATTLE_DEV_MODE`: Enable debug outputs and extend the leader election renew deadline & lease duration to support delve breakpoint debug operations, default `false`.
 - `CATTLE_RESYNC_DEFAULT`: period to resync resources in minutes, default `600` (10h).
-- `CATTLE_DEV_MODE`: extend the leader election renew deadline & lease duration to support delve breakpoint debug operations, default `false`.
 - `CATTLE_ELECTION_LEASE_DURATION`: leader election lease duration, default `45s`.
 - `CATTLE_ELECTION_RENEW_DEADLINE`: leader election renew deadline, default `30s`.
 - `CATTLE_ELECTION_RETRY_PERIOD`: leader election retry period, default `2s`.
