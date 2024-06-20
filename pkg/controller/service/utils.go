@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"maps"
 	"regexp"
-	"sort"
 	"strings"
 
 	"github.com/cnrancher/flat-network-operator/pkg/utils"
@@ -25,7 +24,7 @@ import (
 const (
 	k8sCNINetworksKey       = "k8s.v1.cni.cncf.io/networks"
 	k8sCNINetworksStatusKey = "k8s.v1.cni.cncf.io/networks-status"
-	netAttatchDefName       = "static-flat-network-cni-attach"
+	netAttatchDefName       = "rancher-flat-network-cni"
 )
 
 // isIngressService detects if this svc is owned by Rancher managed ingress.
@@ -217,50 +216,33 @@ func flatNetworkServiceUpdated(a, b *corev1.Service) bool {
 	return true
 }
 
-func getNetworkAnnotations(obj interface{}) string {
-	metaObject := obj.(metav1.Object)
-	annotations, ok := metaObject.GetAnnotations()[k8sCNINetworksKey]
-	if !ok {
-		return ""
-	}
-	return annotations
-}
-
-// NOTE: two below functions are copied from the net-attach-def admission controller, to be replaced with better implementation
-func parsePodNetworkSelections(podNetworks, defaultNamespace string) ([]*types.NetworkSelectionElement, error) {
-	var networkSelections []*types.NetworkSelectionElement
-
-	if len(podNetworks) == 0 {
+func parseServiceNetworkSelections(
+	podNetwork, defaultNamespace string,
+) ([]*types.NetworkSelectionElement, error) {
+	networkSelections := []*types.NetworkSelectionElement{}
+	if len(podNetwork) == 0 {
 		err := errors.New("empty string passed as network selection elements list")
 		logrus.Error(err)
 		return nil, err
 	}
 
-	/* try to parse as JSON array */
-	err := json.Unmarshal([]byte(podNetworks), &networkSelections)
-
-	/* if failed, try to parse as comma separated */
+	err := json.Unmarshal([]byte(podNetwork), &networkSelections)
 	if err != nil {
-		logrus.Infof("'%s' is not in JSON format: %s... trying to parse as comma separated network selections list", podNetworks, err)
-		for _, networkSelection := range strings.Split(podNetworks, ",") {
+		for _, networkSelection := range strings.Split(podNetwork, ",") {
 			networkSelection = strings.TrimSpace(networkSelection)
 			networkSelectionElement, err := parsePodNetworkSelectionElement(networkSelection, defaultNamespace)
 			if err != nil {
-				err := errors.Wrap(err, "error parsing network selection element")
-				logrus.Error(err)
-				return nil, err
+				return nil, fmt.Errorf("failed to parse network selection: %w", err)
 			}
 			networkSelections = append(networkSelections, networkSelectionElement)
 		}
 	}
 
-	/* fill missing namespaces with default value */
 	for _, networkSelection := range networkSelections {
 		if networkSelection.Namespace == "" {
 			networkSelection.Namespace = defaultNamespace
 		}
 	}
-
 	return networkSelections, nil
 }
 
@@ -277,9 +259,7 @@ func parsePodNetworkSelectionElement(selection, defaultNamespace string) (*types
 		namespace = units[0]
 		name = units[1]
 	default:
-		err := errors.Errorf("invalid network selection element - more than one '/' rune in: '%s'", selection)
-		logrus.Error(err)
-		return networkSelectionElement, err
+		return networkSelectionElement, fmt.Errorf("invalid network selection element - more than one '/' rune in: '%s'", selection)
 	}
 
 	units = strings.Split(name, "@")
@@ -315,10 +295,10 @@ func parsePodNetworkSelectionElement(selection, defaultNamespace string) (*types
 	return networkSelectionElement, nil
 }
 
-func isInNetworkSelectionElementsArray(name, namespace string, networks []*types.NetworkSelectionElement) bool {
-	// https://github.com/k8snetworkplumbingwg/multus-cni/blob/v3.7.2/pkg/types/conf.go#L109
+func isInNetworkSelectionElementsArray(statusName, namespace string, networks []*types.NetworkSelectionElement) bool {
+	// https://github.com/k8snetworkplumbingwg/multus-cni/blob/v4.0.2/pkg/types/conf.go#L117
 	var netName, netNamespace string
-	units := strings.SplitN(name, "/", 2)
+	units := strings.SplitN(statusName, "/", 2)
 	switch len(units) {
 	case 1:
 		netName = units[0]
@@ -327,8 +307,7 @@ func isInNetworkSelectionElementsArray(name, namespace string, networks []*types
 		netNamespace = units[0]
 		netName = units[1]
 	default:
-		// TODO: err := errors.Errorf("invalid network status - '%s'", name)
-		// logrus.Error(err)
+		logrus.Debugf("skip invalid network status: %v", statusName)
 		return false
 	}
 	for i := range networks {
@@ -376,30 +355,22 @@ func epPortsToEpsPorts(epPorts []corev1.EndpointPort) []discovery.EndpointPort {
 	return epsPorts
 }
 
-func sortEpsEndpoints(eps []discovery.Endpoint) {
-	sort.Slice(eps, func(i, j int) bool {
-		return strings.Compare(eps[i].TargetRef.Name, eps[j].TargetRef.Name) > 0
-	})
-}
-
-func sortEpsPorts(ports []discovery.EndpointPort) {
-	sort.Slice(ports, func(i, j int) bool {
-		return strings.Compare(*ports[i].Name, *ports[j].Name) > 0
-	})
-}
-
-func filterEpsList(eps []*discovery.EndpointSlice) []*discovery.EndpointSlice {
-	result := []*discovery.EndpointSlice{}
-	if len(eps) == 0 {
-		return result
+// Get IPv4 & IPv6 endpoint slices
+func getAvailableEndpointSlices(
+	s []*discovery.EndpointSlice,
+) []*discovery.EndpointSlice {
+	if len(s) == 0 {
+		return s
 	}
-
-	for _, e := range eps {
-		if e.AddressType != discovery.AddressTypeIPv4 || e.DeletionTimestamp != nil {
+	result := []*discovery.EndpointSlice{}
+	for _, e := range s {
+		switch {
+		case e.DeletionTimestamp != nil,
+			e.AddressType != discovery.AddressTypeIPv4 &&
+				e.AddressType != discovery.AddressTypeIPv6:
 			continue
 		}
 		result = append(result, e)
 	}
-
 	return result
 }

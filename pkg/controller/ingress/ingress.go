@@ -19,8 +19,8 @@ import (
 const (
 	handlerName = "flatnetwork-ingress"
 
-	k8sCNINetworksKey = "k8s.v1.cni.cncf.io/networks"
-	netAttatchDefName = "static-flat-network-cni-attach"
+	k8sCNINetworksKey     = "k8s.v1.cni.cncf.io/networks"
+	rancherFlatNetworkCNI = "rancher-flat-network-cni"
 )
 
 type handler struct {
@@ -107,7 +107,7 @@ func (h *handler) handleIngressService(
 	}
 	// Skip if the service annotation already updated.
 	if flatNetworkEnabled {
-		if service.Annotations[k8sCNINetworksKey] == netAttatchDefName {
+		if service.Annotations[k8sCNINetworksKey] == rancherFlatNetworkCNI {
 			return nil
 		}
 	} else if service.Annotations[k8sCNINetworksKey] == "" {
@@ -116,7 +116,7 @@ func (h *handler) handleIngressService(
 
 	service = service.DeepCopy()
 	if flatNetworkEnabled {
-		service.Annotations[k8sCNINetworksKey] = netAttatchDefName
+		service.Annotations[k8sCNINetworksKey] = rancherFlatNetworkCNI
 	} else {
 		delete(service.Annotations, k8sCNINetworksKey)
 	}

@@ -7,8 +7,12 @@
             "type": "go",
             "mode": "exec",
             "console": "integratedTerminal",
+            "env": {
+                "CATTLE_DEV_MODE": "true",
+            },
             "program": "${workspaceRoot}/flat-network-operator",
             "args": [
+                "--webhook-server=false",
                 "--debug"
             ]
         }
