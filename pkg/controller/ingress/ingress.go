@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	handlerName = "flatnetwork-ingress"
+	handlerName = "rancher-flat-network-ingress"
 
 	k8sCNINetworksKey     = "k8s.v1.cni.cncf.io/networks"
 	rancherFlatNetworkCNI = "rancher-flat-network-cni"

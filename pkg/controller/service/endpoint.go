@@ -28,46 +28,8 @@ type endpointReource struct {
 	endpointPorts []discoveryv1.EndpointPort
 }
 
-func (h *handler) getEndpointResources(
-	svc *corev1.Service, pods []*corev1.Pod,
-) (*endpointReource, error) {
-	svcNetworkValue := svc.Annotations[k8sCNINetworksKey]
-	if svcNetworkValue == "" {
-		return nil, nil
-	}
-	svcNetworkSelections, err := parseServiceNetworkSelections(svcNetworkValue, svc.Namespace)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse service network annotation [%v: %v]: %w",
-			k8sCNINetworksKey, svcNetworkValue, err)
-	}
-	resource := &endpointReource{
-		subsets:       make([]corev1.EndpointSubset, 0),
-		endpoints:     make([]discoveryv1.Endpoint, 0),
-		endpointPorts: make([]discoveryv1.EndpointPort, 0),
-	}
-	for _, pod := range pods {
-		// Skip deleted pods
-		if pod.DeletionTimestamp != nil {
-			continue
-		}
-		subset := getPodEndpointSubset(svc, svcNetworkSelections, pod)
-		if subset.Addresses == nil {
-			continue
-		}
-		resource.subsets = append(resource.subsets, *subset)
-	}
-	resource.subsets = endpoints.RepackSubsets(resource.subsets)
-	for _, subset := range resource.subsets {
-		for _, address := range subset.Addresses {
-			endpoint := addressToEndpoint(address)
-			resource.endpoints = append(resource.endpoints, endpoint)
-		}
-		ports := epPortsToEpsPorts(subset.Ports)
-		resource.endpointPorts = append(resource.endpointPorts, ports...)
-	}
-	return resource, nil
-}
-
+// syncServiceEndpoints updates service corev1.Endpoints & discoveryv1.Endpoint
+// IP to pod flat-network IP.
 func (h *handler) syncServiceEndpoints(
 	svc *corev1.Service, pods []*corev1.Pod,
 ) error {
@@ -107,7 +69,7 @@ func (h *handler) syncServiceEndpoints(
 			return err
 		}
 		logrus.WithFields(fieldsService(svc)).
-			Infof("Updated Endpoint [%v/%v] Subsets: %v",
+			Infof("Updated corev1.Endpoints [%v/%v] Subsets: %v",
 				endpoints.Namespace, endpoints.Name, endpoints.Subsets)
 		return nil
 	}); err != nil {
@@ -115,13 +77,13 @@ func (h *handler) syncServiceEndpoints(
 	}
 	if !h.supportDiscoveryV1 {
 		logrus.WithFields(fieldsService(svc)).
-			Debugf("skip to update service discoveryv1.EndpointSlice as discovery.k8s.io/v1 is not supported")
+			Debugf("skip to update service EndpointSlice as discovery.k8s.io/v1 not supported")
 		return nil
 	}
 
 	// Update discoveryv1.EndpointSlice
 	logrus.WithFields(fieldsService(svc)).
-		Debugf("updating discoveryv1.EndpointSlice")
+		Debugf("updating service discoveryv1.EndpointSlice")
 	endpointSlices, err := h.endpointSliceCache.List(svc.Namespace, labels.SelectorFromSet(map[string]string{
 		discoveryv1.LabelServiceName: svc.Name}))
 	if err != nil {
@@ -187,6 +149,46 @@ func (h *handler) syncServiceEndpoints(
 		return fmt.Errorf("failed to update discoveryv1.EndpointSlice: %w", err)
 	}
 	return nil
+}
+
+func (h *handler) getEndpointResources(
+	svc *corev1.Service, pods []*corev1.Pod,
+) (*endpointReource, error) {
+	svcNetworkValue := svc.Annotations[k8sCNINetworksKey]
+	if svcNetworkValue == "" {
+		return nil, nil
+	}
+	svcNetworkSelections, err := parseServiceNetworkSelections(svcNetworkValue, svc.Namespace)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse service network annotation [%v: %v]: %w",
+			k8sCNINetworksKey, svcNetworkValue, err)
+	}
+	resource := &endpointReource{
+		subsets:       make([]corev1.EndpointSubset, 0),
+		endpoints:     make([]discoveryv1.Endpoint, 0),
+		endpointPorts: make([]discoveryv1.EndpointPort, 0),
+	}
+	for _, pod := range pods {
+		// Skip deleted pods
+		if pod.DeletionTimestamp != nil {
+			continue
+		}
+		subset := getPodEndpointSubset(svc, svcNetworkSelections, pod)
+		if subset.Addresses == nil {
+			continue
+		}
+		resource.subsets = append(resource.subsets, *subset)
+	}
+	resource.subsets = endpoints.RepackSubsets(resource.subsets)
+	for _, subset := range resource.subsets {
+		for _, address := range subset.Addresses {
+			endpoint := addressToEndpoint(address)
+			resource.endpoints = append(resource.endpoints, endpoint)
+		}
+		ports := epPortsToEpsPorts(subset.Ports)
+		resource.endpointPorts = append(resource.endpointPorts, ports...)
+	}
+	return resource, nil
 }
 
 func getPodEndpointSubset(

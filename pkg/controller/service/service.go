@@ -17,8 +17,8 @@ import (
 )
 
 const (
-	handlerName                  = "flatnetwork-service"
-	flatNetworkServiceNameSuffix = "-flatnetwork"
+	handlerName                  = "rancher-flat-network-service"
+	flatNetworkServiceNameSuffix = "-flat-network"
 )
 
 type handler struct {

@@ -4,7 +4,7 @@ global:
 
 flatNetworkOperator:
   image:
-    repository: cnrancher/flat-network-operator
+    repository: cnrancher/rancher-flat-network-operator
     tag: v0.0.0
     pullPolicy: Always
   limits:
@@ -18,7 +18,7 @@ multus:
     repository: ""
     tag: ""
     pullPolicy: IfNotPresent
-staticMacvlan:
+flatNetworkCNI:
   image:
     repository: ""
     tag: ""
@@ -28,19 +28,9 @@ webhookDeploy:
   # Rollout tls secret every month: "0 0 1 * *"
   rolloutSchedule: "0 0 1 * *"
   image:
-    repository: "cnrancher/flat-network-webhook-deploy"
+    repository: "cnrancher/rancher-flat-network-webhook-deploy"
     tag: "v0.0.0"
     pullPolicy: Always
-
-## Node labels for pod assignment
-## Ref: https://kubernetes.io/docs/user-guide/node-selection/
-##
-nodeSelector: {}
-## List of node taints to tolerate (requires Kubernetes >= 1.6)
-tolerations: []
-
-## PriorityClassName assigned to deployment.
-priorityClassName: ""
 
 # Set to 'K3s' if using K3s cluster.
 clusterType: default

@@ -1,22 +1,22 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: flatnetwork-operator
+  name: rancher-flat-network-operator
   namespace: kube-system
   labels:
-    app: flatnetwork-operator
+    app: rancher-flat-network-operator
 spec:
   replicas: 2
   strategy:
     type: Recreate
   selector:
     matchLabels:
-      app: flatnetwork-operator
+      app: rancher-flat-network-operator
   template:
     metadata:
       namespace: kube-system
       labels:
-        app: flatnetwork-operator
+        app: rancher-flat-network-operator
     spec:
       serviceAccountName: multus
       initContainers:
@@ -24,7 +24,7 @@ spec:
         image: {{ template "system_default_registry" . }}{{ .Values.webhookDeploy.image.repository }}:{{ .Values.webhookDeploy.image.tag }}
         imagePullPolicy: {{ .Values.webhookDeploy.image.pullPolicy }}
       containers:
-      - name: flatnetwork-operator-container
+      - name: rancher-flat-network-operator-container
         image: {{ template "system_default_registry" . }}{{ .Values.flatNetworkOperator.image.repository }}:{{ .Values.flatNetworkOperator.image.tag }}
         imagePullPolicy: {{ .Values.flatNetworkOperator.image.pullPolicy }}
         env:
@@ -50,17 +50,17 @@ spec:
       volumes:
       - name: webhook-certs
         secret:
-          secretName: flatnetwork-webhook-certs
+          secretName: rancher-flat-network-webhook-certs
 
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: flatnetwork-webhook-svc
+  name: rancher-flat-network-webhook-svc
   namespace: kube-system
 spec:
   ports:
   - port: 443
     targetPort: 443
   selector:
-    app: flatnetwork-operator
+    app: rancher-flat-network-operator

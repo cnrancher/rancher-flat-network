@@ -1,18 +1,18 @@
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
 metadata:
-  name: flatnetwork-subnets-validating-config
+  name: flat-network-subnets-validating-config
   labels:
-    app: flatnetwork-operator
+    app: rancher-flat-network-operator
 webhooks:
-  - name: flatnetwork-subnets-validating-config.kube-system.svc.cluster.local
+  - name: rancher-flat-network-subnets-validating-config.kube-system.svc.cluster.local
     failurePolicy: Ignore
     admissionReviewVersions: ["v1", "v1beta1"]
     sideEffects: None
     timeoutSeconds: 5
     clientConfig:
       service:
-        name: flatnetwork-webhook-svc
+        name: rancher-flat-network-webhook-svc
         namespace: kube-system
         path: "/validate"
       caBundle: ${CA_BUNDLE}

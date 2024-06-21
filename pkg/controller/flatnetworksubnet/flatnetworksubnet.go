@@ -23,8 +23,8 @@ import (
 )
 
 const (
-	handlerName       = "flatnetwork-subnet"
-	handlerRemoveName = "flatnetwork-subnet-remove"
+	handlerName       = "rancher-flat-network-subnet"
+	handlerRemoveName = "rancher-flat-network-subnet-remove"
 )
 
 const (

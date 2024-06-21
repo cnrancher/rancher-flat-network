@@ -6,12 +6,13 @@
 
 set -euo pipefail
 
-service=${service:-"flatnetwork-webhook-svc"}
-secret=${secret:-"flatnetwork-webhook-certs"}
+service=${service:-"rancher-flat-network-webhook-svc"}
+secret=${secret:-"rancher-flat-network-webhook-certs"}
 namespace=${namespace:-"kube-system"}
 
 cd /certs
 
+# 8760h == 365d
 cat > ca-config.json <<EOF
 {
   "signing": {
@@ -19,7 +20,7 @@ cat > ca-config.json <<EOF
       "expiry": "8760h"
     },
     "profiles": {
-      "flatnetwork-webhook-server": {
+      "rancher-flat-network-webhook-server": {
         "usages": ["signing", "key encipherment", "server auth", "client auth"],
         "expiry": "8760h"
       }
@@ -30,7 +31,7 @@ EOF
 
 cat > ca-csr.json <<EOF
 {
-  "CN": "FlatNetwork Operator Webhook CA",
+  "CN": "Rancher FlatNetwork Operator Webhook CA",
   "key": {
     "algo": "rsa",
     "size": 2048
@@ -53,7 +54,7 @@ cfssl gencert -initca ca-csr.json | cfssljson -bare ca
 
 cat > server-csr.json <<EOF
 {
-  "CN": "FlatNetwork Operator Webhook Cert",
+  "CN": "Rancher FlatNetwork Operator Webhook Cert",
   "key": {
     "algo": "rsa",
     "size": 2048
@@ -70,8 +71,8 @@ cat > server-csr.json <<EOF
       "C": "CN",
       "L": "Shenyang",
       "O": "SUSE",
-      "OU": "SUSE Rancher Cert",
-      "ST": "LiaoNing"
+      "OU": "SUSE Rancher",
+      "ST": "Liaoning"
     }
   ]
 }
@@ -81,7 +82,7 @@ cfssl gencert \
     -ca=ca.pem \
     -ca-key=ca-key.pem \
     -config=ca-config.json \
-    -profile=flatnetwork-webhook-server \
+    -profile=rancher-flat-network-webhook-server \
     server-csr.json | cfssljson -bare server
 
 # Results: server-key.pem server.pem

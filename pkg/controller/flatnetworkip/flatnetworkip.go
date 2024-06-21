@@ -25,8 +25,8 @@ import (
 )
 
 const (
-	handlerName       = "flatnetwork-ip"
-	handlerRemoveName = "flatnetwork-ip-remove"
+	handlerName       = "rancher-flat-network-ip"
+	handlerRemoveName = "rancher-flat-network-ip-remove"
 )
 
 const (

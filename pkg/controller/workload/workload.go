@@ -25,7 +25,7 @@ type Workload interface {
 }
 
 const (
-	handlerName = "flatnetwork-workload"
+	handlerName = "rancher-flat-network-workload"
 )
 
 type handler struct {

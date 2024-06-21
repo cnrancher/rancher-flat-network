@@ -24,10 +24,10 @@ docker push 127.0.0.1:5010/cnrancher/flat-network-operator:v0.0.0
 docker tag  flat-network-webhook-deploy 127.0.0.1:5010/cnrancher/flat-network-webhook-deploy:v0.0.0
 docker push 127.0.0.1:5010/cnrancher/flat-network-webhook-deploy:v0.0.0
 
-helm upgrade --install rancher-flat-network-operator-crd ./charts/rancher-flatnetwork-operator-crd
+helm upgrade --install rancher-flat-network-operator-crd ./charts/rancher-flat-network-operator-crd
 
 helm uninstall rancher-flat-network-operator || true
 sleep 2
 helm upgrade --install rancher-flat-network-operator \
     --set global.cattle.systemDefaultRegistry='127.0.0.1:5010' \
-    ./charts/rancher-flatnetwork-operator
+    ./charts/rancher-flat-network-operator

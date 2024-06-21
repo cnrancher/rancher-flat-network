@@ -22,7 +22,7 @@ import (
 )
 
 const (
-	handlerName = "flatnetwork-pod"
+	handlerName = "rancher-flat-network-pod"
 )
 
 type handler struct {
