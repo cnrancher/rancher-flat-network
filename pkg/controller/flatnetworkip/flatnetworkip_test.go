@@ -4,8 +4,8 @@ import (
 	"net"
 	"testing"
 
-	flv1 "github.com/cnrancher/flat-network-operator/pkg/apis/flatnetwork.pandaria.io/v1"
-	"github.com/cnrancher/flat-network-operator/pkg/ipcalc"
+	flv1 "github.com/cnrancher/rancher-flat-network-operator/pkg/apis/flatnetwork.pandaria.io/v1"
+	"github.com/cnrancher/rancher-flat-network-operator/pkg/ipcalc"
 	"github.com/stretchr/testify/assert"
 )
 

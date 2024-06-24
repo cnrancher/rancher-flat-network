@@ -9,8 +9,8 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/labels"
 
-	flatnetworkv1 "github.com/cnrancher/flat-network-operator/pkg/apis/flatnetwork.pandaria.io/v1"
-	"github.com/cnrancher/flat-network-operator/pkg/ipcalc"
+	flatnetworkv1 "github.com/cnrancher/rancher-flat-network-operator/pkg/apis/flatnetwork.pandaria.io/v1"
+	"github.com/cnrancher/rancher-flat-network-operator/pkg/ipcalc"
 )
 
 func deserializeMacvlanSubnet(ar *admissionv1.AdmissionReview) (flatnetworkv1.FlatNetworkSubnet, error) {

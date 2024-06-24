@@ -23,9 +23,9 @@ import (
 	sync "sync"
 	time "time"
 
-	versioned "github.com/cnrancher/flat-network-operator/pkg/generated/clientset/versioned"
-	flatnetworkpandariaio "github.com/cnrancher/flat-network-operator/pkg/generated/informers/externalversions/flatnetwork.pandaria.io"
-	internalinterfaces "github.com/cnrancher/flat-network-operator/pkg/generated/informers/externalversions/internalinterfaces"
+	versioned "github.com/cnrancher/rancher-flat-network-operator/pkg/generated/clientset/versioned"
+	flatnetworkpandariaio "github.com/cnrancher/rancher-flat-network-operator/pkg/generated/informers/externalversions/flatnetwork.pandaria.io"
+	internalinterfaces "github.com/cnrancher/rancher-flat-network-operator/pkg/generated/informers/externalversions/internalinterfaces"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"

@@ -8,8 +8,8 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	"github.com/cnrancher/flat-network-operator/pkg/admission/webhook"
-	"github.com/cnrancher/flat-network-operator/pkg/controller/wrangler"
+	"github.com/cnrancher/rancher-flat-network-operator/pkg/admission/webhook"
+	"github.com/cnrancher/rancher-flat-network-operator/pkg/controller/wrangler"
 )
 
 type Server struct {

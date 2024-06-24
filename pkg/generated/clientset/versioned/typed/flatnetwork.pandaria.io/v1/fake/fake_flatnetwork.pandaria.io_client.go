@@ -19,7 +19,7 @@ limitations under the License.
 package fake
 
 import (
-	v1 "github.com/cnrancher/flat-network-operator/pkg/generated/clientset/versioned/typed/flatnetwork.pandaria.io/v1"
+	v1 "github.com/cnrancher/rancher-flat-network-operator/pkg/generated/clientset/versioned/typed/flatnetwork.pandaria.io/v1"
 	rest "k8s.io/client-go/rest"
 	testing "k8s.io/client-go/testing"
 )

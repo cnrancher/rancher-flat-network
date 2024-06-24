@@ -10,10 +10,10 @@ import (
 	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 
-	flv1 "github.com/cnrancher/flat-network-operator/pkg/apis/flatnetwork.pandaria.io/v1"
-	corecontroller "github.com/cnrancher/flat-network-operator/pkg/generated/controllers/core/v1"
-	networkingcontroller "github.com/cnrancher/flat-network-operator/pkg/generated/controllers/networking.k8s.io/v1"
-	"github.com/cnrancher/flat-network-operator/pkg/utils"
+	flv1 "github.com/cnrancher/rancher-flat-network-operator/pkg/apis/flatnetwork.pandaria.io/v1"
+	corecontroller "github.com/cnrancher/rancher-flat-network-operator/pkg/generated/controllers/core/v1"
+	networkingcontroller "github.com/cnrancher/rancher-flat-network-operator/pkg/generated/controllers/networking.k8s.io/v1"
+	"github.com/cnrancher/rancher-flat-network-operator/pkg/utils"
 )
 
 const (

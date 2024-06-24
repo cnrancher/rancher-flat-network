@@ -6,7 +6,7 @@ cd $(dirname $0)/../
 WORKINGDIR=$(pwd)
 
 files=(
-    "flat-network-operator"
+    "rancher-flat-network-operator"
     "bin/"
     "dist/"
 )

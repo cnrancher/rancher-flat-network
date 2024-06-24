@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"net"
 
-	flv1 "github.com/cnrancher/flat-network-operator/pkg/apis/flatnetwork.pandaria.io/v1"
+	flv1 "github.com/cnrancher/rancher-flat-network-operator/pkg/apis/flatnetwork.pandaria.io/v1"
 	"github.com/sirupsen/logrus"
 )
 

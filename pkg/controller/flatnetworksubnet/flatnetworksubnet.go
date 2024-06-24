@@ -8,9 +8,9 @@ import (
 	"slices"
 	"time"
 
-	"github.com/cnrancher/flat-network-operator/pkg/controller/wrangler"
-	"github.com/cnrancher/flat-network-operator/pkg/ipcalc"
-	"github.com/cnrancher/flat-network-operator/pkg/utils"
+	"github.com/cnrancher/rancher-flat-network-operator/pkg/controller/wrangler"
+	"github.com/cnrancher/rancher-flat-network-operator/pkg/ipcalc"
+	"github.com/cnrancher/rancher-flat-network-operator/pkg/utils"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -18,8 +18,8 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/retry"
 
-	flv1 "github.com/cnrancher/flat-network-operator/pkg/apis/flatnetwork.pandaria.io/v1"
-	flcontroller "github.com/cnrancher/flat-network-operator/pkg/generated/controllers/flatnetwork.pandaria.io/v1"
+	flv1 "github.com/cnrancher/rancher-flat-network-operator/pkg/apis/flatnetwork.pandaria.io/v1"
+	flcontroller "github.com/cnrancher/rancher-flat-network-operator/pkg/generated/controllers/flatnetwork.pandaria.io/v1"
 )
 
 const (

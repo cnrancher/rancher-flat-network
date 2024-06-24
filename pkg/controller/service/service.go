@@ -5,15 +5,15 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/cnrancher/flat-network-operator/pkg/controller/wrangler"
-	"github.com/cnrancher/flat-network-operator/pkg/utils"
+	"github.com/cnrancher/rancher-flat-network-operator/pkg/controller/wrangler"
+	"github.com/cnrancher/rancher-flat-network-operator/pkg/utils"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/util/retry"
 
-	corecontroller "github.com/cnrancher/flat-network-operator/pkg/generated/controllers/core/v1"
-	discoverycontroller "github.com/cnrancher/flat-network-operator/pkg/generated/controllers/discovery.k8s.io/v1"
+	corecontroller "github.com/cnrancher/rancher-flat-network-operator/pkg/generated/controllers/core/v1"
+	discoverycontroller "github.com/cnrancher/rancher-flat-network-operator/pkg/generated/controllers/discovery.k8s.io/v1"
 )
 
 const (

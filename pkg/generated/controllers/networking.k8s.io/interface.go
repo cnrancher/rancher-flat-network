@@ -19,7 +19,7 @@ limitations under the License.
 package networking
 
 import (
-	v1 "github.com/cnrancher/flat-network-operator/pkg/generated/controllers/networking.k8s.io/v1"
+	v1 "github.com/cnrancher/rancher-flat-network-operator/pkg/generated/controllers/networking.k8s.io/v1"
 	"github.com/rancher/lasso/pkg/controller"
 )
 

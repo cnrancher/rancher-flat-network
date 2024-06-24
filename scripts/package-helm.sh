@@ -17,16 +17,16 @@ cp -rf charts build/ &> /dev/null || true
 sed -i \
     -e 's/^version:.*/version: '${HELM_VERSION}'/' \
     -e 's/appVersion:.*/appVersion: '${HELM_VERSION}'/' \
-    build/charts/flat-network-operator/Chart.yaml
+    build/charts/rancher-flat-network/Chart.yaml
 
 sed -i \
     -e 's/tag:.*/tag: '${HELM_TAG}'/' \
-    build/charts/flat-network-operator/values.yaml
+    build/charts/rancher-flat-network/values.yaml
 
 sed -i \
     -e 's/^version:.*/version: '${HELM_VERSION}'/' \
     -e 's/appVersion:.*/appVersion: '${HELM_VERSION}'/' \
-    build/charts/flat-network-operator-crd/Chart.yaml
+    build/charts/rancher-flat-network-crd/Chart.yaml
 
-helm package -d ./dist/artifacts ./build/charts/flat-network-operator
-helm package -d ./dist/artifacts ./build/charts/flat-network-operator-crd
+helm package -d ./dist/artifacts ./build/charts/rancher-flat-network
+helm package -d ./dist/artifacts ./build/charts/rancher-flat-network-crd

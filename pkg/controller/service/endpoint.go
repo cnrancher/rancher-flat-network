@@ -6,7 +6,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/cnrancher/flat-network-operator/pkg/utils"
+	"github.com/cnrancher/rancher-flat-network-operator/pkg/utils"
 	"github.com/sirupsen/logrus"
 	"gopkg.in/k8snetworkplumbingwg/multus-cni.v4/pkg/types"
 	corev1 "k8s.io/api/core/v1"
