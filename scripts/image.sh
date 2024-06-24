@@ -18,16 +18,18 @@ docker build -t flat-network-webhook-deploy -f ./package/webhook-deploy/Dockerfi
 # exit 0
 
 # TODO: DEBUG
-docker tag  flat-network-operator 127.0.0.1:5010/cnrancher/flat-network-operator:v0.0.0
-docker push 127.0.0.1:5010/cnrancher/flat-network-operator:v0.0.0
+docker tag  flat-network-operator harborlocal.hxstarrys.me/cnrancher/rancher-flat-network-operator:v0.0.0
+docker push harborlocal.hxstarrys.me/cnrancher/rancher-flat-network-operator:v0.0.0
 
-docker tag  flat-network-webhook-deploy 127.0.0.1:5010/cnrancher/flat-network-webhook-deploy:v0.0.0
-docker push 127.0.0.1:5010/cnrancher/flat-network-webhook-deploy:v0.0.0
+docker tag  flat-network-webhook-deploy harborlocal.hxstarrys.me/cnrancher/rancher-flat-network-webhook-deploy:v0.0.0
+docker push harborlocal.hxstarrys.me/cnrancher/rancher-flat-network-webhook-deploy:v0.0.0
 
-helm upgrade --install rancher-flat-network-operator-crd ./charts/rancher-flat-network-operator-crd
+helm upgrade --install rancher-flat-network-operator-crd ./charts/rancher-flat-network-crd
 
-helm uninstall rancher-flat-network-operator || true
+helm uninstall rancher-flat-network || true
 sleep 2
-helm upgrade --install rancher-flat-network-operator \
-    --set global.cattle.systemDefaultRegistry='127.0.0.1:5010' \
-    ./charts/rancher-flat-network-operator
+helm upgrade --install rancher-flat-network \
+    --set global.cattle.systemDefaultRegistry='harborlocal.hxstarrys.me' \
+    --set flatNetworkOperator.replicas=1 \
+    --set clusterType=K3s \
+    ./charts/rancher-flat-network

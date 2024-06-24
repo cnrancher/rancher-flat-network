@@ -6,7 +6,7 @@ metadata:
   labels:
     app: rancher-flat-network-operator
 spec:
-  replicas: 2
+  replicas: {{ .Values.flatNetworkOperator.replicas }}
   strategy:
     type: Recreate
   selector:
@@ -23,6 +23,9 @@ spec:
       - name: webhook-admission-deploy
         image: {{ template "system_default_registry" . }}{{ .Values.webhookDeploy.image.repository }}:{{ .Values.webhookDeploy.image.tag }}
         imagePullPolicy: {{ .Values.webhookDeploy.image.pullPolicy }}
+        env:
+        - name: IS_OPERATOR_INIT_CONTROLLER
+          value: "true"
       containers:
       - name: rancher-flat-network-operator-container
         image: {{ template "system_default_registry" . }}{{ .Values.flatNetworkOperator.image.repository }}:{{ .Values.flatNetworkOperator.image.tag }}

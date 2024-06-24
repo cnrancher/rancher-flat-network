@@ -37,6 +37,9 @@ func (h *handler) syncServiceEndpoints(
 	if err != nil {
 		return fmt.Errorf("failed to get endpoint resources: %w", err)
 	}
+	if resource == nil {
+		return nil
+	}
 
 	// Update corev1.Endpoints
 	if err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
@@ -174,7 +177,7 @@ func (h *handler) getEndpointResources(
 			continue
 		}
 		subset := getPodEndpointSubset(svc, svcNetworkSelections, pod)
-		if subset.Addresses == nil {
+		if subset == nil || subset.Addresses == nil {
 			continue
 		}
 		resource.subsets = append(resource.subsets, *subset)
@@ -197,7 +200,14 @@ func getPodEndpointSubset(
 	addresses := make([]corev1.EndpointAddress, 0)
 	ports := make([]corev1.EndpointPort, 0)
 	networksStatus := make([]nettypes.NetworkStatus, 0)
-	err := json.Unmarshal([]byte(pod.Annotations[k8sCNINetworksStatusKey]), &networksStatus)
+	status := pod.Annotations[k8sCNINetworksStatusKey]
+	if status == "" {
+		logrus.WithFields(fieldsService(svc)).
+			Debugf("skip update pod [%v/%v] corev1.Endpoints: pod network status not updated by multus",
+				pod.Namespace, pod.Name)
+		return nil
+	}
+	err := json.Unmarshal([]byte(status), &networksStatus)
 	if err != nil {
 		logrus.WithFields(fieldsService(svc)).
 			Warningf("skip to update pod [%v/%v] endpoints: unmarshal json [%v]: %v",

@@ -122,6 +122,7 @@ func (h *handler) handleDefaultService(svc *corev1.Service) (*corev1.Service, er
 		logrus.WithFields(fieldsService(svc)).
 			Debugf("flat-network service [%v/%v] already updated, skip",
 				expectedService.Namespace, expectedService.Name)
+		h.serviceEnqueueAfter(svc.Namespace, svc.Name, time.Second*10)
 		return svc, nil
 	}
 

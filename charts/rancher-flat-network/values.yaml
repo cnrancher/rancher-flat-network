@@ -1,0 +1,51 @@
+# Macvlan/IPvlan master interface, automatic detection by default.
+iface: ""
+# ARP refresh policy
+arpPolicy: "arping"
+# Enable or disable Proxy ARP on Pod nic
+proxyARP: false
+# Pod CIDR, set to same value of the Kubernetes config.
+podCIDR: "10.42.0.0/16"
+# Set to 'K3s' if using K3s cluster.
+clusterType: default
+
+# Configuration for rancher-flat-network-operator
+flatNetworkOperator:
+  replicas: 2
+  limits:
+    memory: "512M"
+  image:
+    repository: "cnrancher/rancher-flat-network-operator"
+    tag: "v0.0.0"
+    pullPolicy: Always
+
+# Configuration for rancher-flat-network-webhook-deploy
+webhookDeploy:
+  # min hour day month week
+  # Rollout tls secret every month: "0 0 1 * *"
+  rolloutSchedule: "0 0 1 * *"
+  image:
+    repository: "cnrancher/rancher-flat-network-webhook-deploy"
+    tag: "v0.0.0"
+    pullPolicy: Always
+
+# Configuration for rancher-flat-network-cni
+flatNetworkCNI:
+  image:
+    repository: "cnrancher/rancher-flat-network-cni"
+    tag: "v0.0.0"
+    pullPolicy: Always
+
+# Configuration for multus-cni
+multus:
+  cni:
+    version: "1.0.0"
+    kubeconfig: ""
+  image:
+    repository: "cnrancher/hardened-multus-cni"
+    tag: "v4.0.2-rancher1"
+    pullPolicy: Always
+
+global:
+  cattle:
+    systemDefaultRegistry: ""

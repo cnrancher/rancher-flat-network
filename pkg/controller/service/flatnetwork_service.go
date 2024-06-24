@@ -3,6 +3,7 @@ package service
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	flv1 "github.com/cnrancher/flat-network-operator/pkg/apis/flatnetwork.pandaria.io/v1"
 	"github.com/cnrancher/flat-network-operator/pkg/utils"
@@ -45,6 +46,8 @@ func (h *handler) handleFlatNetworkService(
 	if err = h.syncServiceEndpoints(svc, pods); err != nil {
 		return svc, err
 	}
+	// Requeue flat-network service every 10 seconds.
+	h.serviceEnqueueAfter(svc.Namespace, svc.Name, time.Second*10)
 	return svc, nil
 }
 

@@ -1,7 +1,7 @@
 kind: Pod
 apiVersion: v1
 metadata:
-  name: example-maclan-pod
+  name: example-macvlan-pod
   namespace: "default"
   annotations:
     flatnetwork.pandaria.io/ip: "auto"
