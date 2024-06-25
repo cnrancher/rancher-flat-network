@@ -25,7 +25,6 @@ func init() {
 	// must ensure that the goroutine does not jump from OS thread to thread
 	runtime.LockOSThread()
 	logrus.SetLevel(logrus.InfoLevel)
-
 	f, err := os.OpenFile(defaultLogFile, os.O_RDWR|os.O_CREATE, 0644)
 	if err != nil {
 		logrus.Errorf("failed to open %q: %v", defaultLogFile, err)
@@ -51,7 +50,9 @@ func init() {
 func main() {
 	versions := version.PluginSupports("0.1.0", "0.2.0", "0.3.0", "0.3.1", "0.4.0", "1.0.0")
 	funcs := skel.CNIFuncs{
-		Add: commands.Add,
+		Add:   commands.Add,
+		Del:   commands.Del,
+		Check: commands.Check,
 	}
 	skel.PluginMainFuncs(funcs, versions, "rancher-flat-network-cni")
 }

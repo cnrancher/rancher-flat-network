@@ -5,24 +5,23 @@ import (
 	"fmt"
 	"net"
 
-	flv1 "github.com/cnrancher/rancher-flat-network-operator/pkg/apis/flatnetwork.pandaria.io/v1"
 	"github.com/cnrancher/rancher-flat-network-operator/pkg/cni/kubeclient"
 	"github.com/cnrancher/rancher-flat-network-operator/pkg/cni/macvlan"
 	"github.com/cnrancher/rancher-flat-network-operator/pkg/cni/types"
 	"github.com/cnrancher/rancher-flat-network-operator/pkg/utils"
 	"github.com/containernetworking/cni/pkg/skel"
-	cnitypes "github.com/containernetworking/cni/pkg/types"
-	types100 "github.com/containernetworking/cni/pkg/types/100"
 	"github.com/containernetworking/plugins/pkg/ip"
 	"github.com/containernetworking/plugins/pkg/ipam"
 	"github.com/containernetworking/plugins/pkg/ns"
 	"github.com/containernetworking/plugins/pkg/utils/sysctl"
 	"github.com/j-keck/arping"
 	"github.com/sirupsen/logrus"
-	"github.com/vishvananda/netlink"
-	"github.com/vishvananda/netns"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/util/retry"
+
+	flv1 "github.com/cnrancher/rancher-flat-network-operator/pkg/apis/flatnetwork.pandaria.io/v1"
+	cnitypes "github.com/containernetworking/cni/pkg/types"
+	types100 "github.com/containernetworking/cni/pkg/types/100"
 )
 
 const (
@@ -33,7 +32,7 @@ const (
 func Add(args *skel.CmdArgs) error {
 	logrus.Debugf("cmdAdd args: %v", utils.Print(args))
 
-	n, err := utils.LoadCNINetConf(args.StdinData)
+	n, err := loadCNINetConf(args.StdinData)
 	if err != nil {
 		return err
 	}
@@ -83,7 +82,7 @@ func Add(args *skel.CmdArgs) error {
 	serviceCIDR := subnet.Spec.PodDefaultGateway.ServiceCIDR
 	gateway := subnet.Spec.Gateway
 
-	if err := utils.SetPromiscOn(master); err != nil {
+	if err := setPromiscOn(master); err != nil {
 		return fmt.Errorf("failed to set promisc on %v: %w", master, err)
 	}
 	vlanIface, err := getVlanIfaceOnHost(master, 0, vlanID)
@@ -140,7 +139,7 @@ func Add(args *skel.CmdArgs) error {
 	}()
 
 	// run the IPAM plugin and get back the config to apply
-	ipamConf, err := utils.MergeIPAMConfig(n, flatNetworkIP, subnet)
+	ipamConf, err := mergeIPAMConfig(n, flatNetworkIP, subnet)
 	if err != nil {
 		return fmt.Errorf("failed to merge IPAM config on netConf [%v]: %w",
 			utils.Print(n), err)
@@ -227,165 +226,5 @@ func Add(args *skel.CmdArgs) error {
 		return fmt.Errorf("failed to print result: %w", err)
 	}
 
-	return nil
-}
-
-func getVlanIfaceOnHost(
-	master string, mtu int, vlanID int,
-) (*types100.Interface, error) {
-	links, err := netlink.LinkList()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get links %v", err)
-	}
-
-	ifName := master
-	if vlanID != 0 {
-		ifName = ifName + "." + fmt.Sprint(vlanID)
-	}
-	for _, l := range links {
-		if l.Attrs().Name == ifName {
-			iface := &types100.Interface{}
-			iface.Name = ifName
-			iface.Mac = l.Attrs().HardwareAddr.String()
-			return iface, nil
-		}
-	}
-	return createVLANOnHost(master, mtu, ifName, vlanID)
-}
-
-func createVLANOnHost(
-	master string, MTU int, ifName string, vlanID int,
-) (*types100.Interface, error) {
-	rootNS, err := netns.Get()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get root network NS: %w", err)
-	}
-	defer rootNS.Close()
-
-	m, err := netlink.LinkByName(master)
-	if err != nil {
-		return nil, fmt.Errorf("failed to lookup master %q: %v", master, err)
-	}
-
-	vlan := &netlink.Vlan{
-		LinkAttrs: netlink.LinkAttrs{
-			MTU:         MTU,
-			Name:        ifName,
-			ParentIndex: m.Attrs().Index,
-			Namespace:   netlink.NsFd(int(rootNS)),
-		},
-		VlanId: vlanID,
-	}
-	if err := netlink.LinkAdd(vlan); err != nil {
-		return nil, fmt.Errorf("failed to create VLAN on %q: %w", ifName, err)
-	}
-
-	if err := netlink.LinkSetUp(vlan); err != nil {
-		netlink.LinkDel(vlan)
-		return nil, fmt.Errorf("failed to setup vlan on %q: %w", ifName, err)
-	}
-
-	// Re-fetch vlan to get all properties/attributes
-	contVlan, err := netlink.LinkByName(ifName)
-	if err != nil {
-		netlink.LinkDel(vlan)
-		return nil, fmt.Errorf("failed to refetch vlan on %q: %w", ifName, err)
-	}
-	iface := &types100.Interface{
-		Name: ifName,
-		Mac:  contVlan.Attrs().HardwareAddr.String(),
-	}
-	return iface, nil
-}
-
-func addEth0CustomRoutes(netns ns.NetNS, routes []flv1.Route) error {
-	if len(routes) == 0 {
-		return nil
-	}
-
-	logrus.Infof("addEth0CustomRoutes===")
-	err := netns.Do(func(_ ns.NetNS) error {
-		rs, err := netlink.RouteList(nil, netlink.FAMILY_V4)
-		if err != nil {
-			logrus.Debugf("%v", err)
-			return nil
-		}
-
-		originDefault := rs[0]
-
-		for _, v := range routes {
-			if v.Iface != "eth0" {
-				continue
-			}
-
-			eth0Link, _ := netlink.LinkByIndex(originDefault.LinkIndex)
-			if v.Dst == "0.0.0.0/0" {
-				if err := ip.AddDefaultRoute(v.GW, eth0Link); err != nil {
-					return err
-				}
-				continue
-			}
-
-			_, dst, err := net.ParseCIDR(v.Dst)
-			if err != nil {
-				logrus.Infof("%v", err)
-				continue
-			}
-
-			err = ip.AddRoute(dst, v.GW, eth0Link)
-			if err != nil {
-				return fmt.Errorf("%v %s", err, v.GW)
-			}
-		}
-
-		return nil
-	})
-	if err != nil {
-		return fmt.Errorf("addEth0CustomRoutes=== error %v", err)
-	}
-	return nil
-}
-
-func changeDefaultGateway(netns ns.NetNS, serviceCidr string, gateway net.IP) error {
-	logrus.Infof("changeDefaultGateway: %s", gateway)
-	err := netns.Do(func(_ ns.NetNS) error {
-		routes, err := netlink.RouteList(nil, netlink.FAMILY_V4)
-		if err != nil {
-			logrus.Debugf("%v", err)
-			return nil
-		}
-
-		originDefault := routes[0]
-		// 1. delete default gateway
-		err = netlink.RouteDel(&originDefault)
-		if err != nil {
-			return fmt.Errorf("RouteDel: %v", err)
-		}
-
-		// 2. add eth1 gateway
-		eth1Route := originDefault
-		eth1Route.LinkIndex = eth1Route.LinkIndex + 1
-		eth1Route.Gw = gateway
-		err = netlink.RouteAdd(&eth1Route)
-		if err != nil {
-			return fmt.Errorf("RouteAdd: %v", err)
-		}
-		// 3. add serviceCidr route
-		clusterRoute := originDefault
-		_, dst, err := net.ParseCIDR(serviceCidr)
-		if err != nil {
-			return fmt.Errorf("ParseCIDR: %v", err)
-		}
-		clusterRoute.Dst = dst
-		err = netlink.RouteAdd(&clusterRoute)
-		if err != nil {
-			return fmt.Errorf("RouteAdd: %v", err)
-		}
-
-		return nil
-	})
-	if err != nil {
-		return fmt.Errorf("changeDefaultGateway: %v", err)
-	}
 	return nil
 }

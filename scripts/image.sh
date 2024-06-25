@@ -31,9 +31,9 @@ docker push harborlocal.hxstarrys.me/cnrancher/rancher-flat-network-cni:v0.0.0
 helm upgrade --install rancher-flat-network-operator-crd ./charts/rancher-flat-network-crd
 
 helm uninstall rancher-flat-network || true
-sleep 2
+sleep 1
 helm upgrade --install rancher-flat-network \
     --set global.cattle.systemDefaultRegistry='harborlocal.hxstarrys.me' \
-    --set flatNetworkOperator.replicas=1 \
+    --set flatNetworkOperator.replicas=0 \
     --set clusterType=K3s \
     ./charts/rancher-flat-network

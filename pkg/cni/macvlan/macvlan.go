@@ -95,3 +95,33 @@ func Create(o *Options) (*types100.Interface, error) {
 
 	return result, nil
 }
+
+func ModeToString(mode netlink.MacvlanMode) (string, error) {
+	switch mode {
+	case netlink.MACVLAN_MODE_BRIDGE:
+		return "bridge", nil
+	case netlink.MACVLAN_MODE_PRIVATE:
+		return "private", nil
+	case netlink.MACVLAN_MODE_VEPA:
+		return "vepa", nil
+	case netlink.MACVLAN_MODE_PASSTHRU:
+		return "passthru", nil
+	default:
+		return "", fmt.Errorf("unknown macvlan mode: %q", mode)
+	}
+}
+
+func ModeFromString(s string) (netlink.MacvlanMode, error) {
+	switch s {
+	case "", "bridge":
+		return netlink.MACVLAN_MODE_BRIDGE, nil
+	case "private":
+		return netlink.MACVLAN_MODE_PRIVATE, nil
+	case "vepa":
+		return netlink.MACVLAN_MODE_VEPA, nil
+	case "passthru":
+		return netlink.MACVLAN_MODE_PASSTHRU, nil
+	default:
+		return 0, fmt.Errorf("unknown macvlan mode: %q", s)
+	}
+}

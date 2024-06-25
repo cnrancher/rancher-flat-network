@@ -8,7 +8,8 @@ RUN zypper -n install vim curl tar gzip && \
     mkdir -p /tmp/bin /opt/cni/bin && \
     curl -sLf https://github.com/containernetworking/plugins/releases/download/${STATIC_IPAM_VERSION}/cni-plugins-linux-${ARCH}-${STATIC_IPAM_VERSION}.tgz | tar xvzf - -C /tmp/bin && \
     mv /tmp/bin/static /opt/cni/bin/static-ipam && \
-    rm -rf /tmp/*
+    rm -rf /tmp/* && \
+    touch /var/log/rancher-flat-network-cni.log
 
 ADD package/cni/entrypoint.sh /
 ADD package/cni/cni-loglevel.conf /
