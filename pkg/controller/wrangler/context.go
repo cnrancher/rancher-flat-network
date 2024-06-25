@@ -11,11 +11,13 @@ import (
 	corecontroller "github.com/cnrancher/rancher-flat-network-operator/pkg/generated/controllers/core/v1"
 	"github.com/cnrancher/rancher-flat-network-operator/pkg/generated/controllers/discovery.k8s.io"
 	fl "github.com/cnrancher/rancher-flat-network-operator/pkg/generated/controllers/flatnetwork.pandaria.io"
+	k8scnicncf "github.com/cnrancher/rancher-flat-network-operator/pkg/generated/controllers/k8s.cni.cncf.io"
 	"github.com/cnrancher/rancher-flat-network-operator/pkg/generated/controllers/networking.k8s.io"
 	"github.com/rancher/lasso/pkg/controller"
 	"github.com/rancher/wrangler/v2/pkg/leader"
 	"github.com/rancher/wrangler/v2/pkg/start"
 	"github.com/sirupsen/logrus"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes"
@@ -28,8 +30,8 @@ import (
 	batchv1 "github.com/cnrancher/rancher-flat-network-operator/pkg/generated/controllers/batch/v1"
 	discoveryv1 "github.com/cnrancher/rancher-flat-network-operator/pkg/generated/controllers/discovery.k8s.io/v1"
 	flv1 "github.com/cnrancher/rancher-flat-network-operator/pkg/generated/controllers/flatnetwork.pandaria.io/v1"
+	ndv1 "github.com/cnrancher/rancher-flat-network-operator/pkg/generated/controllers/k8s.cni.cncf.io/v1"
 	networkingv1 "github.com/cnrancher/rancher-flat-network-operator/pkg/generated/controllers/networking.k8s.io/v1"
-	corev1 "k8s.io/api/core/v1"
 )
 
 type Context struct {
@@ -44,6 +46,7 @@ type Context struct {
 	Batch       batchv1.Interface
 	Discovery   discoveryv1.Interface
 	Recorder    record.EventRecorder
+	K8sCNICNCF  ndv1.Interface
 
 	supportDiscoveryV1 bool
 	supportIngressV1   bool
@@ -63,6 +66,7 @@ func NewContextOrDie(
 	networking := networking.NewFactoryFromConfigOrDie(restCfg)
 	batch := batch.NewFactoryFromConfigOrDie(restCfg)
 	discovery := discovery.NewFactoryFromConfigOrDie(restCfg)
+	k8scnicncf := k8scnicncf.NewFactoryFromConfigOrDie(restCfg)
 
 	clientSet, err := kubernetes.NewForConfig(restCfg)
 	if err != nil {
@@ -103,6 +107,7 @@ func NewContextOrDie(
 		Networking:  networking.Networking().V1(),
 		Batch:       batch.Batch().V1(),
 		Discovery:   discovery.Discovery().V1(),
+		K8sCNICNCF:  k8scnicncf.K8s().V1(),
 		Recorder:    recorder,
 
 		supportDiscoveryV1: supportDiscoveryV1,
@@ -110,7 +115,8 @@ func NewContextOrDie(
 
 		leadership: leadership,
 	}
-	c.starters = append(c.starters, flatnetwork, core, apps, networking, batch, discovery)
+	c.starters = append(c.starters,
+		flatnetwork, core, apps, networking, batch, discovery, k8scnicncf)
 
 	return c
 }

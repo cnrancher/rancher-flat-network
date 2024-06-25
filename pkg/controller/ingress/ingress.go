@@ -11,8 +11,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 
 	flv1 "github.com/cnrancher/rancher-flat-network-operator/pkg/apis/flatnetwork.pandaria.io/v1"
+	"github.com/cnrancher/rancher-flat-network-operator/pkg/controller/wrangler"
 	corecontroller "github.com/cnrancher/rancher-flat-network-operator/pkg/generated/controllers/core/v1"
-	networkingcontroller "github.com/cnrancher/rancher-flat-network-operator/pkg/generated/controllers/networking.k8s.io/v1"
 	"github.com/cnrancher/rancher-flat-network-operator/pkg/utils"
 )
 
@@ -33,17 +33,16 @@ type handler struct {
 
 func Register(
 	ctx context.Context,
-	ingress networkingcontroller.IngressController,
-	service corecontroller.ServiceController,
+	wctx *wrangler.Context,
 ) {
 	h := &handler{
-		serviceClient: service,
-		serviceCache:  service.Cache(),
+		serviceClient: wctx.Core.Service(),
+		serviceCache:  wctx.Core.Service().Cache(),
 
-		ingressEnqueueAfter: ingress.EnqueueAfter,
-		ingressEnqueue:      ingress.Enqueue,
+		ingressEnqueueAfter: wctx.Networking.Ingress().EnqueueAfter,
+		ingressEnqueue:      wctx.Networking.Ingress().Enqueue,
 	}
-	ingress.OnChange(ctx, handlerName, h.syncIngress)
+	wctx.Networking.Ingress().OnChange(ctx, handlerName, h.syncIngress)
 }
 
 func (h *handler) syncIngress(

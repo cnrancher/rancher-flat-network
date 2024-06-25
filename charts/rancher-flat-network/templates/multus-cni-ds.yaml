@@ -46,6 +46,7 @@ spec:
                 config:
                   description: 'NetworkAttachmentDefinition config is a JSON-formatted CNI configuration'
                   type: string
+---
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:

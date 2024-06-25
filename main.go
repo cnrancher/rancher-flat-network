@@ -14,6 +14,7 @@ import (
 	"github.com/cnrancher/rancher-flat-network-operator/pkg/controller/flatnetworkip"
 	"github.com/cnrancher/rancher-flat-network-operator/pkg/controller/flatnetworksubnet"
 	"github.com/cnrancher/rancher-flat-network-operator/pkg/controller/ingress"
+	"github.com/cnrancher/rancher-flat-network-operator/pkg/controller/namespace"
 	"github.com/cnrancher/rancher-flat-network-operator/pkg/controller/pod"
 	"github.com/cnrancher/rancher-flat-network-operator/pkg/controller/service"
 	"github.com/cnrancher/rancher-flat-network-operator/pkg/controller/workload"
@@ -92,9 +93,9 @@ func main() {
 	flatnetworksubnet.Register(ctx, wctx)
 	service.Register(ctx, wctx)
 	pod.Register(ctx, wctx)
-	ingress.Register(ctx, wctx.Networking.Ingress(), wctx.Core.Service())
-	workload.Register(ctx,
-		wctx.Apps.Deployment(), wctx.Apps.DaemonSet(), wctx.Apps.ReplicaSet(), wctx.Apps.StatefulSet())
+	ingress.Register(ctx, wctx)
+	workload.Register(ctx, wctx)
+	namespace.Register(ctx, wctx)
 
 	wctx.OnLeader(func(ctx context.Context) error {
 		logrus.Infof("pod [%v] is leader, starting handlers", utils.Hostname())

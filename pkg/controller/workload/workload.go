@@ -3,7 +3,6 @@ package workload
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/sirupsen/logrus"
 	appsv1 "k8s.io/api/apps/v1"
@@ -11,6 +10,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	flv1 "github.com/cnrancher/rancher-flat-network-operator/pkg/apis/flatnetwork.pandaria.io/v1"
+	"github.com/cnrancher/rancher-flat-network-operator/pkg/controller/wrangler"
 	appscontroller "github.com/cnrancher/rancher-flat-network-operator/pkg/generated/controllers/apps/v1"
 	batchcontroller "github.com/cnrancher/rancher-flat-network-operator/pkg/generated/controllers/batch/v1"
 	"github.com/cnrancher/rancher-flat-network-operator/pkg/utils"
@@ -29,59 +29,32 @@ const (
 )
 
 type handler struct {
-	deployments  appscontroller.DeploymentClient
-	daemonsets   appscontroller.DaemonSetClient
-	replicasets  appscontroller.ReplicaSetClient
-	statefulsets appscontroller.StatefulSetClient
-	cronjobs     batchcontroller.CronJobClient
-	jobs         batchcontroller.JobClient
-
-	deploymentEnqueueAfter func(string, string, time.Duration)
-	deploymentEnqueue      func(string, string)
-
-	daemonsetEnqueueAfter func(string, string, time.Duration)
-	daemonsetEnqueue      func(string, string)
-
-	replicasetEnqueueAfter func(string, string, time.Duration)
-	replicasetEnqueue      func(string, string)
-
-	statefulsetEnqueueAfter func(string, string, time.Duration)
-	statefulsetEnqueue      func(string, string)
+	deploymentClient  appscontroller.DeploymentClient
+	daemonsetClient   appscontroller.DaemonSetClient
+	replicasetClient  appscontroller.ReplicaSetClient
+	statefulsetClient appscontroller.StatefulSetClient
+	cronjobClient     batchcontroller.CronJobClient
+	jobClient         batchcontroller.JobClient
 }
 
 var workloadHandler *handler = nil
 
 func Register(
 	ctx context.Context,
-	deployments appscontroller.DeploymentController,
-	daemonsets appscontroller.DaemonSetController,
-	replicasets appscontroller.ReplicaSetController,
-	statefulsets appscontroller.StatefulSetController,
+	wctx *wrangler.Context,
 ) {
 	h := &handler{
-		deployments:  deployments,
-		daemonsets:   daemonsets,
-		replicasets:  replicasets,
-		statefulsets: statefulsets,
-
-		deploymentEnqueueAfter: deployments.EnqueueAfter,
-		deploymentEnqueue:      deployments.Enqueue,
-
-		daemonsetEnqueueAfter: daemonsets.EnqueueAfter,
-		daemonsetEnqueue:      daemonsets.Enqueue,
-
-		replicasetEnqueueAfter: replicasets.EnqueueAfter,
-		replicasetEnqueue:      replicasets.Enqueue,
-
-		statefulsetEnqueueAfter: statefulsets.EnqueueAfter,
-		statefulsetEnqueue:      statefulsets.Enqueue,
+		deploymentClient:  wctx.Apps.Deployment(),
+		daemonsetClient:   wctx.Apps.DaemonSet(),
+		replicasetClient:  wctx.Apps.ReplicaSet(),
+		statefulsetClient: wctx.Apps.StatefulSet(),
 	}
 	workloadHandler = h
 
-	deployments.OnChange(ctx, handlerName, syncWorkload)
-	daemonsets.OnChange(ctx, handlerName, syncWorkload)
-	replicasets.OnChange(ctx, handlerName, syncWorkload)
-	statefulsets.OnChange(ctx, handlerName, syncWorkload)
+	wctx.Apps.Deployment().OnChange(ctx, handlerName, syncWorkload)
+	wctx.Apps.DaemonSet().OnChange(ctx, handlerName, syncWorkload)
+	wctx.Apps.ReplicaSet().OnChange(ctx, handlerName, syncWorkload)
+	wctx.Apps.StatefulSet().OnChange(ctx, handlerName, syncWorkload)
 }
 
 func syncWorkload[T Workload](name string, w T) (T, error) {
@@ -174,17 +147,17 @@ func (h *handler) updateWorkloadLabel(
 
 	switch o := w.(type) {
 	case *appsv1.Deployment:
-		return h.deployments.Update(o)
+		return h.deploymentClient.Update(o)
 	case *appsv1.DaemonSet:
-		return h.daemonsets.Update(o)
+		return h.daemonsetClient.Update(o)
 	case *appsv1.StatefulSet:
-		return h.statefulsets.Update(o)
+		return h.statefulsetClient.Update(o)
 	case *appsv1.ReplicaSet:
-		return h.replicasets.Update(o)
+		return h.replicasetClient.Update(o)
 	case *batchv1.CronJob:
-		return h.cronjobs.Update(o)
+		return h.cronjobClient.Update(o)
 	case *batchv1.Job:
-		return h.jobs.Update(o)
+		return h.jobClient.Update(o)
 	}
 	return w, nil
 }
