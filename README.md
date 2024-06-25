@@ -1,11 +1,13 @@
-# rancher-flat-network-operator
+# rancher-flat-network
 
-Rancher Flat-Network Operator based on [Wrangler V2](https://github.com/rancher/wrangler/) for managing
+Rancher Flat-Network Operator (based on [Wrangler V2](https://github.com/rancher/wrangler/)) & CNI plugin for managing
 pods using the flat-networks (Macvlan/IPvlan).
 
 **THIS PROJECT IS CURRENTLY WORKING IN PROGRESS AND NOT AVAILABLE TO USE IN PRODUCTION YET.**
 
-## Features
+## Current Progress
+
+### Operator
 
 - [x] FlatNetwork subnet IPAM supports for both Macvlan & IPvlan.
 - [x] Support for both IPv4 and IPv6 addresses.
@@ -15,10 +17,19 @@ pods using the flat-networks (Macvlan/IPvlan).
 - [x] Leader election support to run operator & webhook server in multi-replicas (HA).
 - [x] Update FlatNetwork Service Endpoints IP address.
 - [x] Admission webhook server.
-- [ ] `rancher-flat-network-cni` CNI plugin for `macvlan` and `ipvlan`, etc.
+
+### CNI
+
+- [ ] Macvlan & IPvlan support.
+- [ ] CNI Spec 1.0.0 support.
+
+### Migrator
+
 - [ ] Upgrade resource migrator from `macvlan.cluster.cattle.io` to `flatnetwork.pandaria.io`.
 
 ## Usage
+
+### Operator
 
 To build and run this flat-network operator manually:
 
@@ -43,7 +54,7 @@ To build and run this flat-network operator manually:
     $ kubectl apply -f ./docs/ipvlan
     ```
 
-## Environment variables
+Environment variables for operator:
 
 - `CATTLE_DEV_MODE`: Enable debug outputs and extend the leader election renew deadline & lease duration to support delve breakpoint debug operations, default `false`.
 - `CATTLE_RESYNC_DEFAULT`: period to resync resources in minutes, default `600` (10h).
