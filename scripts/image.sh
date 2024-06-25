@@ -14,6 +14,7 @@ go mod tidy
 
 docker build -t rancher-flat-network-operator -f ./package/operator/Dockerfile .
 docker build -t rancher-flat-network-webhook-deploy -f ./package/webhook-deploy/Dockerfile .
+docker build -t rancher-flat-network-cni -f ./package/cni/Dockerfile .
 
 # exit 0
 
@@ -23,6 +24,9 @@ docker push harborlocal.hxstarrys.me/cnrancher/rancher-flat-network-operator:v0.
 
 docker tag  rancher-flat-network-webhook-deploy harborlocal.hxstarrys.me/cnrancher/rancher-flat-network-webhook-deploy:v0.0.0
 docker push harborlocal.hxstarrys.me/cnrancher/rancher-flat-network-webhook-deploy:v0.0.0
+
+docker tag  rancher-flat-network-cni harborlocal.hxstarrys.me/cnrancher/rancher-flat-network-cni:v0.0.0
+docker push harborlocal.hxstarrys.me/cnrancher/rancher-flat-network-cni:v0.0.0
 
 helm upgrade --install rancher-flat-network-operator-crd ./charts/rancher-flat-network-crd
 

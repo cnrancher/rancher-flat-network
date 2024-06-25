@@ -4,10 +4,11 @@ go 1.22.0
 
 toolchain go1.22.2
 
-replace k8s.io/code-generator => k8s.io/code-generator v0.29.6
-
 require (
 	github.com/antonfisher/nested-logrus-formatter v1.3.1
+	github.com/containernetworking/cni v1.2.0
+	github.com/containernetworking/plugins v1.1.0
+	github.com/j-keck/arping v1.0.3
 	github.com/k8snetworkplumbingwg/network-attachment-definition-client v1.7.0
 	github.com/pkg/errors v0.9.1
 	github.com/rancher/lasso v0.0.0-20240123150939-7055397d6dfa
@@ -15,6 +16,8 @@ require (
 	github.com/rancher/wrangler/v2 v2.1.4
 	github.com/sirupsen/logrus v1.9.3
 	github.com/stretchr/testify v1.8.4
+	github.com/vishvananda/netlink v1.1.1-0.20210330154013-f5de75959ad5
+	github.com/vishvananda/netns v0.0.4
 	gopkg.in/k8snetworkplumbingwg/multus-cni.v4 v4.0.2
 	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/api v0.29.6
@@ -28,7 +31,7 @@ require (
 	github.com/Masterminds/semver/v3 v3.2.1 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
-	github.com/containernetworking/cni v1.2.0-rc1 // indirect
+	github.com/coreos/go-iptables v0.6.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/emicklei/go-restful/v3 v3.11.0 // indirect
 	github.com/evanphx/json-patch v5.6.0+incompatible // indirect
@@ -57,8 +60,8 @@ require (
 	github.com/prometheus/client_model v0.4.0 // indirect
 	github.com/prometheus/common v0.44.0 // indirect
 	github.com/prometheus/procfs v0.10.1 // indirect
+	github.com/safchain/ethtool v0.0.0-20210803160452-9aa261dae9b1 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
-	github.com/vishvananda/netns v0.0.4 // indirect
 	golang.org/x/mod v0.17.0 // indirect
 	golang.org/x/net v0.25.0 // indirect
 	golang.org/x/oauth2 v0.10.0 // indirect

@@ -11,7 +11,7 @@ RUN zypper update -y && \
 
 RUN useradd --uid 1007 flat-network-operator
 ENV KUBECONFIG /home/flat-network-operator/.kube/config
-COPY bin/flat-network-operator /usr/bin/
+COPY bin/rancher-flat-network-operator /usr/bin/
 COPY package/operator/entrypoint.sh /
 
 USER 1007

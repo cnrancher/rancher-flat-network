@@ -20,9 +20,9 @@ func TestCheckRoutesGW(t *testing.T) {
 			CIDR: "10.27.18.0/24",
 			Routes: []flatnetworkv1.Route{
 				{
-					Destination: net.ParseIP("192.168.10.0/24"),
-					Gateway:     net.ParseIP("10.27.18.254"),
-					Interface:   "eth1",
+					Dst:   "192.168.10.0/24",
+					GW:    net.ParseIP("10.27.18.254"),
+					Iface: "eth1",
 				},
 			},
 		},
@@ -44,9 +44,9 @@ func TestCheckRoutesGW(t *testing.T) {
 			CIDR: "10.27.18.0/28",
 			Routes: []flatnetworkv1.Route{
 				{
-					Destination: net.ParseIP("192.168.10.0/24"),
-					Gateway:     net.ParseIP("10.27.18.254"),
-					Interface:   "eth1",
+					Dst:   "192.168.10.0/24",
+					GW:    net.ParseIP("10.27.18.254"),
+					Iface: "eth1",
 				},
 			},
 		},

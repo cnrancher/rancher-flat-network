@@ -128,9 +128,9 @@ type SubnetStatus struct {
 }
 
 type Route struct {
-	Destination net.IP `json:"destination"`
-	Gateway     net.IP `json:"gateway,omitempty"`
-	Interface   string `json:"interface,omitempty"`
+	Dst   string `json:"destination"`
+	GW    net.IP `json:"gateway,omitempty"`
+	Iface string `json:"interface,omitempty"`
 }
 
 type PodDefaultGateway struct {

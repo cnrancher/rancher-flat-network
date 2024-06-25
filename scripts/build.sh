@@ -6,7 +6,7 @@ cd $(dirname $0)/../
 WORKINGDIR=$(pwd)
 
 source ./scripts/version.sh
-echo "Build version: ${VERSION}"
+echo "Version: ${VERSION}"
 
 BUILD_FLAG=""
 if [[ -z "${DEBUG:-}" ]]; then
@@ -18,7 +18,12 @@ fi
 BUILD_FLAG="${BUILD_FLAG} -X 'github.com/cnrancher/rancher-flat-network-operator/pkg/utils.Version=${VERSION}'"
 
 mkdir -p bin && cd bin
+echo "Build rancher-flat-network-operator..."
 CGO_ENABLED=0 go build -ldflags "${BUILD_FLAG}" -o rancher-flat-network-operator ..
+echo "Build rancher-flat-network-cni..."
+CGO_ENABLED=0 go build -ldflags "${BUILD_FLAG}" -o rancher-flat-network-cni ../cni/
+
 echo "--------------------"
 ls -alh rancher-flat-network-operator
+ls -alh rancher-flat-network-cni
 echo "--------------------"

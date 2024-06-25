@@ -7,7 +7,9 @@ WORKINGDIR=$(pwd)
 
 files=(
     "rancher-flat-network-operator"
+    "rancher-flat-network-cni"
     "bin/"
+    "build/"
     "dist/"
 )
 

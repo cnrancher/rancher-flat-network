@@ -41,13 +41,13 @@ func validateSubnetRouteGateway(subnet flatnetworkv1.FlatNetworkSubnet) error {
 		return err
 	}
 	for _, v := range subnet.Spec.Routes {
-		if v.Interface == "eth1" || v.Interface == "" {
-			if len(v.Gateway) == 0 {
+		if v.Iface == "eth1" || v.Iface == "" {
+			if len(v.GW) == 0 {
 				continue
 			}
-			ip := slices.Clone(v.Gateway)
+			ip := slices.Clone(v.GW)
 			if !ipnet.Contains(ip) {
-				return fmt.Errorf("invalid gateway ip '%s' is not in network '%s'", v.Gateway, subnet.Spec.CIDR)
+				return fmt.Errorf("invalid gateway ip '%s' is not in network '%s'", v.GW, subnet.Spec.CIDR)
 			}
 		}
 	}
