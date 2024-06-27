@@ -7,6 +7,7 @@ import (
 
 	"github.com/cnrancher/rancher-flat-network-operator/pkg/cni/macvlan"
 	"github.com/cnrancher/rancher-flat-network-operator/pkg/cni/types"
+	"github.com/cnrancher/rancher-flat-network-operator/pkg/utils"
 	"github.com/containernetworking/plugins/pkg/ip"
 	"github.com/containernetworking/plugins/pkg/ns"
 	"github.com/sirupsen/logrus"
@@ -198,6 +199,7 @@ func setPromiscOn(iface string) error {
 		if err != nil {
 			return fmt.Errorf("netlink.SetPromiscOn failed on iface %q: %w", iface, err)
 		}
+		logrus.Infof("set promisc on link %v", iface)
 	}
 	return nil
 }
@@ -206,11 +208,16 @@ func mergeIPAMConfig(
 	netConf *types.NetConf, flatNetworkIP *flv1.FlatNetworkIP, subnet *flv1.FlatNetworkSubnet,
 ) ([]byte, error) {
 	address := flatNetworkIP.Status.Addr
+	_, n, err := net.ParseCIDR(subnet.Spec.CIDR)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse subnet CIDR: %w", err)
+	}
+	_, ones := n.Mask.Size()
 	routes, gateway := subnet.Spec.Routes, subnet.Spec.Gateway
 	enableIPv6 := flatNetworkIP.Annotations[flv1.AnnotationsIPv6to4] != ""
-	netConf.FlatNetworkConfig.IPAM.Addresses = []types.Address{
+	netConf.IPAM.Addresses = []types.Address{
 		{
-			Address: address,
+			Address: fmt.Sprintf("%v/%v", address.String(), ones),
 			Gateway: gateway,
 		},
 	}
@@ -225,7 +232,7 @@ func mergeIPAMConfig(
 		}
 		size, _ := n.Mask.Size()
 		if ip6to4CIDR := get6to4CIDR(address, size); len(ip6to4CIDR) != 0 {
-			netConf.FlatNetworkConfig.IPAM.Addresses = append(netConf.FlatNetworkConfig.IPAM.Addresses, types.Address{
+			netConf.IPAM.Addresses = append(netConf.IPAM.Addresses, types.Address{
 				Address: ip6to4CIDR,
 			})
 		}
@@ -248,17 +255,18 @@ func mergeIPAMConfig(
 				GW:  v.GW,
 			})
 		}
-		netConf.FlatNetworkConfig.IPAM.Routes = rs
+		netConf.IPAM.Routes = rs
 	}
+	logrus.Debugf("merged IPAM addresses: %v", utils.Print(netConf.IPAM.Addresses))
 	return json.Marshal(netConf)
 }
 
-func get6to4CIDR(ip net.IP, size int) net.IP {
+func get6to4CIDR(ip net.IP, size int) string {
 	if ip = ip.To4(); ip == nil {
-		return nil
+		return ""
 	}
 	if size <= 0 || size > 32 {
-		return nil
+		return ""
 	}
 	sixtofourSize := 48 - (32 - size)
 	tmp := []byte{}
@@ -266,10 +274,10 @@ func get6to4CIDR(ip net.IP, size int) net.IP {
 		tmp = append(tmp, v)
 	}
 	if len(tmp) != 4 {
-		return nil
+		return ""
 	}
-	return net.ParseIP(fmt.Sprintf("2002:%02x:%02x:0:0:0:0:0/%d",
-		tmp[0]+tmp[1], tmp[2]+tmp[3], sixtofourSize))
+	return fmt.Sprintf("2002:%02x:%02x:0:0:0:0:0/%d",
+		tmp[0]+tmp[1], tmp[2]+tmp[3], sixtofourSize)
 }
 
 // parsePrevResult parses a prevResult in a NetConf structure and sets

@@ -111,19 +111,19 @@ func Add(args *skel.CmdArgs) error {
 	logrus.Infof("create macvlan iface for pod [%v:%v]: %v",
 		podNamespace, podName, utils.Print(macvlanInterface))
 
-	flatNetworkIP.Status.MAC, _ = net.ParseMAC(macvlanInterface.Mac)
-	_, err = client.UpdateFlatNetworkIP(context.TODO(), podNamespace, flatNetworkIP)
-	if err != nil {
-		logrus.Errorf("failed to update IP: IPAM [%v]: %v",
-			n.FlatNetworkConfig.IPAM.Type, err)
-		err2 := netns.Do(func(_ ns.NetNS) error {
-			return ip.DelLinkByName(macvlanInterface.Name)
-			// return nil
-		})
-		if err2 != nil {
-			logrus.Errorf("failed to updateMacvlanIP DelLinkByName: %v \n", err2)
-		}
-	}
+	// flatNetworkIP.Status.MAC, _ = net.ParseMAC(macvlanInterface.Mac)
+	// _, err = client.UpdateFlatNetworkIP(context.TODO(), podNamespace, flatNetworkIP)
+	// if err != nil {
+	// 	logrus.Errorf("failed to update IP: IPAM [%v]: %v",
+	// 		n.IPAM.Type, err)
+	// 	err2 := netns.Do(func(_ ns.NetNS) error {
+	// 		return ip.DelLinkByName(macvlanInterface.Name)
+	// 		// return nil
+	// 	})
+	// 	if err2 != nil {
+	// 		logrus.Errorf("failed to updateMacvlanIP DelLinkByName: %v \n", err2)
+	// 	}
+	// }
 
 	// TODO:
 	// Delete link if err to avoid link leak in this ns
@@ -133,7 +133,7 @@ func Add(args *skel.CmdArgs) error {
 				return ip.DelLinkByName(args.IfName)
 			})
 			if err2 != nil {
-				logrus.Infof("ipam.ExecDel: %v %v\n", n.FlatNetworkConfig.IPAM.Type, err2)
+				logrus.Infof("ipam.ExecDel: %v %v\n", n.IPAM.Type, err2)
 			}
 		}
 	}()
@@ -144,17 +144,18 @@ func Add(args *skel.CmdArgs) error {
 		return fmt.Errorf("failed to merge IPAM config on netConf [%v]: %w",
 			utils.Print(n), err)
 	}
-	r, err := ipam.ExecAdd(n.FlatNetworkConfig.IPAM.Type, []byte(ipamConf))
+	logrus.Debugf("merged IPAM config: %v", utils.Print(ipamConf))
+	r, err := ipam.ExecAdd(n.IPAM.Type, []byte(ipamConf))
 	if err != nil {
 		return fmt.Errorf("failed to execute ipam add, type: [%v] conf [%v]: %w",
-			n.FlatNetworkConfig.IPAM.Type, string(ipamConf), err)
+			n.IPAM.Type, string(ipamConf), err)
 	}
 
 	// TODO:
 	// Invoke ipam del if err to avoid ip leak
 	defer func() {
 		if err != nil {
-			ipam.ExecDel(n.FlatNetworkConfig.IPAM.Type, []byte(ipamConf))
+			ipam.ExecDel(n.IPAM.Type, []byte(ipamConf))
 		}
 	}()
 
@@ -199,14 +200,17 @@ func Add(args *skel.CmdArgs) error {
 			}
 			for _, ipc := range result.IPs {
 				if ipc.Address.IP.To4() != nil {
-					_ = arping.GratuitousArpOverIface(ipc.Address.IP, *contVeth)
+					err := arping.GratuitousArpOverIface(ipc.Address.IP, *contVeth)
+					if err != nil {
+						logrus.Errorf("arping.GratuitousArpOverIface failed: %v", err)
+					}
 				}
 			}
 		}
 		return nil
 	})
 	if err != nil {
-		return fmt.Errorf("netns do failed, error: %v", err)
+		return fmt.Errorf("netns do failed, error: %w", err)
 	}
 	result.DNS = n.DNS
 	err = addEth0CustomRoutes(netns, subnet.Spec.Routes)

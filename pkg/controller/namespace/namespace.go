@@ -27,14 +27,16 @@ const (
 	arpPolicyEnv     = "FLAT_NETWORK_CNI_ARP_POLICY"
 	proxyARPEnv      = "FLAT_CNI_PROXY_ARP"
 	defaultARPPolicy = "arping"
+
+	defaultRequeueTime = time.Minute * 10
 )
 
 type handler struct {
 	namespaceClient corecontroller.NamespaceClient
 	ndClientSet     *ndClientSet.Clientset
 
-	nsEnqueueAfter func(string, string, time.Duration)
-	nsEnqueue      func(string, string)
+	nsEnqueueAfter func(string, time.Duration)
+	nsEnqueue      func(string)
 }
 
 func Register(
@@ -45,8 +47,8 @@ func Register(
 		namespaceClient: wctx.Core.Namespace(),
 		ndClientSet:     wctx.NDClientSet,
 
-		nsEnqueueAfter: wctx.Core.Endpoints().EnqueueAfter,
-		nsEnqueue:      wctx.Core.Endpoints().Enqueue,
+		nsEnqueueAfter: wctx.Core.Namespace().EnqueueAfter,
+		nsEnqueue:      wctx.Core.Namespace().Enqueue,
 	}
 	wctx.Core.Namespace().OnChange(ctx, handlerName, h.syncNamespace)
 }
@@ -70,6 +72,8 @@ func (h *handler) syncNamespace(
 			logrus.WithFields(fieldsNS(ns)).
 				Infof("create netAttachmentDef [%v] for namespace [%v]",
 					netAttatchDefName, ns.Name)
+
+			h.nsEnqueueAfter(ns.Name, defaultRequeueTime)
 			return ns, nil
 		}
 		logrus.WithFields(fieldsNS(ns)).
@@ -82,11 +86,15 @@ func (h *handler) syncNamespace(
 		logrus.WithFields(fieldsNS(ns)).
 			Debugf("netAttachmentDef [%v/%v] already exists, skip",
 				ns.Name, netAttatchDefName)
+		h.nsEnqueueAfter(ns.Name, defaultRequeueTime)
 		return ns, err
 	}
 
+	existNetworkAttachDef = existNetworkAttachDef.DeepCopy()
+	existNetworkAttachDef.Spec.Config = expectedNetworkAttachDef.Spec.Config
+	existNetworkAttachDef.OwnerReferences = expectedNetworkAttachDef.OwnerReferences
 	_, err = h.ndClientSet.K8sCniCncfIoV1().NetworkAttachmentDefinitions(ns.Name).Update(
-		context.TODO(), expectedNetworkAttachDef, metav1.UpdateOptions{})
+		context.TODO(), existNetworkAttachDef, metav1.UpdateOptions{})
 	if err != nil {
 		logrus.WithFields(fieldsNS(ns)).
 			Errorf("failed to update netAttachmentDef [%v/%v] config: %v",
@@ -96,6 +104,7 @@ func (h *handler) syncNamespace(
 	logrus.WithFields(fieldsNS(ns)).
 		Infof("update netAttachmentDef [%v/%v] config",
 			ns.Name, netAttatchDefName)
+	h.nsEnqueueAfter(ns.Name, defaultRequeueTime)
 	return ns, nil
 }
 
@@ -128,17 +137,22 @@ func newNetworkAttachmentDefinition(
 
 func getNetAttachDefConfig() string {
 	netAttachDefConfig := `{
-		"cniVersion": "0.3.1",
-		"type": "static-macvlan-cni",
-		"master": "",
-		"runtimeConfig": {
-			"arpPolicy": "` + getARPPolicy() + `",
-			"proxyARP": ` + getProxyARP() + `
-		},
-		"ipam": {
-			"type": "static-ipam"
-		}
-	}`
+    "cniVersion": "1.0.0",
+    "type": "rancher-flat-network-cni",
+    "dns": {},
+    "ipam": {
+        "type": "static-ipam"
+    },
+    "flatNetwork": {
+        "master": "",
+        "mode": "",
+        "mtu": 1500,
+        "runtimeConfig": {
+            "arpPolicy": "` + getARPPolicy() + `",
+            "proxyARP": ` + getProxyARP() + `
+        }
+    }
+}`
 	return netAttachDefConfig
 }
 

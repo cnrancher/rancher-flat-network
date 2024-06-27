@@ -32,7 +32,7 @@ helm upgrade --install rancher-flat-network-operator-crd ./charts/rancher-flat-n
 
 helm uninstall rancher-flat-network || true
 sleep 1
-helm upgrade --install rancher-flat-network \
+helm install rancher-flat-network \
     --set global.cattle.systemDefaultRegistry='harborlocal.hxstarrys.me' \
     --set flatNetworkOperator.replicas=0 \
     --set clusterType=K3s \

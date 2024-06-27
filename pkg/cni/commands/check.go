@@ -20,7 +20,7 @@ func Check(args *skel.CmdArgs) error {
 	if err != nil {
 		return err
 	}
-	isLayer3 := n.FlatNetworkConfig.IPAM.Type != ""
+	isLayer3 := n.IPAM.Type != ""
 
 	netns, err := ns.GetNS(args.Netns)
 	if err != nil {
@@ -30,7 +30,7 @@ func Check(args *skel.CmdArgs) error {
 
 	if isLayer3 {
 		// run the IPAM plugin and get back the config to apply
-		err = ipam.ExecCheck(n.FlatNetworkConfig.IPAM.Type, args.StdinData)
+		err = ipam.ExecCheck(n.IPAM.Type, args.StdinData)
 		if err != nil {
 			return err
 		}

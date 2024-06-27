@@ -5,6 +5,7 @@ import (
 	"net"
 	"strings"
 
+	"github.com/cnrancher/rancher-flat-network-operator/pkg/utils"
 	types100 "github.com/containernetworking/cni/pkg/types/100"
 	"github.com/containernetworking/plugins/pkg/ip"
 	"github.com/containernetworking/plugins/pkg/ns"
@@ -74,6 +75,7 @@ func Create(o *Options) (*types100.Interface, error) {
 			return fmt.Errorf("macvlan.Create: failed to rename macvlan iface name to %q: %w",
 				o.IfName, err)
 		}
+		logrus.Debugf("rename link %v to %v", tmpName, o.IfName)
 
 		// Re-fetch macvlan to get all properties/attributes
 		macvlan, err := netlink.LinkByName(o.IfName)
@@ -82,6 +84,7 @@ func Create(o *Options) (*types100.Interface, error) {
 			return fmt.Errorf("macvlan.Create: failed to refetch macvlan iface %q: %w",
 				o.IfName, err)
 		}
+		logrus.Debugf("refetch macvlan link object: %v", utils.Print(macvlan))
 
 		result = &types100.Interface{
 			Name:    o.IfName,

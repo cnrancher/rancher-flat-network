@@ -38,6 +38,9 @@ type NetConf struct {
 	// ValidAttachments is only supplied when executing a GC operation
 	ValidAttachments []types.GCAttachment `json:"cni.dev/valid-attachments,omitempty"`
 
+	// static-ipam config
+	IPAM IPAMConfig `json:"ipam,omitempty"`
+
 	// Rancher FlatNetwork Config
 	FlatNetworkConfig FlatNetworkConfig `json:"flatNetwork,omitempty"`
 }
@@ -47,7 +50,6 @@ type FlatNetworkConfig struct {
 	Mode          string           `json:"mode,omitempty"`
 	MTU           int              `json:"mtu,omitempty"`
 	MAC           net.HardwareAddr `json:"mac,omitempty"`
-	IPAM          IPAMConfig       `json:"ipam,omitempty"`
 	RuntimeConfig RuntimeConfig    `json:"runtimeConfig,omitempty"`
 }
 
@@ -57,7 +59,7 @@ type RuntimeConfig struct {
 }
 
 type Address struct {
-	Address net.IP `json:"address"`
+	Address string `json:"address"`
 	Gateway net.IP `json:"gateway,omitempty"`
 	Version string
 }

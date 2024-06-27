@@ -19,6 +19,7 @@ import (
 const (
 	handlerName                  = "rancher-flat-network-service"
 	flatNetworkServiceNameSuffix = "-flat-network"
+	defaultRequeueTime           = time.Minute * 5
 )
 
 type handler struct {
@@ -122,7 +123,7 @@ func (h *handler) handleDefaultService(svc *corev1.Service) (*corev1.Service, er
 		logrus.WithFields(fieldsService(svc)).
 			Debugf("flat-network service [%v/%v] already updated, skip",
 				expectedService.Namespace, expectedService.Name)
-		h.serviceEnqueueAfter(svc.Namespace, svc.Name, time.Second*10)
+		h.serviceEnqueueAfter(svc.Namespace, svc.Name, defaultRequeueTime)
 		return svc, nil
 	}
 
@@ -155,6 +156,7 @@ func (h *handler) handleDefaultService(svc *corev1.Service) (*corev1.Service, er
 	logrus.WithFields(fieldsService(svc)).
 		Infof("updated flat-network service [%v/%v]",
 			expectedService.Namespace, expectedService.Name)
+	h.serviceEnqueueAfter(svc.Namespace, svc.Name, defaultRequeueTime)
 
 	return nil, nil
 }
