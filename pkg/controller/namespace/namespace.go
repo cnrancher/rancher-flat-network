@@ -13,9 +13,9 @@ import (
 
 	"github.com/cnrancher/rancher-flat-network-operator/pkg/controller/wrangler"
 	corecontroller "github.com/cnrancher/rancher-flat-network-operator/pkg/generated/controllers/core/v1"
-	ndcontroller "github.com/cnrancher/rancher-flat-network-operator/pkg/generated/controllers/k8s.cni.cncf.io/v1"
 	"github.com/cnrancher/rancher-flat-network-operator/pkg/utils"
 	k8scnicncfiov1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
+	ndClientSet "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/client/clientset/versioned"
 )
 
 const (
@@ -31,8 +31,7 @@ const (
 
 type handler struct {
 	namespaceClient corecontroller.NamespaceClient
-	ndClient        ndcontroller.NetworkAttachmentDefinitionClient
-	ndCache         ndcontroller.NetworkAttachmentDefinitionCache
+	ndClientSet     *ndClientSet.Clientset
 
 	nsEnqueueAfter func(string, string, time.Duration)
 	nsEnqueue      func(string, string)
@@ -44,8 +43,7 @@ func Register(
 ) {
 	h := &handler{
 		namespaceClient: wctx.Core.Namespace(),
-		ndClient:        wctx.K8sCNICNCF.NetworkAttachmentDefinition(),
-		ndCache:         wctx.K8sCNICNCF.NetworkAttachmentDefinition().Cache(),
+		ndClientSet:     wctx.NDClientSet,
 
 		nsEnqueueAfter: wctx.Core.Endpoints().EnqueueAfter,
 		nsEnqueue:      wctx.Core.Endpoints().Enqueue,
@@ -57,10 +55,12 @@ func (h *handler) syncNamespace(
 	_ string, ns *corev1.Namespace,
 ) (*corev1.Namespace, error) {
 	expectedNetworkAttachDef := newNetworkAttachmentDefinition(netAttatchDefName, ns)
-	existNetworkAttachDef, err := h.ndCache.Get(ns.Name, netAttatchDefName)
+	existNetworkAttachDef, err := h.ndClientSet.K8sCniCncfIoV1().NetworkAttachmentDefinitions(ns.Name).
+		Get(context.TODO(), netAttatchDefName, metav1.GetOptions{})
 	if err != nil {
 		if errors.IsNotFound(err) {
-			_, err = h.ndClient.Create(expectedNetworkAttachDef)
+			_, err = h.ndClientSet.K8sCniCncfIoV1().NetworkAttachmentDefinitions(ns.Name).Create(
+				context.TODO(), expectedNetworkAttachDef, metav1.CreateOptions{})
 			if err != nil {
 				logrus.WithFields(fieldsNS(ns)).
 					Errorf("failed to create netAttachmentDef [%v/%v] config: %v",
@@ -85,7 +85,8 @@ func (h *handler) syncNamespace(
 		return ns, err
 	}
 
-	_, err = h.ndClient.Update(expectedNetworkAttachDef)
+	_, err = h.ndClientSet.K8sCniCncfIoV1().NetworkAttachmentDefinitions(ns.Name).Update(
+		context.TODO(), expectedNetworkAttachDef, metav1.UpdateOptions{})
 	if err != nil {
 		logrus.WithFields(fieldsNS(ns)).
 			Errorf("failed to update netAttachmentDef [%v/%v] config: %v",
@@ -111,8 +112,8 @@ func newNetworkAttachmentDefinition(
 			Namespace: ns.Name,
 			OwnerReferences: []metav1.OwnerReference{
 				{
-					APIVersion: ns.APIVersion,
-					Kind:       ns.Kind,
+					APIVersion: "v1",
+					Kind:       "Namespace",
 					Name:       ns.Name,
 					UID:        ns.UID,
 					Controller: utils.Ptr(true),

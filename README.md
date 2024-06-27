@@ -57,7 +57,7 @@ To build and run this flat-network operator manually:
 Environment variables for operator:
 
 - `CATTLE_DEV_MODE`: Enable debug outputs and extend the leader election renew deadline & lease duration to support delve breakpoint debug operations, default `false`.
-- `CATTLE_RESYNC_DEFAULT`: period to resync resources in minutes, default `600` (10h).
+- `CATTLE_RESYNC_DEFAULT`: period to resync resources in minutes, default `600min` (10h).
 - `CATTLE_ELECTION_LEASE_DURATION`: leader election lease duration, default `45s`.
 - `CATTLE_ELECTION_RENEW_DEADLINE`: leader election renew deadline, default `30s`.
 - `CATTLE_ELECTION_RETRY_PERIOD`: leader election retry period, default `2s`.

@@ -19,7 +19,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	flatnetworkv1 "github.com/cnrancher/rancher-flat-network-operator/pkg/apis/flatnetwork.pandaria.io/v1"
-	k8scnicncfiov1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 )
 
 func main() {
@@ -38,11 +37,6 @@ func main() {
 				GenerateClients:   true,
 				GenerateListers:   true,
 				GenerateInformers: true,
-			},
-			k8scnicncfiov1.SchemeGroupVersion.Group: {
-				Types: []any{
-					k8scnicncfiov1.NetworkAttachmentDefinition{},
-				},
 			},
 			corev1.GroupName: {
 				Types: []any{

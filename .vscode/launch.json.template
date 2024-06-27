@@ -10,7 +10,7 @@
             "env": {
                 "CATTLE_DEV_MODE": "true",
             },
-            "program": "${workspaceRoot}/flat-network-operator",
+            "program": "${workspaceRoot}/rancher-flat-network-operator",
             "args": [
                 "--webhook-server=false",
                 "--debug"
