@@ -47,6 +47,9 @@ type handler struct {
 	ipEnqueueAfter func(string, string, time.Duration)
 	ipEnqueue      func(string, string)
 
+	subnetEnqueueAfter func(string, string, time.Duration)
+	subnetEnqueue      func(string, string)
+
 	podEnqueueAfter func(string, string, time.Duration)
 	podEnqueue      func(string, string)
 
@@ -71,6 +74,9 @@ func Register(
 
 		ipEnqueueAfter: wctx.FlatNetwork.FlatNetworkIP().EnqueueAfter,
 		ipEnqueue:      wctx.FlatNetwork.FlatNetworkSubnet().Enqueue,
+
+		subnetEnqueueAfter: wctx.FlatNetwork.FlatNetworkSubnet().EnqueueAfter,
+		subnetEnqueue:      wctx.FlatNetwork.FlatNetworkSubnet().Enqueue,
 
 		podEnqueueAfter: wctx.Core.Pod().EnqueueAfter,
 		podEnqueue:      wctx.Core.Pod().Enqueue,

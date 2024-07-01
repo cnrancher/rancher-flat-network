@@ -6,7 +6,7 @@ metadata:
   labels:
     app: nginx
 spec:
-  replicas: 3
+  replicas: 10
   selector:
     matchLabels:
       app: nginx
@@ -18,69 +18,9 @@ spec:
         flatnetwork.pandaria.io/ip: "auto"
         flatnetwork.pandaria.io/subnet: "example-macvlan-subnet"
         flatnetwork.pandaria.io/mac: ""
+        k8s.v1.cni.cncf.io/networks: '[{"name":"rancher-flat-network","interface":"eth1"}]'
     spec:
+      nodeName: k3s-master-1
       containers:
-      - name: nginx
-        image: nginx
-        ports:
-        - containerPort: 80
-
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: example-alpine
-  namespace: default
-  labels:
-    app: alpine
-spec:
-  replicas: 3
-  selector:
-    matchLabels:
-      app: alpine
-  template:
-    metadata:
-      labels:
-        app: alpine
-      annotations:
-        flatnetwork.pandaria.io/ip: "auto"
-        flatnetwork.pandaria.io/subnet: "example-macvlan-subnet"
-        flatnetwork.pandaria.io/mac: ""
-    spec:
-      containers:
-      - name: alpine
-        image: alpine
-        command:
-        - "sleep"
-        args:
-        - "infinity"
-
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: example-alpine-ipv6
-  namespace: default
-  labels:
-    app: alpine-ipv6
-spec:
-  replicas: 3
-  selector:
-    matchLabels:
-      app: alpine-ipv6
-  template:
-    metadata:
-      labels:
-        app: alpine-ipv6
-      annotations:
-        flatnetwork.pandaria.io/ip: "auto"
-        flatnetwork.pandaria.io/subnet: "example-macvlan-subnet-ipv6"
-        flatnetwork.pandaria.io/mac: ""
-    spec:
-      containers:
-      - name: alpine
-        image: alpine
-        command:
-        - "sleep"
-        args:
-        - "infinity"
+      - name: nettest
+        image: harborlocal.hxstarrys.me/library/archlinux-net-test:latest

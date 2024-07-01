@@ -24,7 +24,7 @@ import (
 const (
 	k8sCNINetworksKey       = "k8s.v1.cni.cncf.io/networks"
 	k8sCNINetworksStatusKey = "k8s.v1.cni.cncf.io/networks-status"
-	netAttatchDefName       = "rancher-flat-network-cni"
+	netAttatchDefName       = "rancher-flat-network"
 )
 
 // isIngressService detects if this svc is owned by Rancher managed ingress.

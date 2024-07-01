@@ -23,7 +23,10 @@ func init() {
 }
 
 func Print(a any) string {
-	b, _ := json.MarshalIndent(a, "", "  ")
+	b, err := json.MarshalIndent(a, "", "  ")
+	if err != nil {
+		logrus.Warnf("utils.Print: failed to json marshal (%T): %v", a, err)
+	}
 	return string(b)
 }
 

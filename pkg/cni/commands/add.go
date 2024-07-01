@@ -6,6 +6,7 @@ import (
 	"net"
 
 	"github.com/cnrancher/rancher-flat-network-operator/pkg/cni/kubeclient"
+	"github.com/cnrancher/rancher-flat-network-operator/pkg/cni/logger"
 	"github.com/cnrancher/rancher-flat-network-operator/pkg/cni/macvlan"
 	"github.com/cnrancher/rancher-flat-network-operator/pkg/cni/types"
 	"github.com/cnrancher/rancher-flat-network-operator/pkg/utils"
@@ -30,6 +31,9 @@ const (
 )
 
 func Add(args *skel.CmdArgs) error {
+	if err := logger.Setup(); err != nil {
+		return err
+	}
 	logrus.Debugf("cmdAdd args: %v", utils.Print(args))
 
 	n, err := loadCNINetConf(args.StdinData)
@@ -74,22 +78,16 @@ func Add(args *skel.CmdArgs) error {
 		return fmt.Errorf("failed to get FlatNetworkSubnet: %w", err)
 	}
 
-	master := subnet.Spec.Master
-	hostIfname := subnet.ObjectMeta.Name
-	vlanID := subnet.Spec.VLAN
-
-	podDefaultGatewayEnabled := subnet.Spec.PodDefaultGateway.Enable
-	serviceCIDR := subnet.Spec.PodDefaultGateway.ServiceCIDR
-	gateway := subnet.Spec.Gateway
-
-	if err := setPromiscOn(master); err != nil {
-		return fmt.Errorf("failed to set promisc on %v: %w", master, err)
+	if err := setPromiscOn(subnet.Spec.Master); err != nil {
+		return fmt.Errorf("failed to set promisc on %v: %w", subnet.Spec.Master, err)
 	}
-	vlanIface, err := getVlanIfaceOnHost(master, 0, vlanID)
+	vlanIface, err := getVlanIfaceOnHost(subnet.Spec.Master, 0, subnet.Spec.VLAN)
 	if err != nil {
-		return fmt.Errorf("failed to create host vlan interface on %v %s.%d: %w",
-			hostIfname, master, vlanID, err)
+		return fmt.Errorf("failed to create host vlan of subnet [%v] on iface [%s.%d]: %w",
+			subnet.Name, subnet.Spec.Master, subnet.Spec.VLAN, err)
 	}
+	logrus.Infof("get vlan [%v] on host: %v",
+		vlanIface.Name, utils.Print(vlanIface))
 
 	netns, err := ns.GetNS(args.Netns)
 	if err != nil {
@@ -97,33 +95,45 @@ func Add(args *skel.CmdArgs) error {
 	}
 	defer netns.Close()
 
-	macvlanInterface, err := macvlan.Create(&macvlan.Options{
-		Mode:   subnet.Spec.Mode,
-		Master: vlanIface.Name,
-		MTU:    n.FlatNetworkConfig.MTU,
-		IfName: args.IfName,
-		NetNS:  netns,
-		MAC:    flatNetworkIP.Status.MAC,
-	})
+	// Start flatnetwork iface creation
+	var iface *types100.Interface
+	switch subnet.Spec.FlatMode {
+	case FlatModeMacvlan:
+		iface, err = macvlan.Create(&macvlan.Options{
+			Mode:   subnet.Spec.Mode,
+			Master: vlanIface.Name,
+			MTU:    n.FlatNetworkConfig.MTU,
+			IfName: args.IfName,
+			NetNS:  netns,
+			MAC:    flatNetworkIP.Status.MAC,
+		})
+		if err != nil {
+			return err
+		}
+	case FlatModeIPvlan:
+	default:
+		return fmt.Errorf("unrecognized flat mode [%v], only [%v %v] supported",
+			subnet.Spec.FlatMode, FlatModeMacvlan, FlatModeIPvlan)
+	}
+
+	logrus.Infof("create flat network [%v] iface [%v] for pod [%v:%v]: %v",
+		subnet.Spec.FlatMode, iface.Name, podNamespace, podName, utils.Print(iface))
+
+	flatNetworkIP.Status.MAC, _ = net.ParseMAC(iface.Mac)
+	_, err = client.UpdateFlatNetworkIP(context.TODO(), podNamespace, flatNetworkIP)
 	if err != nil {
+		logrus.Errorf("failed to update flatNetworkIP: IPAM [%v]: %v",
+			n.IPAM.Type, err)
+		err2 := netns.Do(func(_ ns.NetNS) error {
+			return ip.DelLinkByName(iface.Name)
+		})
+		if err2 != nil {
+			logrus.Errorf("failed to uodate FlatNetworkIP DelLinkByName: %v \n", err2)
+		}
 		return err
 	}
-	logrus.Infof("create macvlan iface for pod [%v:%v]: %v",
-		podNamespace, podName, utils.Print(macvlanInterface))
-
-	// flatNetworkIP.Status.MAC, _ = net.ParseMAC(macvlanInterface.Mac)
-	// _, err = client.UpdateFlatNetworkIP(context.TODO(), podNamespace, flatNetworkIP)
-	// if err != nil {
-	// 	logrus.Errorf("failed to update IP: IPAM [%v]: %v",
-	// 		n.IPAM.Type, err)
-	// 	err2 := netns.Do(func(_ ns.NetNS) error {
-	// 		return ip.DelLinkByName(macvlanInterface.Name)
-	// 		// return nil
-	// 	})
-	// 	if err2 != nil {
-	// 		logrus.Errorf("failed to updateMacvlanIP DelLinkByName: %v \n", err2)
-	// 	}
-	// }
+	logrus.Infof("update flatNetwork IP status MAC [%v]",
+		flatNetworkIP.Status.MAC.String())
 
 	// TODO:
 	// Delete link if err to avoid link leak in this ns
@@ -170,7 +180,7 @@ func Add(args *skel.CmdArgs) error {
 		return fmt.Errorf("IPAM plugin returned missing IP config")
 	}
 	result.Interfaces = []*types100.Interface{
-		macvlanInterface,
+		iface,
 	}
 	for _, ipc := range result.IPs {
 		// All addresses apply to the container macvlan interface
@@ -219,8 +229,8 @@ func Add(args *skel.CmdArgs) error {
 	}
 
 	// Skip change gw if using single nic macvlan
-	if podDefaultGatewayEnabled && args.IfName == "eth1" {
-		err = changeDefaultGateway(netns, serviceCIDR, gateway)
+	if subnet.Spec.PodDefaultGateway.Enable && args.IfName == "eth1" {
+		err = changeDefaultGateway(netns, subnet.Spec.PodDefaultGateway.ServiceCIDR, subnet.Spec.Gateway)
 		if err != nil {
 			return fmt.Errorf("failed to change default gateway: %w", err)
 		}

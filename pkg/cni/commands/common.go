@@ -20,12 +20,17 @@ import (
 	"github.com/containernetworking/cni/pkg/types/create"
 )
 
+const (
+	FlatModeMacvlan = "macvlan"
+	FlatModeIPvlan  = "ipvlan"
+)
+
 func getVlanIfaceOnHost(
 	master string, mtu int, vlanID int,
 ) (*types100.Interface, error) {
 	links, err := netlink.LinkList()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get links %v", err)
+		return nil, fmt.Errorf("netlink.LinkList: failed to list links: %w", err)
 	}
 
 	ifName := master
@@ -69,6 +74,7 @@ func createVLANOnHost(
 	if err := netlink.LinkAdd(vlan); err != nil {
 		return nil, fmt.Errorf("failed to create VLAN on %q: %w", ifName, err)
 	}
+	logrus.Infof("create vlan [%v] on host", ifName)
 
 	if err := netlink.LinkSetUp(vlan); err != nil {
 		netlink.LinkDel(vlan)
@@ -194,13 +200,13 @@ func setPromiscOn(iface string) error {
 		return fmt.Errorf("failed to search iface %q: %w", iface, err)
 	}
 
-	if link.Attrs().Promisc != 1 {
-		err = netlink.SetPromiscOn(link)
-		if err != nil {
-			return fmt.Errorf("netlink.SetPromiscOn failed on iface %q: %w", iface, err)
-		}
-		logrus.Infof("set promisc on link %v", iface)
+	if link.Attrs().Promisc == 1 {
+		return nil
 	}
+	if err = netlink.SetPromiscOn(link); err != nil {
+		return fmt.Errorf("netlink.SetPromiscOn failed on iface %q: %w", iface, err)
+	}
+	logrus.Infof("set promisc on link %v", iface)
 	return nil
 }
 

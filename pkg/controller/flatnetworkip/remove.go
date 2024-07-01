@@ -55,6 +55,6 @@ func (h *handler) handleIPRemove(s string, ip *flv1.FlatNetworkIP) (*flv1.FlatNe
 			Infof("remove IP [%v] from subnet [%v]",
 				ip.Status.Addr, ip.Spec.Subnet)
 	}
-
+	// h.subnetEnqueue(flv1.SubnetNamespace, ip.Spec.Subnet)
 	return ip, nil
 }

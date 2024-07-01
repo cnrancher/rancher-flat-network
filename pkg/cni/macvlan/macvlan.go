@@ -67,6 +67,7 @@ func Create(o *Options) (*types100.Interface, error) {
 	if err := netlink.LinkAdd(mv); err != nil {
 		return nil, fmt.Errorf("macvlan.Create: failed to create macvlan: LinkAdd: %w", err)
 	}
+	logrus.Debugf("created macvlan iface: %v", utils.Print(mv))
 	var result *types100.Interface
 	if err := o.NetNS.Do(func(_ ns.NetNS) error {
 		err := ip.RenameLink(tmpName, o.IfName)

@@ -24,7 +24,7 @@ spec:
         image: {{ template "system_default_registry" . }}{{ .Values.webhookDeploy.image.repository }}:{{ .Values.webhookDeploy.image.tag }}
         imagePullPolicy: {{ .Values.webhookDeploy.image.pullPolicy }}
         env:
-        - name: IS_OPERATOR_INIT_CONTROLLER
+        - name: IS_OPERATOR_INIT_CONTAINER
           value: "true"
       containers:
       - name: rancher-flat-network-operator-container

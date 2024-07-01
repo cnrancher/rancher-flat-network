@@ -11,5 +11,5 @@ metadata:
 spec:
   nodeName: k3s-master-1
   containers:
-  - name: nginx
-    image: nginx
+  - name: archlinux-net-test
+    image: harborlocal.hxstarrys.me/library/archlinux-net-test:latest

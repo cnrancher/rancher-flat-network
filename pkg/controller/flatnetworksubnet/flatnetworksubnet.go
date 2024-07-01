@@ -13,8 +13,6 @@ import (
 	"github.com/cnrancher/rancher-flat-network-operator/pkg/utils"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/equality"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/retry"
 
@@ -232,63 +230,63 @@ func (h *handler) onSubnetUpdate(subnet *flv1.FlatNetworkSubnet) (*flv1.FlatNetw
 		return subnet, err
 	}
 
-	// List IPs using this subnet.
-	ips, err := h.ipCache.List("", labels.SelectorFromSet(labels.Set{
-		"subnet": subnet.Name,
-	}))
-	if err != nil {
-		return subnet, fmt.Errorf("failed to list IP from cache: %w", err)
-	}
+	// // List IPs using this subnet.
+	// ips, err := h.ipCache.List("", labels.SelectorFromSet(labels.Set{
+	// 	"subnet": subnet.Name,
+	// }))
+	// if err != nil {
+	// 	return subnet, fmt.Errorf("failed to list IP from cache: %w", err)
+	// }
 
-	// Sync this subnet in every 10 minutes.
-	defer h.subnetEnqueueAfter(subnet.Namespace, subnet.Name, time.Minute*10)
+	// // Sync this subnet in every 10 minutes.
+	// defer h.subnetEnqueueAfter(subnet.Namespace, subnet.Name, time.Minute*10)
 
-	var gatewayIP net.IP = subnet.Status.Gateway
-	if gatewayIP == nil {
-		if subnet.Spec.Gateway == nil {
-			gatewayIP, err = ipcalc.GetDefaultGateway(subnet.Spec.CIDR)
-			if err != nil {
-				return nil, fmt.Errorf("failed to get gateway IP from subnet: %w", err)
-			}
-		} else {
-			gatewayIP = subnet.Spec.Gateway
-		}
-	}
+	// var gatewayIP net.IP = subnet.Status.Gateway
+	// if gatewayIP == nil {
+	// 	if subnet.Spec.Gateway == nil {
+	// 		gatewayIP, err = ipcalc.GetDefaultGateway(subnet.Spec.CIDR)
+	// 		if err != nil {
+	// 			return nil, fmt.Errorf("failed to get gateway IP from subnet: %w", err)
+	// 		}
+	// 	} else {
+	// 		gatewayIP = subnet.Spec.Gateway
+	// 	}
+	// }
 
-	usedIPs := ip2UsedRanges(ips)
-	usedIPs = ipcalc.AddIPToRange(gatewayIP, usedIPs)
-	if equality.Semantic.DeepEqual(usedIPs, subnet.Status.UsedIP) &&
-		subnet.Status.UsedIPCount == len(ips) &&
-		gatewayIP.Equal(subnet.Status.Gateway) {
-		logrus.WithFields(fieldsSubnet(subnet)).
-			Debugf("subnet [%v] usedIP status already update", subnet.Name)
-		return subnet, nil
-	}
-	err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-		result, err := h.subnetCache.Get(subnet.Namespace, subnet.Name)
-		if err != nil {
-			return fmt.Errorf("failed to get subnet from cache: %w", err)
-		}
-		result = result.DeepCopy()
-		if equality.Semantic.DeepEqual(usedIPs, result.Status.UsedIP) && result.Status.UsedIPCount == len(ips) {
-			return nil
-		}
-		result.Status.UsedIP = usedIPs
-		result.Status.UsedIPCount = len(ips) + 1 // PodIPs & Gateway IP
-		result.Status.Gateway = gatewayIP
-		result, err = h.subnetClient.UpdateStatus(result)
-		if err != nil {
-			return fmt.Errorf("failed to update subnet status: %w", err)
-		}
-		subnet = result
-		return nil
-	})
-	if err != nil {
-		return subnet, fmt.Errorf("failed to update subnet status: %w", err)
-	}
-	logrus.WithFields(fieldsSubnet(subnet)).
-		Infof("update subnet [%v] usedIPCount [%v]",
-			subnet.Name, subnet.Status.UsedIPCount)
+	// usedIPs := ip2UsedRanges(ips)
+	// usedIPs = ipcalc.AddIPToRange(gatewayIP, usedIPs)
+	// // if equality.Semantic.DeepDerivative(usedIPs, subnet.Status.UsedIP) &&
+	// // 	subnet.Status.UsedIPCount == len(ips)+1 &&
+	// // 	gatewayIP.Equal(subnet.Status.Gateway) {
+	// // 	logrus.WithFields(fieldsSubnet(subnet)).
+	// // 		Debugf("subnet [%v] usedIP status already update", subnet.Name)
+	// // 	return subnet, nil
+	// // }
+	// err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+	// 	result, err := h.subnetCache.Get(subnet.Namespace, subnet.Name)
+	// 	if err != nil {
+	// 		return fmt.Errorf("failed to get subnet from cache: %w", err)
+	// 	}
+	// 	result = result.DeepCopy()
+	// 	if equality.Semantic.DeepEqual(usedIPs, result.Status.UsedIP) && result.Status.UsedIPCount == len(ips) {
+	// 		return nil
+	// 	}
+	// 	result.Status.UsedIP = usedIPs
+	// 	result.Status.UsedIPCount = len(ips) + 1 // PodIPs & Gateway IP
+	// 	result.Status.Gateway = gatewayIP
+	// 	result, err = h.subnetClient.UpdateStatus(result)
+	// 	if err != nil {
+	// 		return fmt.Errorf("failed to update subnet status: %w", err)
+	// 	}
+	// 	subnet = result
+	// 	return nil
+	// })
+	// if err != nil {
+	// 	return subnet, fmt.Errorf("failed to update subnet status: %w", err)
+	// }
+	// logrus.WithFields(fieldsSubnet(subnet)).
+	// 	Infof("update subnet [%v] usedIPCount [%v]",
+	// 		subnet.Name, subnet.Status.UsedIPCount)
 	return subnet, nil
 }
 

@@ -3,6 +3,7 @@ package commands
 import (
 	"fmt"
 
+	"github.com/cnrancher/rancher-flat-network-operator/pkg/cni/logger"
 	"github.com/cnrancher/rancher-flat-network-operator/pkg/utils"
 	"github.com/containernetworking/cni/pkg/skel"
 	"github.com/containernetworking/plugins/pkg/ip"
@@ -12,6 +13,9 @@ import (
 )
 
 func Del(args *skel.CmdArgs) error {
+	if err := logger.Setup(); err != nil {
+		return err
+	}
 	logrus.Debugf("cmdDel args: %v", utils.Print(args))
 
 	n, err := loadCNINetConf(args.StdinData)

@@ -46,6 +46,7 @@ type NetConf struct {
 }
 
 type FlatNetworkConfig struct {
+	FlatMode      string           `json:"flatMode,omitempty"`
 	Master        string           `json:"master,omitempty"`
 	Mode          string           `json:"mode,omitempty"`
 	MTU           int              `json:"mtu,omitempty"`

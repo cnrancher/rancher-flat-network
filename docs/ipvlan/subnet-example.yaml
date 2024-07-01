@@ -1,26 +1,18 @@
 apiVersion: flatnetwork.pandaria.io/v1
 kind: FlatNetworkSubnet
 metadata:
-    creationTimestamp: null
-    labels:
-        project: ""
-    name: example-ipvlan-subnet
-    namespace: kube-system
+  labels:
+    project: ""
+  name: example-ipvlan-subnet
+  namespace: kube-system
 spec:
-    cidr: 192.168.2.0/24
-    flatMode: ipvlan
-    gateway: ""
-    master: eth0
-    mode: ""
-    podDefaultGateway: {}
-    ranges:
-        - end: 192.168.2.150
-          from: 192.168.2.100
-    vlan: 0
-status:
-    failureMessage: ""
-    gateway: ""
-    phase: ""
-    usedIP: null
-    usedIPCount: 0
-    usedMac: null
+  vlan: 0
+  cidr: 192.168.2.0/24
+  flatMode: ipvlan
+  gateway: ""
+  master: eth0
+  mode: "l2"
+  podDefaultGateway: {}
+  ranges:
+  - end: 192.168.2.150
+    from: 192.168.2.100

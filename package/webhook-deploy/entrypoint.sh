@@ -4,8 +4,17 @@ set -euo pipefail
 
 secret=${secret:-"rancher-flat-network-webhook-certs"}
 
-if [[ ${IS_OPERATOR_INIT_CONTROLLER:-} != "" ]]; then
-    # Running as init container.
+if [[ ${IS_MULTUS_INIT_CONTAINER:-} != "" ]]; then
+    # Running as multus init container.
+    echo "Start delete multus auto generated CNI config:"
+    ls -al /host/etc/cni/net.d/00-multus.conf*
+    rm /host/etc/cni/net.d/00-multus.conf*
+    echo "Done"
+    exit 0
+fi
+
+if [[ ${IS_OPERATOR_INIT_CONTAINER:-} != "" ]]; then
+    # Running as operator init container.
     echo "Waiting for secret 'kube-system/${secret}' created..."
     while !kubectl -n kube-system get secret $secret &> /dev/null
     do
