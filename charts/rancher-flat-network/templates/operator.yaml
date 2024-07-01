@@ -18,7 +18,7 @@ spec:
       labels:
         app: rancher-flat-network-operator
     spec:
-      serviceAccountName: multus
+      serviceAccountName: rancher-flat-network-multus
       initContainers:
       - name: webhook-admission-deploy
         image: {{ template "system_default_registry" . }}{{ .Values.webhookDeploy.image.repository }}:{{ .Values.webhookDeploy.image.tag }}

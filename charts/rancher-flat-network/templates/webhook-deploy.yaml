@@ -10,7 +10,7 @@ spec:
       labels:
         app: rancher-flat-network-webhook-deploy
     spec:
-      serviceAccountName: multus
+      serviceAccountName: rancher-flat-network-multus
       restartPolicy: OnFailure
       containers:
       - image: {{ template "system_default_registry" . }}{{ .Values.webhookDeploy.image.repository }}:{{ .Values.webhookDeploy.image.tag }}
@@ -33,7 +33,7 @@ spec:
           labels:
             app: rancher-flat-network-webhook-deploy
         spec:
-          serviceAccountName: multus
+          serviceAccountName: rancher-flat-network-multus
           restartPolicy: OnFailure
           containers:
           - image: {{ template "system_default_registry" . }}{{ .Values.webhookDeploy.image.repository }}:{{ .Values.webhookDeploy.image.tag }}

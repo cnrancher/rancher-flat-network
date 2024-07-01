@@ -50,7 +50,7 @@ spec:
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: multus
+  name: rancher-flat-network-multus
   annotations:
     "helm.sh/resource-policy": keep
 roleRef:
@@ -59,13 +59,13 @@ roleRef:
   name: cluster-admin
 subjects:
 - kind: ServiceAccount
-  name: multus
+  name: rancher-flat-network-multus
   namespace: kube-system
 ---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: multus
+  name: rancher-flat-network-multus
   namespace: kube-system
   annotations:
     "helm.sh/resource-policy": keep
@@ -98,7 +98,7 @@ spec:
         effect: NoSchedule
       - operator: Exists
         effect: NoExecute
-      serviceAccountName: multus
+      serviceAccountName: rancher-flat-network-multus
       initContainers:
       - name: init-multus-config
         image: {{ template "system_default_registry" . }}{{ .Values.webhookDeploy.image.repository }}:{{ .Values.webhookDeploy.image.tag }}

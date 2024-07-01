@@ -20,7 +20,7 @@ spec:
       hostNetwork: true
       tolerations:
       - operator: Exists
-      serviceAccountName: multus
+      serviceAccountName: rancher-flat-network-multus
       containers:
       - name: flat-network-cni
         image: {{ template "system_default_registry" . }}{{ .Values.flatNetworkCNI.image.repository }}:{{ .Values.flatNetworkCNI.image.tag }}
