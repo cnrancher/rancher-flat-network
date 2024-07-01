@@ -218,7 +218,7 @@ func mergeIPAMConfig(
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse subnet CIDR: %w", err)
 	}
-	_, ones := n.Mask.Size()
+	ones, _ := n.Mask.Size()
 	routes, gateway := subnet.Spec.Routes, subnet.Spec.Gateway
 	enableIPv6 := flatNetworkIP.Annotations[flv1.AnnotationsIPv6to4] != ""
 	netConf.IPAM.Addresses = []types.Address{
@@ -263,7 +263,7 @@ func mergeIPAMConfig(
 		}
 		netConf.IPAM.Routes = rs
 	}
-	logrus.Debugf("merged IPAM addresses: %v", utils.Print(netConf.IPAM.Addresses))
+	logrus.Debugf("merged IPAM addresses: %v", utils.Print(netConf.IPAM))
 	return json.Marshal(netConf)
 }
 
