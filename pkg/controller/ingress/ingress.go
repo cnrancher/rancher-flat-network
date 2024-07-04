@@ -82,8 +82,13 @@ func (h *handler) syncIngress(
 					return ingress, nil
 				}
 
-				return ingress, fmt.Errorf("failed to get service [%s/%s] of ingress [%v]: %w",
+				return ingress, fmt.Errorf("failed to get service [%s/%s] of ingress [%v] from cache: %w",
 					ingress.Namespace, svcName, ingress.Name, err)
+			}
+			if utils.IsFlatNetworkService(svc) {
+				// IMPORTANT: Skip sync operator created flat-network service,
+				// sync rancher-created/user created service only.
+				continue
 			}
 
 			if err = h.handleIngressService(ingress, svc, flatNetworkEnabled); err != nil {

@@ -3,7 +3,6 @@ package service
 import (
 	"fmt"
 	"strings"
-	"time"
 
 	flv1 "github.com/cnrancher/rancher-flat-network-operator/pkg/apis/flatnetwork.pandaria.io/v1"
 	"github.com/cnrancher/rancher-flat-network-operator/pkg/utils"
@@ -25,6 +24,7 @@ func (h *handler) handleFlatNetworkService(
 		return svc, fmt.Errorf("failed to list pod by selector [%v] on service [%v/%v]: %w",
 			svc.Spec.Selector, svc.Namespace, svc.Name, err)
 	}
+	// Check whether this flat-network service should delete or not.
 	ok, err := h.shouldDeleteFlatNetworkService(svc, pods)
 	if err != nil {
 		logrus.WithFields(fieldsService(svc)).
@@ -43,11 +43,24 @@ func (h *handler) handleFlatNetworkService(
 		return svc, nil
 	}
 
-	if err = h.syncServiceEndpoints(svc, pods); err != nil {
+	resource, err := h.getEndpointResources(svc, pods)
+	if err != nil {
+		logrus.WithFields(fieldsService(svc)).
+			Errorf("failed to get endpoint resources of service: %v", err)
+		return svc, fmt.Errorf("failed to get endpoint resources: %w", err)
+	}
+
+	// Update corev1.Endpoints of this service.
+	if err = h.syncCoreV1Endpoints(svc, resource); err != nil {
 		return svc, err
 	}
-	// Requeue flat-network service every 30 seconds.
-	h.serviceEnqueueAfter(svc.Namespace, svc.Name, time.Second*30)
+	// Update discoveryv1.EndpointSlice of this service.
+	if err = h.syncDiscoveryV1EndpointSlice(svc, resource); err != nil {
+		return svc, err
+	}
+
+	// Resync flat-network service in every 5min.
+	h.serviceEnqueueAfter(svc.Namespace, svc.Name, defaultRequeueTime)
 	return svc, nil
 }
 
@@ -58,7 +71,7 @@ func (h *handler) shouldDeleteFlatNetworkService(
 		return true, nil
 	}
 
-	originalServiceName := strings.TrimSuffix(svc.Name, flatNetworkServiceNameSuffix)
+	originalServiceName := strings.TrimSuffix(svc.Name, utils.FlatNetworkServiceNameSuffix)
 	originalService, err := h.serviceCache.Get(svc.Namespace, originalServiceName)
 	if err != nil {
 		if apierrors.IsNotFound(err) {

@@ -114,7 +114,7 @@ func (h *handler) sync(name string, pod *corev1.Pod) (*corev1.Pod, error) {
 
 		// Requeue in few seconds to wait for IP status active.
 		// This will not block the pod creation process and just waiting for
-		// a few seconds to update the pod flatnetwork labels.
+		// a few seconds to update the pod flat-network labels.
 		h.podEnqueueAfter(pod.Namespace, pod.Name, time.Second*5)
 		return pod, nil
 	}

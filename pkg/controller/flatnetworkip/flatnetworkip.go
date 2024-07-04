@@ -34,8 +34,6 @@ const (
 	flatNetworkIPPendingPhase = "Pending"
 	flatNetworkIPActivePhase  = "Active"
 	flatNetworkIPFailedPhase  = "Failed"
-
-	defaultRequeue = time.Second * 30
 )
 
 type handler struct {
@@ -298,7 +296,6 @@ func (h *handler) onIPUpdate(ip *flv1.FlatNetworkIP) (*flv1.FlatNetworkIP, error
 	if alreadyAllocateIP(ip, subnet) && alreadyAllocatedMAC(ip) {
 		logrus.WithFields(fieldsIP(ip)).
 			Debugf("IP already updated")
-		h.ipEnqueueAfter(ip.Namespace, ip.Name, defaultRequeue)
 		return ip, nil
 	}
 
@@ -324,9 +321,6 @@ func (h *handler) onIPUpdate(ip *flv1.FlatNetworkIP) (*flv1.FlatNetworkIP, error
 			Errorf("failed to update IP status: %v", err)
 		return ip, err
 	}
-
-	h.ipEnqueue(ip.Namespace, ip.Name)
-	h.podEnqueueAfter(ip.Namespace, ip.Name, time.Second*5)
 	return ip, nil
 }
 

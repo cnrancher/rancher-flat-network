@@ -17,9 +17,8 @@ import (
 )
 
 const (
-	handlerName                  = "rancher-flat-network-service"
-	flatNetworkServiceNameSuffix = "-flat-network"
-	defaultRequeueTime           = time.Minute * 5
+	handlerName        = "rancher-flat-network-service"
+	defaultRequeueTime = time.Minute * 5
 )
 
 type handler struct {
@@ -67,7 +66,7 @@ func (h *handler) syncService(name string, svc *corev1.Service) (*corev1.Service
 	case isIngressService(svc):
 		// ignore rancher managed ingress service (manager UI only).
 		return svc, nil
-	case isFlatNetworkService(svc):
+	case utils.IsFlatNetworkService(svc):
 		// sync flat-network service created by this operator.
 		return h.handleFlatNetworkService(svc)
 	default:
@@ -93,12 +92,6 @@ func (h *handler) handleDefaultService(svc *corev1.Service) (*corev1.Service, er
 	existService, err := h.serviceCache.Get(expectedService.Namespace, expectedService.Name)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			// if strings.HasSuffix(svc.Name, flatNetworkServiceNameSuffix) {
-			// 	logrus.WithFields(fieldsService(svc)).
-			// 		Infof("skip create [%v/%v] as the origional svc have %q suffix",
-			// 			svc.Namespace, expectedService.Name, flatNetworkServiceNameSuffix)
-			// 	return svc, nil
-			// }
 			logrus.WithFields(fieldsService(svc)).
 				Infof("request to create flat-network service [%v/%v]",
 					expectedService.Namespace, expectedService.Name)

@@ -6,6 +6,7 @@ import (
 	"os"
 	"runtime"
 	"strconv"
+	"strings"
 
 	flv1 "github.com/cnrancher/rancher-flat-network-operator/pkg/apis/flatnetwork.pandaria.io/v1"
 	"github.com/sirupsen/logrus"
@@ -58,6 +59,44 @@ func IsPodEnabledFlatNetwork(pod *corev1.Pod) bool {
 		return false
 	}
 	if pod.Annotations[flv1.AnnotationIP] == "" || pod.Annotations[flv1.AnnotationSubnet] == "" {
+		return false
+	}
+	return true
+}
+
+const (
+	// Operator auto-created flat-network service name suffix
+	FlatNetworkServiceNameSuffix = "-flat-network"
+
+	K8sCNINetworksKey       = "k8s.v1.cni.cncf.io/networks"
+	K8sCNINetworksStatusKey = "k8s.v1.cni.cncf.io/network-status"
+	NetAttatchDefName       = "rancher-flat-network"
+)
+
+// Check if this service is a flat-network service.
+//
+// Specification:
+// A Flat-Network Service is a ClusterIP typed headless service, name ends with
+// '-flat-network' suffix.
+// And should have 'k8s.v1.cni.cncf.io/networks: rancher-flat-network' annotation.
+func IsFlatNetworkService(svc *corev1.Service) bool {
+	if !strings.HasSuffix(svc.Name, FlatNetworkServiceNameSuffix) {
+		return false
+	}
+	if svc.Spec.Type != "ClusterIP" {
+		return false
+	}
+	if len(svc.Spec.ClusterIPs) != 0 {
+		if svc.Spec.ClusterIPs[0] != "None" {
+			return false
+		}
+	} else if svc.Spec.ClusterIP != "None" {
+		return false
+	}
+	if svc.Annotations == nil {
+		return false
+	}
+	if svc.Annotations[K8sCNINetworksKey] != NetAttatchDefName {
 		return false
 	}
 	return true
