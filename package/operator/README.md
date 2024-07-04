@@ -1,1 +1,1 @@
-# flat-network-operator Dockerfile
+# Rancher flat-network Operator Dockerfile

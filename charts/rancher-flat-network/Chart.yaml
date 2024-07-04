@@ -1,13 +1,13 @@
 apiVersion: v2
-name: rancher-flat-network-operator
+name: rancher-flat-network
 description: Helm chart for managing rancher flat-network pods
-home: https://github.com/cnrancher/rancher-flat-network-operator
+home: https://github.com/cnrancher/rancher-flat-network
 sources:
-  - "https://github.com/cnrancher/rancher-flat-network-operator"
+  - "https://github.com/cnrancher/rancher-flat-network"
 version: 999
 appVersion: 999
 annotations:
-  catalog.cattle.io/auto-install: rancher-flat-network-operator-crd=match
+  catalog.cattle.io/auto-install: rancher-flat-network-crd=match
   catalog.cattle.io/certified: rancher
   catalog.cattle.io/hidden: "true"
   catalog.cattle.io/kube-version: ">= 1.18.0-0"
@@ -16,5 +16,5 @@ annotations:
   catalog.cattle.io/permits-os: linux
   catalog.cattle.io/provides-gvr: flatnetworkips.flatnetwork.pandaria.io
   catalog.cattle.io/rancher-version: ">= 2.6.0-alpha"
-  catalog.cattle.io/release-name: rancher-flat-network-operator
+  catalog.cattle.io/release-name: rancher-flat-network
   catalog.cattle.io/scope: management

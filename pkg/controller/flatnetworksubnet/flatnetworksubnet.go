@@ -13,10 +13,13 @@ import (
 	"github.com/cnrancher/rancher-flat-network-operator/pkg/utils"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/retry"
 
 	flv1 "github.com/cnrancher/rancher-flat-network-operator/pkg/apis/flatnetwork.pandaria.io/v1"
+	corecontroller "github.com/cnrancher/rancher-flat-network-operator/pkg/generated/controllers/core/v1"
 	flcontroller "github.com/cnrancher/rancher-flat-network-operator/pkg/generated/controllers/flatnetwork.pandaria.io/v1"
 )
 
@@ -35,6 +38,7 @@ type handler struct {
 	subnetClient flcontroller.FlatNetworkSubnetClient
 	subnetCache  flcontroller.FlatNetworkSubnetCache
 	ipCache      flcontroller.FlatNetworkIPCache
+	podClient    corecontroller.PodClient
 
 	recorder record.EventRecorder
 
@@ -50,6 +54,7 @@ func Register(
 		subnetClient: wctx.FlatNetwork.FlatNetworkSubnet(),
 		subnetCache:  wctx.FlatNetwork.FlatNetworkSubnet().Cache(),
 		ipCache:      wctx.FlatNetwork.FlatNetworkIP().Cache(),
+		podClient:    wctx.Core.Pod(),
 
 		recorder: wctx.Recorder,
 
@@ -155,8 +160,6 @@ func (h *handler) onSubnetCreate(subnet *flv1.FlatNetworkSubnet) (*flv1.FlatNetw
 		result.Labels["mode"] = result.Spec.Mode
 		result, err = h.subnetClient.Update(result)
 		if err != nil {
-			logrus.WithFields(fieldsSubnet(subnet)).
-				Warnf("failed to update subnet %q: %v", subnet.Name, err)
 			return err
 		}
 		logrus.WithFields(fieldsSubnet(subnet)).
@@ -230,64 +233,65 @@ func (h *handler) onSubnetUpdate(subnet *flv1.FlatNetworkSubnet) (*flv1.FlatNetw
 		return subnet, err
 	}
 
-	// // List IPs using this subnet.
-	// ips, err := h.ipCache.List("", labels.SelectorFromSet(labels.Set{
-	// 	"subnet": subnet.Name,
-	// }))
-	// if err != nil {
-	// 	return subnet, fmt.Errorf("failed to list IP from cache: %w", err)
-	// }
+	// Sync this subnet in every 10 minutes.
+	defer h.subnetEnqueueAfter(subnet.Namespace, subnet.Name, time.Minute*10)
 
-	// // Sync this subnet in every 10 minutes.
-	// defer h.subnetEnqueueAfter(subnet.Namespace, subnet.Name, time.Minute*10)
+	// List IPs using this subnet.
+	ips, err := h.ipCache.List("", labels.SelectorFromSet(labels.Set{
+		"subnet": subnet.Name,
+	}))
+	if err != nil {
+		return subnet, fmt.Errorf("failed to list IP from cache: %w", err)
+	}
 
-	// var gatewayIP net.IP = subnet.Status.Gateway
-	// if gatewayIP == nil {
-	// 	if subnet.Spec.Gateway == nil {
-	// 		gatewayIP, err = ipcalc.GetDefaultGateway(subnet.Spec.CIDR)
-	// 		if err != nil {
-	// 			return nil, fmt.Errorf("failed to get gateway IP from subnet: %w", err)
-	// 		}
-	// 	} else {
-	// 		gatewayIP = subnet.Spec.Gateway
-	// 	}
-	// }
+	// Only cleanup the duplicated IPs using this subnet.
+	duplicatedIPs := filterDuplicatedIP(ips)
+	if len(duplicatedIPs) != 0 {
+		return subnet, h.cleanupDuplicatedIPs(subnet, ips)
+	}
 
-	// usedIPs := ip2UsedRanges(ips)
-	// usedIPs = ipcalc.AddIPToRange(gatewayIP, usedIPs)
-	// // if equality.Semantic.DeepDerivative(usedIPs, subnet.Status.UsedIP) &&
-	// // 	subnet.Status.UsedIPCount == len(ips)+1 &&
-	// // 	gatewayIP.Equal(subnet.Status.Gateway) {
-	// // 	logrus.WithFields(fieldsSubnet(subnet)).
-	// // 		Debugf("subnet [%v] usedIP status already update", subnet.Name)
-	// // 	return subnet, nil
-	// // }
-	// err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-	// 	result, err := h.subnetCache.Get(subnet.Namespace, subnet.Name)
-	// 	if err != nil {
-	// 		return fmt.Errorf("failed to get subnet from cache: %w", err)
-	// 	}
-	// 	result = result.DeepCopy()
-	// 	if equality.Semantic.DeepEqual(usedIPs, result.Status.UsedIP) && result.Status.UsedIPCount == len(ips) {
-	// 		return nil
-	// 	}
-	// 	result.Status.UsedIP = usedIPs
-	// 	result.Status.UsedIPCount = len(ips) + 1 // PodIPs & Gateway IP
-	// 	result.Status.Gateway = gatewayIP
-	// 	result, err = h.subnetClient.UpdateStatus(result)
-	// 	if err != nil {
-	// 		return fmt.Errorf("failed to update subnet status: %w", err)
-	// 	}
-	// 	subnet = result
-	// 	return nil
-	// })
-	// if err != nil {
-	// 	return subnet, fmt.Errorf("failed to update subnet status: %w", err)
-	// }
-	// logrus.WithFields(fieldsSubnet(subnet)).
-	// 	Infof("update subnet [%v] usedIPCount [%v]",
-	// 		subnet.Name, subnet.Status.UsedIPCount)
 	return subnet, nil
+}
+
+func filterDuplicatedIP(ips []*flv1.FlatNetworkIP) []*flv1.FlatNetworkIP {
+	duplicatedIPs := []*flv1.FlatNetworkIP{}
+	if len(ips) == 0 {
+		return duplicatedIPs
+	}
+	set := map[string]bool{}
+	for _, ip := range ips {
+		if ip == nil || len(ip.Status.Addr) == 0 {
+			continue
+		}
+		a := ip.Status.Addr.String()
+		if !set[a] {
+			set[a] = true
+			continue
+		}
+		duplicatedIPs = append(duplicatedIPs, ip)
+	}
+	return duplicatedIPs
+}
+
+func (h *handler) cleanupDuplicatedIPs(subnet *flv1.FlatNetworkSubnet, ips []*flv1.FlatNetworkIP) error {
+	if len(ips) == 0 {
+		return nil
+	}
+
+	for _, ip := range ips {
+		logrus.WithFields(fieldsSubnet(subnet)).
+			Warnf("found duplicated pod IP [%v], will delete",
+				ip.Status.Addr.String())
+		err := h.podClient.Delete(ip.Namespace, ip.Name, &metav1.DeleteOptions{})
+		if err != nil {
+			return fmt.Errorf("failed to delete pod [%v/%v]: %w",
+				ip.Namespace, ip.Name, err)
+		}
+		logrus.WithFields(fieldsSubnet(subnet)).
+			Infof("request to delete pod have duplicated IP [%v/%v]: %v",
+				ip.Namespace, ip.Name, ip.Status.Addr.String())
+	}
+	return nil
 }
 
 func ip2UsedRanges(ips []*flv1.FlatNetworkIP) []flv1.IPRange {

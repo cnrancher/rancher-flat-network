@@ -12,6 +12,8 @@ clusterType: default
 # Configuration for rancher-flat-network-operator
 flatNetworkOperator:
   replicas: 2
+  cattleResyncDefault: ""
+  cattleDevMode: "false"
   limits:
     memory: "512M"
   image:
@@ -19,13 +21,13 @@ flatNetworkOperator:
     tag: "v0.0.0"
     pullPolicy: Always
 
-# Configuration for rancher-flat-network-webhook-deploy
-webhookDeploy:
+# Configuration for rancher-flat-network-deploy
+deploy:
   # min hour day month week
   # Rollout tls secret every month: "0 0 1 * *"
   rolloutSchedule: "0 0 1 * *"
   image:
-    repository: "cnrancher/rancher-flat-network-webhook-deploy"
+    repository: "cnrancher/rancher-flat-network-deploy"
     tag: "v0.0.0"
     pullPolicy: Always
 

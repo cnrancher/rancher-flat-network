@@ -20,9 +20,9 @@ spec:
     spec:
       serviceAccountName: rancher-flat-network-multus
       initContainers:
-      - name: webhook-admission-deploy
-        image: {{ template "system_default_registry" . }}{{ .Values.webhookDeploy.image.repository }}:{{ .Values.webhookDeploy.image.tag }}
-        imagePullPolicy: {{ .Values.webhookDeploy.image.pullPolicy }}
+      - name: wait-webhook-tls-deploy
+        image: {{ template "system_default_registry" . }}{{ .Values.deploy.image.repository }}:{{ .Values.deploy.image.tag }}
+        imagePullPolicy: {{ .Values.deploy.image.pullPolicy }}
         env:
         - name: IS_OPERATOR_INIT_CONTAINER
           value: "true"
@@ -32,11 +32,9 @@ spec:
         imagePullPolicy: {{ .Values.flatNetworkOperator.image.pullPolicy }}
         env:
         - name: CATTLE_RESYNC_DEFAULT
-          value: ""
+          value: {{ .Values.flatNetworkOperator.cattleResyncDefault | quote }}
         - name: CATTLE_DEV_MODE
-          value: ""
-        - name: CATTLE_ELECTION_LEASE_DURATION
-          value: ""
+          value: {{ .Values.flatNetworkOperator.cattleDevMode | quote }}
         resources:
           limits:
             memory: {{ .Values.flatNetworkOperator.limits.memory | quote }}

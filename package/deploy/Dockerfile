@@ -13,7 +13,7 @@ COPY --from=docker.hxstarrys.me/cnrancher/hardened-cloudflare-cfssl:v1.6.3-ranch
 
 WORKDIR /
 
-COPY package/webhook-deploy/*.sh /
-COPY package/webhook-deploy/*.yaml /
+COPY package/deploy/*.sh /
+COPY package/deploy/*.yaml /
 
 ENTRYPOINT ["/entrypoint.sh"]

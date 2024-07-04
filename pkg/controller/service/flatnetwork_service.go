@@ -46,8 +46,8 @@ func (h *handler) handleFlatNetworkService(
 	if err = h.syncServiceEndpoints(svc, pods); err != nil {
 		return svc, err
 	}
-	// Requeue flat-network service every 10 seconds.
-	h.serviceEnqueueAfter(svc.Namespace, svc.Name, time.Second*10)
+	// Requeue flat-network service every 30 seconds.
+	h.serviceEnqueueAfter(svc.Namespace, svc.Name, time.Second*30)
 	return svc, nil
 }
 

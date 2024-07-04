@@ -3,7 +3,6 @@ package macvlan
 import (
 	"fmt"
 	"net"
-	"strings"
 
 	"github.com/cnrancher/rancher-flat-network-operator/pkg/utils"
 	types100 "github.com/containernetworking/cni/pkg/types/100"
@@ -22,26 +21,11 @@ type Options struct {
 	MAC    net.HardwareAddr
 }
 
-func (o *Options) MacvlanMode() netlink.MacvlanMode {
-	switch strings.ToLower(o.Mode) {
-	case "", "bridge":
-		return netlink.MACVLAN_MODE_BRIDGE
-	case "private":
-		return netlink.MACVLAN_MODE_PRIVATE
-	case "vepa":
-		return netlink.MACVLAN_MODE_VEPA
-	case "passthru":
-		return netlink.MACVLAN_MODE_PASSTHRU
-	case "source":
-		return netlink.MACVLAN_MODE_SOURCE
-	default:
-		logrus.Warnf("unrecognized macvlan mode: %q", o.Mode)
-		return netlink.MACVLAN_MODE_DEFAULT
-	}
-}
-
 func Create(o *Options) (*types100.Interface, error) {
-	mode := o.MacvlanMode()
+	mode, err := ModeFromString(o.Mode)
+	if err != nil {
+		return nil, err
+	}
 	master, err := netlink.LinkByName(o.Master)
 	if err != nil {
 		return nil, fmt.Errorf("macvlan.Create: failed to get master iface %q: %w",

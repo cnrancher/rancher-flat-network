@@ -16,4 +16,4 @@ COPY package/operator/entrypoint.sh /
 
 USER 1007
 ENTRYPOINT ["/entrypoint.sh"]
-CMD [ "rancher-flat-network-operator", "--debug" ]
+CMD [ "rancher-flat-network-operator" ]

@@ -34,6 +34,8 @@ const (
 	flatNetworkIPPendingPhase = "Pending"
 	flatNetworkIPActivePhase  = "Active"
 	flatNetworkIPFailedPhase  = "Failed"
+
+	defaultRequeue = time.Second * 30
 )
 
 type handler struct {
@@ -278,9 +280,25 @@ func (h *handler) onIPUpdate(ip *flv1.FlatNetworkIP) (*flv1.FlatNetworkIP, error
 			ip.Spec.Subnet, ip.Namespace, ip.Name, err)
 	}
 
+	// Ensure the pod exists and UID matches
+	pod, err := h.podCache.Get(ip.Namespace, ip.Name)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			err = h.ipClient.Delete(ip.Namespace, ip.Name, &metav1.DeleteOptions{})
+			return ip, err
+		}
+		return ip, fmt.Errorf("onIPUpdate: failed to get pod [%v/%v] from cache: %w",
+			ip.Namespace, ip.Name, err)
+	}
+	if pod.UID != types.UID(ip.Spec.PodID) {
+		err = h.ipClient.Delete(ip.Namespace, ip.Name, &metav1.DeleteOptions{})
+		return ip, err
+	}
+
 	if alreadyAllocateIP(ip, subnet) && alreadyAllocatedMAC(ip) {
 		logrus.WithFields(fieldsIP(ip)).
 			Debugf("IP already updated")
+		h.ipEnqueueAfter(ip.Namespace, ip.Name, defaultRequeue)
 		return ip, nil
 	}
 

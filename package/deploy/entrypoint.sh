@@ -1,10 +1,14 @@
 #!/bin/bash
 
-set -euo pipefail
-
 secret=${secret:-"rancher-flat-network-webhook-certs"}
 
+set -euo pipefail
+
 if [[ ${IS_MULTUS_INIT_CONTAINER:-} != "" ]]; then
+    if ! ls /host/etc/cni/net.d/00-multus.conf*; then
+        echo "Multus generated CNI config not exists, done."
+        exit 0
+    fi
     # Running as multus init container.
     echo "Start delete multus auto generated CNI config:"
     ls -al /host/etc/cni/net.d/00-multus.conf*

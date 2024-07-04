@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/cnrancher/rancher-flat-network-operator/pkg/utils"
 	"github.com/sirupsen/logrus"
@@ -12,6 +13,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	discoveryv1 "k8s.io/api/discovery/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -76,6 +78,13 @@ func (h *handler) syncServiceEndpoints(
 				endpoints.Namespace, endpoints.Name, endpoints.Subsets)
 		return nil
 	}); err != nil {
+		if apierrors.IsNotFound(err) {
+			// service is just created and the endpoint is not created, retry in few seconds.
+			h.serviceEnqueueAfter(svc.Namespace, svc.Name, time.Second)
+			logrus.WithFields(fieldsService(svc)).
+				Infof("endpoint of this is service not found, will retry")
+			return nil
+		}
 		return fmt.Errorf("failed to update corev1.Endpoints: %w", err)
 	}
 	if !h.supportDiscoveryV1 {
