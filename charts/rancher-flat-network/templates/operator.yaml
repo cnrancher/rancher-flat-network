@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: rancher-flat-network-operator
-  namespace: kube-system
+  namespace: cattle-flat-network
   labels:
     app: rancher-flat-network-operator
 spec:
@@ -14,7 +14,7 @@ spec:
       app: rancher-flat-network-operator
   template:
     metadata:
-      namespace: kube-system
+      namespace: cattle-flat-network
       labels:
         app: rancher-flat-network-operator
     spec:
@@ -58,7 +58,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: rancher-flat-network-webhook-svc
-  namespace: kube-system
+  namespace: cattle-flat-network
 spec:
   ports:
   - port: 443

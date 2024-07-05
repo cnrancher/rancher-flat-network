@@ -84,13 +84,13 @@ func NewContextOrDie(
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartLogging(logrus.Warnf)
 	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: clientSet.CoreV1().Events("")})
-	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: "flat-network-operator"})
+	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: "rancher-flat-network-operator"})
 
 	k8s, err := kubernetes.NewForConfig(restCfg)
 	if err != nil {
 		logrus.Fatalf("kubernetes.NewForConfig: %v", err)
 	}
-	leadership := leader.NewManager("kube-system", "flat-network-operator", k8s)
+	leadership := leader.NewManager("cattle-flat-network", "rancher-flat-network-operator", k8s)
 
 	supportDiscoveryV1, err := serverSupportDiscoveryV1(restCfg)
 	if err != nil {

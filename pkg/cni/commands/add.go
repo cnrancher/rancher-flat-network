@@ -58,7 +58,7 @@ func Add(args *skel.CmdArgs) error {
 			podNamespace, podName, err)
 	}
 
-	// The pod may just created and the IP is not allocated by flat-network-operator.
+	// The pod may just created and the IP is not allocated by operator.
 	var flatNetworkIP *flv1.FlatNetworkIP
 	if err := retry.OnError(retry.DefaultBackoff, errors.IsNotFound, func() error {
 		flatNetworkIP, err = client.GetFlatNetworkIP(context.TODO(), podNamespace, podName)
@@ -86,8 +86,7 @@ func Add(args *skel.CmdArgs) error {
 		return fmt.Errorf("failed to create host vlan of subnet [%v] on iface [%s.%d]: %w",
 			subnet.Name, subnet.Spec.Master, subnet.Spec.VLAN, err)
 	}
-	logrus.Infof("get vlan [%v] on host: %v",
-		vlanIface.Name, utils.Print(vlanIface))
+	logrus.Infof("host vlan interface: %v", utils.Print(vlanIface))
 
 	netns, err := ns.GetNS(args.Netns)
 	if err != nil {
@@ -119,21 +118,21 @@ func Add(args *skel.CmdArgs) error {
 	logrus.Infof("create flat network [%v] iface [%v] for pod [%v:%v]: %v",
 		subnet.Spec.FlatMode, iface.Name, podNamespace, podName, utils.Print(iface))
 
-	flatNetworkIP.Status.MAC, _ = net.ParseMAC(iface.Mac)
-	_, err = client.UpdateFlatNetworkIP(context.TODO(), podNamespace, flatNetworkIP)
-	if err != nil {
-		logrus.Errorf("failed to update flatNetworkIP: IPAM [%v]: %v",
-			n.IPAM.Type, err)
-		err2 := netns.Do(func(_ ns.NetNS) error {
-			return ip.DelLinkByName(iface.Name)
-		})
-		if err2 != nil {
-			logrus.Errorf("failed to uodate FlatNetworkIP DelLinkByName: %v \n", err2)
-		}
-		return err
-	}
-	logrus.Infof("update flatNetwork IP status MAC [%v]",
-		flatNetworkIP.Status.MAC.String())
+	// flatNetworkIP.Status.MAC, _ = net.ParseMAC(iface.Mac)
+	// _, err = client.UpdateFlatNetworkIP(context.TODO(), podNamespace, flatNetworkIP)
+	// if err != nil {
+	// 	logrus.Errorf("failed to update flatNetworkIP: IPAM [%v]: %v",
+	// 		n.IPAM.Type, err)
+	// 	err2 := netns.Do(func(_ ns.NetNS) error {
+	// 		return ip.DelLinkByName(iface.Name)
+	// 	})
+	// 	if err2 != nil {
+	// 		logrus.Errorf("failed to uodate FlatNetworkIP DelLinkByName: %v \n", err2)
+	// 	}
+	// 	return err
+	// }
+	// logrus.Infof("update flatNetwork IP status MAC [%v]",
+	// 	flatNetworkIP.Status.MAC.String())
 
 	// TODO:
 	// Delete link if err to avoid link leak in this ns
@@ -154,7 +153,7 @@ func Add(args *skel.CmdArgs) error {
 		return fmt.Errorf("failed to merge IPAM config on netConf [%v]: %w",
 			utils.Print(n), err)
 	}
-	logrus.Debugf("merged IPAM config: %v", utils.Print(ipamConf))
+	logrus.Debugf("merged IPAM config: %v", string(ipamConf))
 	r, err := ipam.ExecAdd(n.IPAM.Type, []byte(ipamConf))
 	if err != nil {
 		return fmt.Errorf("failed to execute ipam add, type: [%v] conf [%v]: %w",

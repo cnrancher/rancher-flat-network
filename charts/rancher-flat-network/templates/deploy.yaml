@@ -3,7 +3,7 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: rancher-flat-network-tls-rollout
-  namespace: kube-system
+  namespace: cattle-flat-network
 spec:
   template:
     metadata:
@@ -23,7 +23,7 @@ apiVersion: batch/v1
 kind: CronJob
 metadata:
   name: rancher-flat-network-tls-rollout
-  namespace: kube-system
+  namespace: cattle-flat-network
 spec:
   schedule: "{{ .Values.deploy.rolloutSchedule }}"
   jobTemplate:

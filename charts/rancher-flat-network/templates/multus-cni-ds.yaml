@@ -60,13 +60,13 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: rancher-flat-network-multus
-  namespace: kube-system
+  namespace: cattle-flat-network
 ---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: rancher-flat-network-multus
-  namespace: kube-system
+  namespace: cattle-flat-network
   annotations:
     "helm.sh/resource-policy": keep
 ---
@@ -74,7 +74,7 @@ apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   name: kube-multus-ds
-  namespace: kube-system
+  namespace: cattle-flat-network
   labels:
     tier: node
     app: multus

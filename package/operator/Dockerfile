@@ -9,8 +9,8 @@ RUN zypper update -y && \
     rm -rf /tmp/* /var/tmp/* /usr/share/doc/packages/* && \
     curl -sLf https://github.com/rancher/loglevel/releases/download/${LOGLEVEL_VERSION}/loglevel-${ARCH}-${LOGLEVEL_VERSION}.tar.gz | tar xvzf - -C /usr/bin
 
-RUN useradd --uid 1007 flat-network-operator
-ENV KUBECONFIG /home/flat-network-operator/.kube/config
+RUN useradd --uid 1007 rancher-flat-network-operator
+ENV KUBECONFIG /home/rancher-flat-network-operator/.kube/config
 COPY bin/rancher-flat-network-operator /usr/bin/
 COPY package/operator/entrypoint.sh /
 

@@ -35,7 +35,6 @@ go.work
 /bin/
 /build/
 /dist/
-/flat-network-operator
 /rancher-flat-network-operator
 
 # Generated code

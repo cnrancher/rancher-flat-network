@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	subnetNamespace   = "kube-system"
+	subnetNamespace   = "cattle-flat-network"
 	defaultKubeConfig = "/etc/cni/net.d/multus.d/multus.kubeconfig"
 )
 

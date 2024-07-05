@@ -38,13 +38,13 @@ To build and run this flat-network operator manually:
 1. Apply CRDs.
 
     ```console
-    $ kubectl apply -f ./charts/flat-network-operator-crd/templates/crd.yaml
+    $ kubectl apply -f ./charts/rancher-flat-network-operator-crd/templates/crd.yaml
     ```
 
 1. Build and run flat-network operator.
 
     ```console
-    $ go build . && ./flat-network-operator --webhook-server=false
+    $ go build . && ./rancher-flat-network-operator --webhook-server=false
     ```
 
 1. Launch another terminal to create example workloads.

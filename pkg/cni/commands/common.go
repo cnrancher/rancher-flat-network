@@ -45,21 +45,26 @@ func getVlanIfaceOnHost(
 			return iface, nil
 		}
 	}
+	logrus.Infof("vlan iface not found on host, will create")
 	return createVLANOnHost(master, mtu, ifName, vlanID)
 }
 
+// createVLANOnHost creates a VLAN interface <ifname>.<vlanID> (eth0.1) on root
+// network namespace.
 func createVLANOnHost(
 	master string, MTU int, ifName string, vlanID int,
 ) (*types100.Interface, error) {
 	rootNS, err := netns.Get()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get root network NS: %w", err)
+		return nil, fmt.Errorf(
+			"createVLANOnHost: failed to get root network NS: %w", err)
 	}
 	defer rootNS.Close()
 
 	m, err := netlink.LinkByName(master)
 	if err != nil {
-		return nil, fmt.Errorf("failed to lookup master %q: %v", master, err)
+		return nil, fmt.Errorf(
+			"createVLANOnHost: failed to lookup master %q: %v", master, err)
 	}
 
 	vlan := &netlink.Vlan{
@@ -72,20 +77,24 @@ func createVLANOnHost(
 		VlanId: vlanID,
 	}
 	if err := netlink.LinkAdd(vlan); err != nil {
-		return nil, fmt.Errorf("failed to create VLAN on %q: %w", ifName, err)
+		return nil, fmt.Errorf(
+			"createVLANOnHost: failed to create VLAN on %q: %w", ifName, err)
 	}
-	logrus.Infof("create vlan [%v] on host", ifName)
-
 	if err := netlink.LinkSetUp(vlan); err != nil {
 		netlink.LinkDel(vlan)
-		return nil, fmt.Errorf("failed to setup vlan on %q: %w", ifName, err)
+		return nil, fmt.Errorf(
+			"createVLANOnHost: failed to set vlan iface [%v] status UP: %w",
+			ifName, err)
 	}
+	logrus.Infof("create vlan interface [%v] on host", ifName)
 
 	// Re-fetch vlan to get all properties/attributes
 	contVlan, err := netlink.LinkByName(ifName)
 	if err != nil {
 		netlink.LinkDel(vlan)
-		return nil, fmt.Errorf("failed to refetch vlan on %q: %w", ifName, err)
+		return nil, fmt.Errorf(
+			"createVLANOnHost: failed to refetch vlan iface [%v]: %w",
+			ifName, err)
 	}
 	iface := &types100.Interface{
 		Name: ifName,

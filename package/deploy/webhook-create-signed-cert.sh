@@ -8,7 +8,7 @@ set -euo pipefail
 
 service=${service:-"rancher-flat-network-webhook-svc"}
 secret=${secret:-"rancher-flat-network-webhook-certs"}
-namespace=${namespace:-"kube-system"}
+namespace=${namespace:-"cattle-flat-network"}
 
 cd /certs
 

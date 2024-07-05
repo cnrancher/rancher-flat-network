@@ -1,7 +1,7 @@
 rancher_min_version: 2.9.0-0
 categories:
 - Networking
-namespace: kube-system
+namespace: cattle-flat-network
 questions:
 - variable: clusterType
   description: "Default or K3s"
@@ -51,7 +51,7 @@ questions:
   group: "CNI Plugin"
 - variable: flatNetworkOperator.limits.memory
   default: "512Mi"
-  description: "Maximum amount of memory to allocate per flat-network-operator pod"
+  description: "Maximum amount of memory to allocate per operator pod"
   type: string
   label: FlatNetwork Operator
   group: "Resource Limits"

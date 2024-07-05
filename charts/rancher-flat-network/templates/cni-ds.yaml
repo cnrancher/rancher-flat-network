@@ -3,7 +3,7 @@ apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   name: rancher-flat-network-cni-ds
-  namespace: kube-system
+  namespace: cattle-flat-network
   labels:
     name: rancher-flat-network-cni-ds
 spec:

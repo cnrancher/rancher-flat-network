@@ -19,8 +19,8 @@ fi
 
 if [[ ${IS_OPERATOR_INIT_CONTAINER:-} != "" ]]; then
     # Running as operator init container.
-    echo "Waiting for secret 'kube-system/${secret}' created..."
-    while !kubectl -n kube-system get secret $secret &> /dev/null
+    echo "Waiting for secret 'cattle-flat-network/${secret}' created..."
+    while !kubectl -n cattle-flat-network get secret $secret &> /dev/null
     do
         sleep 2
     done
@@ -34,7 +34,7 @@ echo
 if [[ ${ROLLOUT_FLATNETWORK_DEPLOYMENT:-} = "true" ]] && kubectl get deployment rancher-flat-network-operator &> /dev/null
 then
     echo "Restart rancher-flat-network-operator deployment..."
-    kubectl -n kube-system rollout restart deployment/rancher-flat-network-operator
+    kubectl -n cattle-flat-network rollout restart deployment/rancher-flat-network-operator
     echo
 fi
 

@@ -7,7 +7,7 @@ import (
 )
 
 const (
-	SubnetNamespace = "kube-system"
+	SubnetNamespace = "cattle-flat-network"
 
 	// Specification for Annotations
 	AnnotationPrefix             = "flatnetwork.pandaria.io/"

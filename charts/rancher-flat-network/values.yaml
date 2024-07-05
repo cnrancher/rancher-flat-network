@@ -13,7 +13,7 @@ clusterType: default
 flatNetworkOperator:
   replicas: 2
   cattleResyncDefault: ""
-  cattleDevMode: "false"
+  cattleDevMode: ""
   limits:
     memory: "512M"
   image:

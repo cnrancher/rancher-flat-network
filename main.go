@@ -71,9 +71,9 @@ func main() {
 	}
 	if version {
 		if utils.GitCommit != "" {
-			logrus.Infof("flat-network-operator %v - %v", utils.Version, utils.GitCommit)
+			logrus.Infof("rancher-flat-network-operator %v - %v", utils.Version, utils.GitCommit)
 		} else {
-			logrus.Infof("flat-network-operator %v", utils.Version)
+			logrus.Infof("rancher-flat-network-operator %v", utils.Version)
 		}
 		return
 	}

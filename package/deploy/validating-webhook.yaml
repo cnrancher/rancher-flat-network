@@ -5,7 +5,7 @@ metadata:
   labels:
     app: rancher-flat-network-operator
 webhooks:
-  - name: rancher-flat-network-subnets-validating-config.kube-system.svc.cluster.local
+  - name: rancher-flat-network-subnets-validating-config.cattle-flat-network.svc.cluster.local
     failurePolicy: Ignore
     admissionReviewVersions: ["v1", "v1beta1"]
     sideEffects: None
@@ -13,7 +13,7 @@ webhooks:
     clientConfig:
       service:
         name: rancher-flat-network-webhook-svc
-        namespace: kube-system
+        namespace: cattle-flat-network
         path: "/validate"
       caBundle: ${CA_BUNDLE}
     rules:
