@@ -167,7 +167,7 @@ func Add(args *skel.CmdArgs) error {
 			utils.Print(n), err)
 	}
 	logrus.Debugf("merged IPAM config: %v", string(ipamConf))
-	r, err := ipam.ExecAdd(n.IPAM.Type, []byte(ipamConf))
+	r, err := ipam.ExecAdd(n.IPAM.Type, ipamConf)
 	if err != nil {
 		return fmt.Errorf("failed to execute ipam add, type: [%v] conf [%v]: %w",
 			n.IPAM.Type, string(ipamConf), err)
@@ -176,7 +176,7 @@ func Add(args *skel.CmdArgs) error {
 	// Invoke ipam del if err to avoid ip leak
 	defer func() {
 		if err != nil {
-			ipam.ExecDel(n.IPAM.Type, []byte(ipamConf))
+			ipam.ExecDel(n.IPAM.Type, ipamConf)
 		}
 	}()
 

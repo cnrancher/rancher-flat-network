@@ -13,7 +13,7 @@ import (
 	"k8s.io/client-go/util/retry"
 )
 
-func (h *handler) handleIPRemove(s string, ip *flv1.FlatNetworkIP) (*flv1.FlatNetworkIP, error) {
+func (h *handler) handleIPRemove(_ string, ip *flv1.FlatNetworkIP) (*flv1.FlatNetworkIP, error) {
 	if ip == nil || ip.Name == "" {
 		return ip, nil
 	}

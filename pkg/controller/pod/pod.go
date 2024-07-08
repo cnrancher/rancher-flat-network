@@ -86,7 +86,7 @@ func (h *handler) handleError(
 }
 
 // sync ensures flat-network IP resource exists.
-func (h *handler) sync(name string, pod *corev1.Pod) (*corev1.Pod, error) {
+func (h *handler) sync(_ string, pod *corev1.Pod) (*corev1.Pod, error) {
 	// Skip non-flat-network pods
 	if !utils.IsPodEnabledFlatNetwork(pod) {
 		return pod, nil
@@ -177,7 +177,7 @@ func (h *handler) updatePodLabel(pod *corev1.Pod, ip *flv1.FlatNetworkIP) error 
 	labels[flv1.LabelSubnet] = annotationSubnet
 	labels[flv1.LabelSelectedIP] = ""
 	labels[flv1.LabelSelectedMac] = ""
-	labels[flv1.LabelFlatNetworkIPType] = "specific"
+	labels[flv1.LabelFlatNetworkIPType] = flv1.AllocateModeSpecific
 
 	if ip.Status.Addr != nil {
 		// IPv6 address contains invalid char ':'
@@ -187,8 +187,8 @@ func (h *handler) updatePodLabel(pod *corev1.Pod, ip *flv1.FlatNetworkIP) error 
 	if ip.Status.MAC != nil {
 		labels[flv1.LabelSelectedMac] = strings.ReplaceAll(ip.Status.MAC.String(), ":", "_")
 	}
-	if annotationIP == "auto" {
-		labels[flv1.LabelFlatNetworkIPType] = "auto"
+	if annotationIP == flv1.AllocateModeAuto {
+		labels[flv1.LabelFlatNetworkIPType] = flv1.AllocateModeAuto
 	}
 	skip := true
 	for k, v := range labels {

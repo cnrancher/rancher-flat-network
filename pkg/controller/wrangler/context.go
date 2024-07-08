@@ -123,16 +123,16 @@ func NewContextOrDie(
 	return c
 }
 
-func (w *Context) SupportDiscoveryV1() bool {
-	return w.supportDiscoveryV1
+func (c *Context) SupportDiscoveryV1() bool {
+	return c.supportDiscoveryV1
 }
 
-func (w *Context) SupportIngressV1() bool {
-	return w.supportIngressV1
+func (c *Context) SupportIngressV1() bool {
+	return c.supportIngressV1
 }
 
-func (w *Context) OnLeader(f func(ctx context.Context) error) {
-	w.leadership.OnLeader(f)
+func (c *Context) OnLeader(f func(ctx context.Context) error) {
+	c.leadership.OnLeader(f)
 }
 
 func (c *Context) WaitForCacheSyncOrDie(ctx context.Context) {

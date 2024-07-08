@@ -373,7 +373,7 @@ type endpointReource struct {
 }
 
 func (r *endpointReource) getEndpointSliceAddressType() (discoveryv1.AddressType, error) {
-	var t discoveryv1.AddressType = ""
+	var t discoveryv1.AddressType
 	for _, e := range r.endpoints {
 		if len(e.Addresses) == 0 {
 			continue

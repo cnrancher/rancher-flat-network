@@ -66,7 +66,6 @@ func (h *handler) syncCoreV1Endpoints(
 				endpoints.Name, utils.Print(addrs))
 		return nil
 	}); err != nil {
-
 		return fmt.Errorf("failed to update corev1.Endpoints: %w", err)
 	}
 

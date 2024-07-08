@@ -1,7 +1,7 @@
 package pod
 
 import (
-	"crypto/sha1"
+	"crypto/sha256"
 	"fmt"
 	"net"
 	"strings"
@@ -20,15 +20,15 @@ func (h *handler) newFlatNetworkIP(pod *corev1.Pod) (*flv1.FlatNetworkIP, error)
 	annotationIP := pod.Annotations[flv1.AnnotationIP]
 	annotationMAC := pod.Annotations[flv1.AnnotationMac]
 	annotationSubnet := pod.Annotations[flv1.AnnotationSubnet]
-	flatNetworkIPType := "specific"
+	flatNetworkIPType := flv1.AllocateModeSpecific
 
 	var (
 		ipAddrs  []net.IP
 		macAddrs []net.HardwareAddr
 	)
 	switch annotationIP {
-	case "auto":
-		flatNetworkIPType = "auto"
+	case flv1.AllocateModeAuto:
+		flatNetworkIPType = annotationIP
 	default:
 		spec := strings.Split(annotationIP, "-")
 		for _, s := range spec {
@@ -96,7 +96,7 @@ func (h *handler) newFlatNetworkIP(pod *corev1.Pod) (*flv1.FlatNetworkIP, error)
 }
 
 func calcHash(ip, mac string) string {
-	return fmt.Sprintf("hash-%x", sha1.Sum([]byte(ip+mac)))
+	return fmt.Sprintf("hash-%x", sha256.Sum256([]byte(ip+mac)))
 }
 
 func flatNetworkIPUpdated(a, b *flv1.FlatNetworkIP) bool {

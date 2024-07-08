@@ -3,8 +3,11 @@ package admission
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
+	"net"
 	"net/http"
+	"time"
 
 	"github.com/sirupsen/logrus"
 
@@ -53,14 +56,22 @@ func (s *Server) Run(ctx context.Context) error {
 	http.HandleFunc("/hostname", hostnameHandler)
 	http.HandleFunc("/validate", handler.ValidateHandler)
 	httpServer = &http.Server{
+		BaseContext: func(net.Listener) context.Context {
+			return ctx
+		},
 		Addr: addr,
 		TLSConfig: &tls.Config{
 			Certificates: []tls.Certificate{
 				pair,
 			},
+			MinVersion: tls.VersionTLS12,
 		},
+		ReadHeaderTimeout: time.Second * 10,
 	}
 	if err = httpServer.ListenAndServeTLS("", ""); err != nil {
+		if errors.Is(err, http.ErrServerClosed) {
+			return nil
+		}
 		return fmt.Errorf("failed to start admission web server: %w", err)
 	}
 	logrus.Infof("start listen flat-network admission webhook server on %v", addr)

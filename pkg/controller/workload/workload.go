@@ -37,7 +37,7 @@ type handler struct {
 	jobClient         batchcontroller.JobClient
 }
 
-var workloadHandler *handler = nil
+var workloadHandler *handler
 
 func Register(
 	ctx context.Context,
@@ -57,7 +57,7 @@ func Register(
 	wctx.Apps.StatefulSet().OnChange(ctx, handlerName, syncWorkload)
 }
 
-func syncWorkload[T Workload](name string, w T) (T, error) {
+func syncWorkload[T Workload](_ string, w T) (T, error) {
 	if workloadHandler == nil {
 		err := fmt.Errorf("failed to sync workload: handler not initialized")
 		logrus.WithFields(fieldsWorkload(w)).Error(err)
@@ -96,12 +96,12 @@ func getFlatNetworkLabel(w metav1.Object) (isFlatNetworkEnabled bool, labels map
 		subnet string
 	)
 	switch a[flv1.LabelFlatNetworkIPType] {
-	case "auto":
-		ipType = "auto"
+	case flv1.AllocateModeAuto:
+		ipType = flv1.AllocateModeAuto
 		isFlatNetworkEnabled = true
 	case "":
 	default:
-		ipType = "specific"
+		ipType = flv1.AllocateModeSpecific
 		isFlatNetworkEnabled = true
 	}
 	subnet = a[flv1.AnnotationSubnet]

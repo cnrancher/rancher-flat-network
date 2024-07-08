@@ -27,6 +27,9 @@ const (
 
 	LabelWorkloadSelector = "workload.user.cattle.io/workloadselector"
 	LabelProjectID        = "field.cattle.io/projectId"
+
+	AllocateModeAuto     = "auto"
+	AllocateModeSpecific = "specific"
 )
 
 // +genclient

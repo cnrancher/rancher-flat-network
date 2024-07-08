@@ -6,11 +6,11 @@ import (
 	"os"
 )
 
-func pingHandler(w http.ResponseWriter, req *http.Request) {
+func pingHandler(w http.ResponseWriter, _ *http.Request) {
 	w.Write([]byte("pong\n"))
 }
 
-func hostnameHandler(w http.ResponseWriter, req *http.Request) {
+func hostnameHandler(w http.ResponseWriter, _ *http.Request) {
 	n, err := os.Hostname()
 	if err != nil {
 		err := fmt.Errorf("failed to get hostname: %w", err)

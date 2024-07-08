@@ -14,7 +14,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	discoveryv1 "k8s.io/api/discovery/v1"
 	networkingv1 "k8s.io/api/networking/v1"
-	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
@@ -79,7 +79,7 @@ func main() {
 
 	ipConfig := newCRD(&flatnetworkv1.FlatNetworkIP{}, func(c crd.CRD) crd.CRD {
 		if c.Schema == nil {
-			c.Schema = &v1.JSONSchemaProps{}
+			c.Schema = &apiextensionsv1.JSONSchemaProps{}
 		}
 		c.ShortNames = []string{
 			"flatnetworkip",
@@ -90,7 +90,7 @@ func main() {
 	})
 	subnetConfig := newCRD(&flatnetworkv1.FlatNetworkSubnet{}, func(c crd.CRD) crd.CRD {
 		if c.Schema == nil {
-			c.Schema = &v1.JSONSchemaProps{}
+			c.Schema = &apiextensionsv1.JSONSchemaProps{}
 		}
 		c.ShortNames = []string{
 			"flatnetworksubnet",

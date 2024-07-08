@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/sirupsen/logrus"
 )
@@ -42,6 +43,7 @@ func (s *Server) ListenAndServe(ctx context.Context) error {
 		BaseContext: func(net.Listener) context.Context {
 			return ctx
 		},
+		ReadHeaderTimeout: time.Second * 30,
 	}
 	http.HandleFunc("/v1/loglevel", s.loglevel)
 	socketListener, err := net.Listen("unix", s.SocketLocation)

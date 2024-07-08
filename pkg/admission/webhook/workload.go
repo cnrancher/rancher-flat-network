@@ -29,15 +29,15 @@ type WorkloadReview struct {
 
 func (ar *WorkloadReview) PodTemplateAnnotations(key string) string {
 	switch ar.AdmissionReview.Request.Kind.Kind {
-	case "Deployment":
+	case kindDeployment:
 		return ar.Deployment.Spec.Template.Annotations[key]
-	case "DaemonSet":
+	case kindDaemonSet:
 		return ar.DaemonSet.Spec.Template.Annotations[key]
-	case "StatefulSet":
+	case kindStatefulSet:
 		return ar.StatefulSet.Spec.Template.Annotations[key]
-	case "CronJob":
+	case kindCronJob:
 		return ar.CronJob.Spec.JobTemplate.Spec.Template.Annotations[key]
-	case "Job":
+	case kindJob:
 		return ar.Job.Spec.Template.Annotations[key]
 	default:
 		return ""
@@ -141,7 +141,7 @@ func (h *Handler) validateAnnotationIP(workload *WorkloadReview) error {
 
 func parseAnnotationIPs(s string) ([]net.IP, error) {
 	ret := []net.IP{}
-	if s == "" || s == "auto" {
+	if s == "" || s == flatnetworkv1.AllocateModeAuto {
 		return ret, nil
 	}
 	ip := net.ParseIP(s)
@@ -253,7 +253,7 @@ func (h *Handler) validateAnnotationMac(workload *WorkloadReview) error {
 
 func parseAnnotationMacs(s string) ([]net.HardwareAddr, error) {
 	ret := []net.HardwareAddr{}
-	if s == "" || s == "auto" {
+	if s == "" || s == flatnetworkv1.AllocateModeAuto {
 		return ret, nil
 	}
 

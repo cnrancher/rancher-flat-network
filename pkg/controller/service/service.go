@@ -57,7 +57,7 @@ func Register(
 	wctx.Core.Service().OnChange(ctx, handlerName, h.syncService)
 }
 
-func (h *handler) syncService(name string, svc *corev1.Service) (*corev1.Service, error) {
+func (h *handler) syncService(_ string, svc *corev1.Service) (*corev1.Service, error) {
 	if svc == nil || svc.Name == "" || svc.DeletionTimestamp != nil {
 		return svc, nil
 	}

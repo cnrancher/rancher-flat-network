@@ -257,7 +257,7 @@ func (h *handler) onIPCreate(ip *flv1.FlatNetworkIP) (*flv1.FlatNetworkIP, error
 
 	macString := ip.Status.MAC.String()
 	if macString == "" {
-		macString = "auto"
+		macString = flv1.AllocateModeAuto
 	}
 	logrus.WithFields(fieldsIP(ip)).
 		Infof("allocated IP subnet [%v] MAC [%v] address [%v]",

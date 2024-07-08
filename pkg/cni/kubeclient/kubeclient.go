@@ -10,7 +10,7 @@ import (
 	"github.com/containernetworking/cni/pkg/skel"
 	cnitypes "github.com/containernetworking/cni/pkg/types"
 	"gopkg.in/k8snetworkplumbingwg/multus-cni.v4/pkg/types"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -31,14 +31,14 @@ type defaultKubeClient struct {
 var _ KubeClient = &defaultKubeClient{}
 
 type KubeClient interface {
-	GetPod(context.Context, string, string) (*v1.Pod, error)
+	GetPod(context.Context, string, string) (*corev1.Pod, error)
 
 	GetFlatNetworkIP(context.Context, string, string) (*flv1.FlatNetworkIP, error)
 	UpdateFlatNetworkIP(context.Context, string, *flv1.FlatNetworkIP) (*flv1.FlatNetworkIP, error)
 	GetFlatNetworkSubnet(context.Context, string) (*flv1.FlatNetworkSubnet, error)
 }
 
-func (d *defaultKubeClient) GetPod(ctx context.Context, namespace, name string) (*v1.Pod, error) {
+func (d *defaultKubeClient) GetPod(ctx context.Context, namespace, name string) (*corev1.Pod, error) {
 	return d.client.CoreV1().Pods(namespace).Get(ctx, name, metav1.GetOptions{})
 }
 
