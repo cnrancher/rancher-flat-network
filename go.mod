@@ -6,7 +6,7 @@ toolchain go1.22.2
 
 require (
 	github.com/antonfisher/nested-logrus-formatter v1.3.1
-	github.com/containernetworking/cni v1.2.0-rc1
+	github.com/containernetworking/cni v1.2.0
 	github.com/containernetworking/plugins v1.5.1
 	github.com/j-keck/arping v1.0.3
 	github.com/k8snetworkplumbingwg/network-attachment-definition-client v1.7.0
