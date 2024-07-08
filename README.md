@@ -3,8 +3,6 @@
 Rancher Flat-Network Operator (based on [Wrangler V2](https://github.com/rancher/wrangler/)) & CNI plugin for managing
 pods using the flat-networks (Macvlan/IPvlan).
 
-**THIS PROJECT IS CURRENTLY WORKING IN PROGRESS AND NOT AVAILABLE TO USE IN PRODUCTION YET.**
-
 ## Current Progress
 
 ### Operator
@@ -20,8 +18,8 @@ pods using the flat-networks (Macvlan/IPvlan).
 
 ### CNI
 
-- [ ] Macvlan & IPvlan support.
-- [ ] CNI Spec 1.0.0 support.
+- [X] Macvlan & IPvlan support.
+- [X] CNI Spec 1.0.0 support.
 
 ### Migrator
 
