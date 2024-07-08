@@ -6,6 +6,7 @@ package main
 import (
 	"context"
 	"flag"
+	"io"
 	"os"
 	"time"
 
@@ -24,6 +25,7 @@ import (
 	"github.com/rancher/wrangler/pkg/kubeconfig"
 	"github.com/rancher/wrangler/pkg/signals"
 	"github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus/hooks/writer"
 )
 
 var (
@@ -45,6 +47,26 @@ func init() {
 		TimestampFormat: time.DateTime,
 		// TimestampFormat: time.RFC3339Nano,
 		FieldsOrder: []string{"GID", "POD", "SVC", "IP", "SUBNET"},
+	})
+	logrus.SetOutput(io.Discard)
+	logrus.AddHook(&writer.Hook{
+		// Send logs with level higher than warning to stderr.
+		Writer: os.Stderr,
+		LogLevels: []logrus.Level{
+			logrus.PanicLevel,
+			logrus.FatalLevel,
+			logrus.ErrorLevel,
+			logrus.WarnLevel,
+		},
+	})
+	logrus.AddHook(&writer.Hook{
+		// Send info, debug and trace logs to stdout.
+		Writer: os.Stdout,
+		LogLevels: []logrus.Level{
+			logrus.TraceLevel,
+			logrus.InfoLevel,
+			logrus.DebugLevel,
+		},
 	})
 }
 

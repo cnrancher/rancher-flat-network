@@ -2,13 +2,86 @@ package ipvlan
 
 import (
 	"fmt"
+	"net"
 
-	"github.com/cnrancher/rancher-flat-network-operator/pkg/cni/types"
+	"github.com/cnrancher/rancher-flat-network-operator/pkg/utils"
 	types100 "github.com/containernetworking/cni/pkg/types/100"
 	"github.com/containernetworking/plugins/pkg/ip"
 	"github.com/containernetworking/plugins/pkg/ns"
+	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 )
+
+type Options struct {
+	Mode   string
+	Master string
+	MTU    int
+	IfName string
+	NetNS  ns.NetNS
+	MAC    net.HardwareAddr
+}
+
+func Create(o *Options) (*types100.Interface, error) {
+	mode, err := ModeFromString(o.Mode)
+	if err != nil {
+		return nil, err
+	}
+
+	m, err := netlink.LinkByName(o.Master)
+	if err != nil {
+		return nil, fmt.Errorf("failed to lookup master %q: %w",
+			o.Master, err)
+	}
+
+	// due to kernel bug we have to create with tmpname or it might
+	// collide with the name on the host and error out
+	tmpName, err := ip.RandomVethName()
+	if err != nil {
+		return nil, err
+	}
+
+	iv := &netlink.IPVlan{
+		LinkAttrs: netlink.LinkAttrs{
+			MTU:         o.MTU,
+			Name:        tmpName,
+			ParentIndex: m.Attrs().Index,
+			Namespace:   netlink.NsFd(int(o.NetNS.Fd())),
+		},
+		Mode: mode,
+	}
+
+	if err := netlink.LinkAdd(iv); err != nil {
+		return nil, fmt.Errorf("failed to create ipvlan: %v", err)
+	}
+
+	var result *types100.Interface
+	if err := o.NetNS.Do(func(_ ns.NetNS) error {
+		err := ip.RenameLink(tmpName, o.IfName)
+		if err != nil {
+			return fmt.Errorf("failed to rename ipvlan ifave to %q: %v", o.IfName, err)
+		}
+		logrus.Debugf("rename link %v to %v", tmpName, o.IfName)
+
+		// Re-fetch ipvlan to get all properties/attributes
+		ipvlan, err := netlink.LinkByName(o.IfName)
+		if err != nil {
+			netlink.LinkDel(iv)
+			return fmt.Errorf("failed to refetch ipvlan %q: %v", o.IfName, err)
+		}
+		logrus.Debugf("refetch macvlan link object: %v", utils.Print(ipvlan))
+
+		result = &types100.Interface{
+			Name:    o.IfName,
+			Mac:     ipvlan.Attrs().HardwareAddr.String(),
+			Sandbox: o.NetNS.Path(),
+		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
 
 func ModeToString(mode netlink.IPVlanMode) (string, error) {
 	switch mode {
@@ -19,7 +92,7 @@ func ModeToString(mode netlink.IPVlanMode) (string, error) {
 	case netlink.IPVLAN_MODE_L3S:
 		return "l3s", nil
 	default:
-		return "", fmt.Errorf("unknown ipvlan mode: %q", mode)
+		return "", fmt.Errorf("unknown ipvlan mode: %v", mode)
 	}
 }
 
@@ -34,80 +107,4 @@ func ModeFromString(s string) (netlink.IPVlanMode, error) {
 	default:
 		return 0, fmt.Errorf("unknown ipvlan mode: %q", s)
 	}
-}
-
-func CreateIpvlan(conf *types.NetConf, ifName string, netns ns.NetNS) (*types100.Interface, error) {
-	ipvlan := &types100.Interface{}
-
-	mode, err := ModeFromString(conf.FlatNetworkConfig.Mode)
-	if err != nil {
-		return nil, err
-	}
-
-	var m netlink.Link
-	// TODO:
-	// if conf.LinkContNs {
-	if false {
-		err = netns.Do(func(_ ns.NetNS) error {
-			m, err = netlink.LinkByName(conf.FlatNetworkConfig.Master)
-			return err
-		})
-	} else {
-		m, err = netlink.LinkByName(conf.FlatNetworkConfig.Master)
-	}
-	if err != nil {
-		return nil, fmt.Errorf("failed to lookup master %q: %v",
-			conf.FlatNetworkConfig.Master, err)
-	}
-
-	// due to kernel bug we have to create with tmpname or it might
-	// collide with the name on the host and error out
-	tmpName, err := ip.RandomVethName()
-	if err != nil {
-		return nil, err
-	}
-
-	mv := &netlink.IPVlan{
-		LinkAttrs: netlink.LinkAttrs{
-			MTU:         conf.FlatNetworkConfig.MTU,
-			Name:        tmpName,
-			ParentIndex: m.Attrs().Index,
-			Namespace:   netlink.NsFd(int(netns.Fd())),
-		},
-		Mode: mode,
-	}
-
-	// TODO: if conf.LinkContNs {
-	if false {
-		err = netns.Do(func(_ ns.NetNS) error {
-			return netlink.LinkAdd(mv)
-		})
-	} else {
-		if err := netlink.LinkAdd(mv); err != nil {
-			return nil, fmt.Errorf("failed to create ipvlan: %v", err)
-		}
-	}
-
-	err = netns.Do(func(_ ns.NetNS) error {
-		err := ip.RenameLink(tmpName, ifName)
-		if err != nil {
-			return fmt.Errorf("failed to rename ipvlan to %q: %v", ifName, err)
-		}
-		ipvlan.Name = ifName
-
-		// Re-fetch ipvlan to get all properties/attributes
-		contIpvlan, err := netlink.LinkByName(ipvlan.Name)
-		if err != nil {
-			return fmt.Errorf("failed to refetch ipvlan %q: %v", ipvlan.Name, err)
-		}
-		ipvlan.Mac = contIpvlan.Attrs().HardwareAddr.String()
-		ipvlan.Sandbox = netns.Path()
-
-		return nil
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	return ipvlan, nil
 }

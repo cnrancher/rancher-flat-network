@@ -108,16 +108,17 @@ func addEth0CustomRoutes(netns ns.NetNS, routes []flv1.Route) error {
 		return nil
 	}
 
-	logrus.Infof("addEth0CustomRoutes===")
 	err := netns.Do(func(_ ns.NetNS) error {
 		rs, err := netlink.RouteList(nil, netlink.FAMILY_V4)
 		if err != nil {
-			logrus.Debugf("%v", err)
+			logrus.Warnf("addEth0CustomRoutes: failed to list routes: %v", err)
 			return nil
 		}
 
+		if len(rs) == 0 {
+			return nil
+		}
 		originDefault := rs[0]
-
 		for _, v := range routes {
 			if v.Iface != "eth0" {
 				continue
@@ -146,12 +147,12 @@ func addEth0CustomRoutes(netns ns.NetNS, routes []flv1.Route) error {
 		return nil
 	})
 	if err != nil {
-		return fmt.Errorf("addEth0CustomRoutes=== error %v", err)
+		return fmt.Errorf("addEth0CustomRoutes: failed to add custom route: %w", err)
 	}
 	return nil
 }
 
-func changeDefaultGateway(netns ns.NetNS, serviceCidr string, gateway net.IP) error {
+func changeDefaultGateway(netns ns.NetNS, serviceCIDR string, gateway net.IP) error {
 	logrus.Infof("changeDefaultGateway: %s", gateway)
 	err := netns.Do(func(_ ns.NetNS) error {
 		routes, err := netlink.RouteList(nil, netlink.FAMILY_V4)
@@ -164,7 +165,7 @@ func changeDefaultGateway(netns ns.NetNS, serviceCidr string, gateway net.IP) er
 		// 1. delete default gateway
 		err = netlink.RouteDel(&originDefault)
 		if err != nil {
-			return fmt.Errorf("RouteDel: %v", err)
+			return fmt.Errorf("failed to delete default gw: %w", err)
 		}
 
 		// 2. add eth1 gateway
@@ -173,24 +174,28 @@ func changeDefaultGateway(netns ns.NetNS, serviceCidr string, gateway net.IP) er
 		eth1Route.Gw = gateway
 		err = netlink.RouteAdd(&eth1Route)
 		if err != nil {
-			return fmt.Errorf("RouteAdd: %v", err)
+			return fmt.Errorf("failed to add default route: %w", err)
 		}
-		// 3. add serviceCidr route
+
+		// 3. add serviceCIDR route
 		clusterRoute := originDefault
-		_, dst, err := net.ParseCIDR(serviceCidr)
+		_, dst, err := net.ParseCIDR(serviceCIDR)
 		if err != nil {
-			return fmt.Errorf("ParseCIDR: %v", err)
+			return fmt.Errorf("failed to parse CIDR %q: %w",
+				serviceCIDR, err)
 		}
 		clusterRoute.Dst = dst
 		err = netlink.RouteAdd(&clusterRoute)
 		if err != nil {
-			return fmt.Errorf("RouteAdd: %v", err)
+			return fmt.Errorf("failed to add serviceCIDR route: %w", err)
 		}
+
+		// TODO: 4. add clusterCIDR route
 
 		return nil
 	})
 	if err != nil {
-		return fmt.Errorf("changeDefaultGateway: %v", err)
+		return fmt.Errorf("changeDefaultGateway: %w", err)
 	}
 	return nil
 }

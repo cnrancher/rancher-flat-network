@@ -4,14 +4,12 @@ import (
 	"fmt"
 	"sort"
 	"strings"
-	"time"
 
 	"github.com/cnrancher/rancher-flat-network-operator/pkg/utils"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	discoveryv1 "k8s.io/api/discovery/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/util/retry"
 )
@@ -103,11 +101,6 @@ func (h *handler) syncDiscoveryV1EndpointSlice(
 					endpointSlice.Name, utils.Print(epSliceIPs))
 			return nil
 		}); err != nil {
-			if apierrors.IsNotFound(err) {
-				// Service just created and endpointSlice not create yet, retry
-				h.serviceEnqueueAfter(svc.Namespace, svc.Name, time.Second)
-				return nil
-			}
 			return fmt.Errorf("failed to update discoveryv1.EndpointSlice: %w", err)
 		}
 	}

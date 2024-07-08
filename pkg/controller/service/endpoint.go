@@ -2,14 +2,12 @@ package service
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/cnrancher/rancher-flat-network-operator/pkg/utils"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	discoveryv1 "k8s.io/api/discovery/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/util/retry"
@@ -68,13 +66,7 @@ func (h *handler) syncCoreV1Endpoints(
 				endpoints.Name, utils.Print(addrs))
 		return nil
 	}); err != nil {
-		if apierrors.IsNotFound(err) {
-			// service is just created and the endpoint is not create yet, retry
-			h.serviceEnqueueAfter(svc.Namespace, svc.Name, time.Second)
-			logrus.WithFields(fieldsService(svc)).
-				Infof("endpoint of this is service not found, will retry")
-			return nil
-		}
+
 		return fmt.Errorf("failed to update corev1.Endpoints: %w", err)
 	}
 

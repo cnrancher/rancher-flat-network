@@ -3,6 +3,7 @@ package service
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	flv1 "github.com/cnrancher/rancher-flat-network-operator/pkg/apis/flatnetwork.pandaria.io/v1"
 	"github.com/cnrancher/rancher-flat-network-operator/pkg/utils"
@@ -52,10 +53,20 @@ func (h *handler) handleFlatNetworkService(
 
 	// Update corev1.Endpoints of this service.
 	if err = h.syncCoreV1Endpoints(svc, resource); err != nil {
+		if apierrors.IsNotFound(err) {
+			// svc is just created, retry
+			h.serviceEnqueueAfter(svc.Namespace, svc.Name, time.Second)
+			return svc, nil
+		}
 		return svc, err
 	}
 	// Update discoveryv1.EndpointSlice of this service.
 	if err = h.syncDiscoveryV1EndpointSlice(svc, resource); err != nil {
+		if apierrors.IsNotFound(err) {
+			// svc is just created, retry
+			h.serviceEnqueueAfter(svc.Namespace, svc.Name, time.Second)
+			return svc, nil
+		}
 		return svc, err
 	}
 

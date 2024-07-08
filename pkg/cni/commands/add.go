@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/cnrancher/rancher-flat-network-operator/pkg/cni/ipvlan"
 	"github.com/cnrancher/rancher-flat-network-operator/pkg/cni/kubeclient"
 	"github.com/cnrancher/rancher-flat-network-operator/pkg/cni/logger"
 	"github.com/cnrancher/rancher-flat-network-operator/pkg/cni/macvlan"
@@ -40,6 +41,7 @@ func Add(args *skel.CmdArgs) error {
 	if err != nil {
 		return err
 	}
+	logrus.Debugf("cniNetConf: %v", utils.Print(n))
 	k8sArgs := &types.K8sArgs{}
 	if err := cnitypes.LoadArgs(args.Args, k8sArgs); err != nil {
 		return fmt.Errorf("failed to load k8s args: %w", err)
@@ -52,13 +54,8 @@ func Add(args *skel.CmdArgs) error {
 
 	podName := string(k8sArgs.K8S_POD_NAME)
 	podNamespace := string(k8sArgs.K8S_POD_NAMESPACE)
-	_, err = client.GetPod(context.TODO(), podNamespace, podName)
-	if err != nil {
-		return fmt.Errorf("failed to get pod [%v/%v]: %w",
-			podNamespace, podName, err)
-	}
-
 	// The pod may just created and the IP is not allocated by operator.
+	// Retry to wait a few seconds to let Operator allocate IP for pod.
 	var flatNetworkIP *flv1.FlatNetworkIP
 	if err := retry.OnError(retry.DefaultBackoff, errors.IsNotFound, func() error {
 		flatNetworkIP, err = client.GetFlatNetworkIP(context.TODO(), podNamespace, podName)
@@ -78,9 +75,15 @@ func Add(args *skel.CmdArgs) error {
 		return fmt.Errorf("failed to get FlatNetworkSubnet: %w", err)
 	}
 
+	// Set host master card to promiscuous mode.
+	// TODO: Add custom option for master iface promiscuous mode.
 	if err := setPromiscOn(subnet.Spec.Master); err != nil {
 		return fmt.Errorf("failed to set promisc on %v: %w", subnet.Spec.Master, err)
 	}
+
+	// Create/Get vlan interface on host network namespace.
+	// If the vlan ID is not 0, it will create a vlan iface [master].[vlanID]
+	// (eth0.1 for example) to transmit data in VLAN.
 	vlanIface, err := getVlanIfaceOnHost(subnet.Spec.Master, 0, subnet.Spec.VLAN)
 	if err != nil {
 		return fmt.Errorf("failed to create host vlan of subnet [%v] on iface [%s.%d]: %w",
@@ -98,6 +101,7 @@ func Add(args *skel.CmdArgs) error {
 	var iface *types100.Interface
 	switch subnet.Spec.FlatMode {
 	case FlatModeMacvlan:
+		// Create Macvlan network interface in container network namespace.
 		iface, err = macvlan.Create(&macvlan.Options{
 			Mode:   subnet.Spec.Mode,
 			Master: vlanIface.Name,
@@ -110,14 +114,24 @@ func Add(args *skel.CmdArgs) error {
 			return err
 		}
 	case FlatModeIPvlan:
+		// Create IPvlan network interface in container network namespace.
+		iface, err = ipvlan.Create(&ipvlan.Options{
+			Mode:   subnet.Spec.Mode,
+			Master: vlanIface.Name,
+			MTU:    n.FlatNetworkConfig.MTU,
+			IfName: args.IfName,
+			NetNS:  netns,
+			MAC:    flatNetworkIP.Status.MAC,
+		})
 	default:
-		return fmt.Errorf("unrecognized flat mode [%v], only [%v %v] supported",
+		return fmt.Errorf("unsupported flat mode [%v], only [%v, %v] supported",
 			subnet.Spec.FlatMode, FlatModeMacvlan, FlatModeIPvlan)
 	}
 
 	logrus.Infof("create flat network [%v] iface [%v] for pod [%v:%v]: %v",
 		subnet.Spec.FlatMode, iface.Name, podNamespace, podName, utils.Print(iface))
 
+	// TODO: Update FlatNetworkIP status MAC address if needed
 	// flatNetworkIP.Status.MAC, _ = net.ParseMAC(iface.Mac)
 	// _, err = client.UpdateFlatNetworkIP(context.TODO(), podNamespace, flatNetworkIP)
 	// if err != nil {
@@ -134,7 +148,6 @@ func Add(args *skel.CmdArgs) error {
 	// logrus.Infof("update flatNetwork IP status MAC [%v]",
 	// 	flatNetworkIP.Status.MAC.String())
 
-	// TODO:
 	// Delete link if err to avoid link leak in this ns
 	defer func() {
 		if err != nil {
@@ -160,7 +173,6 @@ func Add(args *skel.CmdArgs) error {
 			n.IPAM.Type, string(ipamConf), err)
 	}
 
-	// TODO:
 	// Invoke ipam del if err to avoid ip leak
 	defer func() {
 		if err != nil {
@@ -238,6 +250,7 @@ func Add(args *skel.CmdArgs) error {
 	if err := cnitypes.PrintResult(result, n.CNIVersion); err != nil {
 		return fmt.Errorf("failed to print result: %w", err)
 	}
+	logrus.Infof("result: %v", utils.Print(result))
 
 	return nil
 }

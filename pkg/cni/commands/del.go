@@ -22,6 +22,7 @@ func Del(args *skel.CmdArgs) error {
 	if err != nil {
 		return err
 	}
+	logrus.Debugf("cniNetConf: %v", utils.Print(n))
 
 	err = ipam.ExecDel(n.IPAM.Type, args.StdinData)
 	if err != nil {
