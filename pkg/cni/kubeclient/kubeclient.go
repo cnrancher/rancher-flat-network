@@ -32,25 +32,29 @@ var _ KubeClient = &defaultKubeClient{}
 
 type KubeClient interface {
 	GetPod(context.Context, string, string) (*corev1.Pod, error)
-
-	GetFlatNetworkIP(context.Context, string, string) (*flv1.FlatNetworkIP, error)
-	UpdateFlatNetworkIP(context.Context, string, *flv1.FlatNetworkIP) (*flv1.FlatNetworkIP, error)
-	GetFlatNetworkSubnet(context.Context, string) (*flv1.FlatNetworkSubnet, error)
+	GetIP(context.Context, string, string) (*flv1.FlatNetworkIP, error)
+	GetSubnet(context.Context, string) (*flv1.FlatNetworkSubnet, error)
+	UpdateIP(context.Context, string, *flv1.FlatNetworkIP) (*flv1.FlatNetworkIP, error)
+	UpdateIPStatus(context.Context, string, *flv1.FlatNetworkIP) (*flv1.FlatNetworkIP, error)
 }
 
 func (d *defaultKubeClient) GetPod(ctx context.Context, namespace, name string) (*corev1.Pod, error) {
 	return d.client.CoreV1().Pods(namespace).Get(ctx, name, metav1.GetOptions{})
 }
 
-func (d *defaultKubeClient) GetFlatNetworkIP(ctx context.Context, namespace, name string) (*flv1.FlatNetworkIP, error) {
+func (d *defaultKubeClient) GetIP(ctx context.Context, namespace, name string) (*flv1.FlatNetworkIP, error) {
 	return d.macvlanclientset.FlatnetworkV1().FlatNetworkIPs(namespace).Get(ctx, name, metav1.GetOptions{})
 }
 
-func (d *defaultKubeClient) UpdateFlatNetworkIP(ctx context.Context, namespace string, macvlanip *flv1.FlatNetworkIP) (*flv1.FlatNetworkIP, error) {
+func (d *defaultKubeClient) UpdateIP(ctx context.Context, namespace string, macvlanip *flv1.FlatNetworkIP) (*flv1.FlatNetworkIP, error) {
 	return d.macvlanclientset.FlatnetworkV1().FlatNetworkIPs(namespace).Update(ctx, macvlanip, metav1.UpdateOptions{})
 }
 
-func (d *defaultKubeClient) GetFlatNetworkSubnet(ctx context.Context, name string) (*flv1.FlatNetworkSubnet, error) {
+func (d *defaultKubeClient) UpdateIPStatus(ctx context.Context, namespace string, macvlanip *flv1.FlatNetworkIP) (*flv1.FlatNetworkIP, error) {
+	return d.macvlanclientset.FlatnetworkV1().FlatNetworkIPs(namespace).UpdateStatus(ctx, macvlanip, metav1.UpdateOptions{})
+}
+
+func (d *defaultKubeClient) GetSubnet(ctx context.Context, name string) (*flv1.FlatNetworkSubnet, error) {
 	return d.macvlanclientset.FlatnetworkV1().FlatNetworkSubnets(subnetNamespace).Get(ctx, name, metav1.GetOptions{})
 }
 

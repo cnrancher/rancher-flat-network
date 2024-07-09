@@ -214,7 +214,7 @@ func setPromiscOn(iface string) error {
 	if err = netlink.SetPromiscOn(link); err != nil {
 		return fmt.Errorf("netlink.SetPromiscOn failed on iface %q: %w", iface, err)
 	}
-	logrus.Infof("set promisc on link %v", iface)
+	logrus.Infof("set promisc on master link [%v]", iface)
 	return nil
 }
 

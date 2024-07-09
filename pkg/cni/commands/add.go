@@ -2,8 +2,10 @@ package commands
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
+	"time"
 
 	"github.com/cnrancher/rancher-flat-network-operator/pkg/cni/ipvlan"
 	"github.com/cnrancher/rancher-flat-network-operator/pkg/cni/kubeclient"
@@ -18,7 +20,8 @@ import (
 	"github.com/containernetworking/plugins/pkg/utils/sysctl"
 	"github.com/j-keck/arping"
 	"github.com/sirupsen/logrus"
-	"k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/util/retry"
 
 	flv1 "github.com/cnrancher/rancher-flat-network-operator/pkg/apis/flatnetwork.pandaria.io/v1"
@@ -29,6 +32,16 @@ import (
 const (
 	arpNotifyPolicy = "arp_notify"
 	arpingPolicy    = "arping"
+)
+
+var (
+	getPodRetry = wait.Backoff{
+		Steps:    10,
+		Duration: 100 * time.Millisecond,
+		Factor:   5.0,
+		Jitter:   0.1,
+	}
+	errIPNotAllocated = fmt.Errorf("pod IP not allocated")
 )
 
 func Add(args *skel.CmdArgs) error {
@@ -57,12 +70,17 @@ func Add(args *skel.CmdArgs) error {
 	// The pod may just created and the IP is not allocated by operator.
 	// Retry to wait a few seconds to let Operator allocate IP for pod.
 	var flatNetworkIP *flv1.FlatNetworkIP
-	if err := retry.OnError(retry.DefaultBackoff, errors.IsNotFound, func() error {
-		flatNetworkIP, err = client.GetFlatNetworkIP(context.TODO(), podNamespace, podName)
+	if err := retry.OnError(getPodRetry, shouldRetryOnFlatNetworkIP, func() error {
+		flatNetworkIP, err = client.GetIP(context.TODO(), podNamespace, podName)
 		if err != nil {
 			logrus.Warnf("failed to get FlatNetworkIP [%v/%v]: %v",
 				podNamespace, podName, err)
 			return err
+		}
+		if len(flatNetworkIP.Status.Addr) == 0 {
+			logrus.Infof("FlatNetworkIP [%v/%v] address not allocated by operator, will retry...",
+				podNamespace, podName)
+			return errIPNotAllocated
 		}
 		return nil
 	}); err != nil {
@@ -70,7 +88,13 @@ func Add(args *skel.CmdArgs) error {
 			podNamespace, podName, err)
 	}
 
-	subnet, err := client.GetFlatNetworkSubnet(context.TODO(), flatNetworkIP.Spec.Subnet)
+	if flatNetworkIP == nil || len(flatNetworkIP.Status.Addr) == 0 {
+		return fmt.Errorf("flatNetwork IP address not allocated")
+	}
+	logrus.Infof("flatNetworkIP [%v/%v] allocated address [%v]",
+		flatNetworkIP.Namespace, flatNetworkIP.Name, flatNetworkIP.Status.Addr.String())
+
+	subnet, err := client.GetSubnet(context.TODO(), flatNetworkIP.Spec.Subnet)
 	if err != nil {
 		return fmt.Errorf("failed to get FlatNetworkSubnet: %w", err)
 	}
@@ -148,7 +172,7 @@ func Add(args *skel.CmdArgs) error {
 	if err != nil {
 		logrus.Errorf("failed to parse created iface MAC address: %v", err)
 	}
-	_, err = client.UpdateFlatNetworkIP(context.TODO(), podNamespace, flatNetworkIP)
+	flatNetworkIP, err = client.UpdateIPStatus(context.TODO(), podNamespace, flatNetworkIP)
 	if err != nil {
 		logrus.Errorf("failed to update flatNetworkIP: IPAM [%v]: %v",
 			n.IPAM.Type, err)
@@ -273,4 +297,15 @@ func Add(args *skel.CmdArgs) error {
 	logrus.Infof("result: %v", utils.Print(result))
 
 	return nil
+}
+
+func shouldRetryOnFlatNetworkIP(err error) bool {
+	if apierrors.IsNotFound(err) {
+		return true
+	}
+	if errors.Is(err, errIPNotAllocated) {
+		return true
+	}
+
+	return false
 }

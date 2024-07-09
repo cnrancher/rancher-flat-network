@@ -55,7 +55,7 @@ func Check(args *skel.CmdArgs) error {
 	// The pod may just created and the IP is not allocated by operator.
 	var flatNetworkIP *flv1.FlatNetworkIP
 	if err := retry.OnError(retry.DefaultBackoff, errors.IsNotFound, func() error {
-		flatNetworkIP, err = client.GetFlatNetworkIP(context.TODO(), podNamespace, podName)
+		flatNetworkIP, err = client.GetIP(context.TODO(), podNamespace, podName)
 		if err != nil {
 			logrus.Warnf("failed to get FlatNetworkIP [%v/%v]: %v",
 				podNamespace, podName, err)
@@ -67,7 +67,7 @@ func Check(args *skel.CmdArgs) error {
 			podNamespace, podName, err)
 	}
 
-	subnet, err := client.GetFlatNetworkSubnet(context.TODO(), flatNetworkIP.Spec.Subnet)
+	subnet, err := client.GetSubnet(context.TODO(), flatNetworkIP.Spec.Subnet)
 	if err != nil {
 		return fmt.Errorf("failed to get FlatNetworkSubnet: %w", err)
 	}
