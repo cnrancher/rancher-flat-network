@@ -1,7 +1,7 @@
 # Macvlan/IPvlan master interface, automatic detection by default.
 iface: ""
 # ARP refresh policy
-arpPolicy: "arping"
+arpPolicy: "arp_notify"
 # Enable or disable Proxy ARP on Pod nic
 proxyARP: false
 # Pod CIDR, set to same value of the Kubernetes config.

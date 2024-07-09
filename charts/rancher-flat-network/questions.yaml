@@ -4,7 +4,7 @@ categories:
 namespace: cattle-flat-network
 questions:
 - variable: clusterType
-  description: "Default or K3s"
+  description: "Change here if using K3s cluster."
   default: "Default"
   type: enum
   label: "Cluster Type"
@@ -35,14 +35,14 @@ questions:
   label: "Pod Networking CIDR"
   group: "CNI Plugin"
 - variable: arpPolicy
-  default: "arping"
+  default: "arp_notify"
   description: "The policy of sending Gratuitous ARP"
   type: enum
   label: "ARP Refresh Policy"
   group: "CNI Plugin"
   options:
-  - "arping"
   - "arp_notify"
+  - "arping"
 - variable: proxyARP
   default: "false"
   description: "Enable or disable Proxy ARP on Pod nic"
