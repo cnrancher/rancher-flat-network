@@ -68,12 +68,12 @@ func (s *Server) Run(ctx context.Context) error {
 		},
 		ReadHeaderTimeout: time.Second * 10,
 	}
+	logrus.Infof("start listen flat-network admission webhook server on %v", addr)
 	if err = httpServer.ListenAndServeTLS("", ""); err != nil {
 		if errors.Is(err, http.ErrServerClosed) {
 			return nil
 		}
 		return fmt.Errorf("failed to start admission web server: %w", err)
 	}
-	logrus.Infof("start listen flat-network admission webhook server on %v", addr)
 	return nil
 }

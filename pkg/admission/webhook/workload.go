@@ -13,7 +13,7 @@ import (
 	batchv1 "k8s.io/api/batch/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	flatnetworkv1 "github.com/cnrancher/rancher-flat-network-operator/pkg/apis/flatnetwork.pandaria.io/v1"
+	flv1 "github.com/cnrancher/rancher-flat-network-operator/pkg/apis/flatnetwork.pandaria.io/v1"
 	"github.com/cnrancher/rancher-flat-network-operator/pkg/ipcalc"
 )
 
@@ -27,18 +27,18 @@ type WorkloadReview struct {
 	Job             batchv1.Job
 }
 
-func (ar *WorkloadReview) PodTemplateAnnotations(key string) string {
-	switch ar.AdmissionReview.Request.Kind.Kind {
+func (r *WorkloadReview) PodTemplateAnnotations(key string) string {
+	switch r.AdmissionReview.Request.Kind.Kind {
 	case kindDeployment:
-		return ar.Deployment.Spec.Template.Annotations[key]
+		return r.Deployment.Spec.Template.Annotations[key]
 	case kindDaemonSet:
-		return ar.DaemonSet.Spec.Template.Annotations[key]
+		return r.DaemonSet.Spec.Template.Annotations[key]
 	case kindStatefulSet:
-		return ar.StatefulSet.Spec.Template.Annotations[key]
+		return r.StatefulSet.Spec.Template.Annotations[key]
 	case kindCronJob:
-		return ar.CronJob.Spec.JobTemplate.Spec.Template.Annotations[key]
+		return r.CronJob.Spec.JobTemplate.Spec.Template.Annotations[key]
 	case kindJob:
-		return ar.Job.Spec.Template.Annotations[key]
+		return r.Job.Spec.Template.Annotations[key]
 	default:
 		return ""
 	}
@@ -52,25 +52,24 @@ func deserializeWorkloadReview(ar *admissionv1.AdmissionReview) (*WorkloadReview
 	}
 
 	switch ar.Request.Kind.Kind {
-	case "Deployment":
+	case kindDeployment:
 		err = json.Unmarshal(ar.Request.Object.Raw, &workload.Deployment)
 		workload.ObjectMeta = workload.Deployment.ObjectMeta
-	case "DaemonSet":
+	case kindDaemonSet:
 		err = json.Unmarshal(ar.Request.Object.Raw, &workload.DaemonSet)
 		workload.ObjectMeta = workload.DaemonSet.ObjectMeta
-	case "StatefulSet":
+	case kindStatefulSet:
 		err = json.Unmarshal(ar.Request.Object.Raw, &workload.StatefulSet)
 		workload.ObjectMeta = workload.StatefulSet.ObjectMeta
-	case "CronJob":
+	case kindCronJob:
 		err = json.Unmarshal(ar.Request.Object.Raw, &workload.CronJob)
 		workload.ObjectMeta = workload.CronJob.ObjectMeta
-	case "Job":
+	case kindJob:
 		err = json.Unmarshal(ar.Request.Object.Raw, &workload.Job)
 		workload.ObjectMeta = workload.Job.ObjectMeta
 	default:
-		return nil, fmt.Errorf("error deserialize workload admission request")
+		return nil, fmt.Errorf("unsupported workload kind %q", ar.Request.Kind.Kind)
 	}
-
 	if err != nil {
 		err = errors.Wrap(err, "error deserialize workload admission request")
 	}
@@ -81,33 +80,32 @@ func deserializeWorkloadReview(ar *admissionv1.AdmissionReview) (*WorkloadReview
 func (h *Handler) validateWorkload(ar *admissionv1.AdmissionReview) (bool, error) {
 	workload, err := deserializeWorkloadReview(ar)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("deserializeWorkloadReview: %w", err)
 	}
-
 	if workload.PodTemplateAnnotations("k8s.v1.cni.cncf.io/networks") == "" {
 		return true, nil
 	}
-
-	logrus.Debugf("webhook validateWorkload start : %s", workload.ObjectMeta.Name)
-	defer logrus.Debugf("webhook validateWorkload end")
-
+	if workload.PodTemplateAnnotations(flv1.AnnotationSubnet) == "" {
+		return true, nil
+	}
 	if h.isUpdatingWorkloadSubnetLabel(workload) {
 		return true, nil
 	}
 	if err := h.validateAnnotationIP(workload); err != nil {
-		return false, err
+		return false, fmt.Errorf("validateAnnotationIP: %w", err)
 	}
 	if err := h.validateAnnotationMac(workload); err != nil {
-		return false, err
+		return false, fmt.Errorf("validateAnnotationMac: %w", err)
 	}
 
-	logrus.Debugf("webhook validateWorkload check pass")
+	logrus.Infof("handle workload [%v] validate request [%v/%v]",
+		workload.AdmissionReview.Request.Kind.Kind, workload.ObjectMeta.Namespace, workload.ObjectMeta.Name)
 	return true, nil
 }
 
 func (h *Handler) validateAnnotationIP(workload *WorkloadReview) error {
 	// Check annotation IP format.
-	ips, err := parseAnnotationIPs(workload.PodTemplateAnnotations(flatnetworkv1.AnnotationIP))
+	ips, err := parseAnnotationIPs(workload.PodTemplateAnnotations(flv1.AnnotationIP))
 	if err != nil {
 		return err
 	}
@@ -122,7 +120,7 @@ func (h *Handler) validateAnnotationIP(workload *WorkloadReview) error {
 		return err
 	}
 	// Check the ip is available in subnet CIDR and not gateway
-	subnet, err := h.subnetCache.Get(flatnetworkv1.SubnetNamespace, workload.PodTemplateAnnotations(flatnetworkv1.AnnotationSubnet))
+	subnet, err := h.subnetCache.Get(flv1.SubnetNamespace, workload.PodTemplateAnnotations(flv1.AnnotationSubnet))
 	if err != nil {
 		return err
 	}
@@ -141,7 +139,7 @@ func (h *Handler) validateAnnotationIP(workload *WorkloadReview) error {
 
 func parseAnnotationIPs(s string) ([]net.IP, error) {
 	ret := []net.IP{}
-	if s == "" || s == flatnetworkv1.AllocateModeAuto {
+	if s == "" || s == flv1.AllocateModeAuto {
 		return ret, nil
 	}
 	ip := net.ParseIP(s)
@@ -178,7 +176,7 @@ func checkIPDuplicate(ips []net.IP) error {
 	return nil
 }
 
-func checkIPsInSubnet(ips []net.IP, subnet *flatnetworkv1.FlatNetworkSubnet) error {
+func checkIPsInSubnet(ips []net.IP, subnet *flv1.FlatNetworkSubnet) error {
 	if len(ips) == 0 {
 		return nil
 	}
@@ -205,7 +203,7 @@ func checkIPsInSubnet(ips []net.IP, subnet *flatnetworkv1.FlatNetworkSubnet) err
 	return nil
 }
 
-func checkIPsInUsed(ips []net.IP, subnet *flatnetworkv1.FlatNetworkSubnet) error {
+func checkIPsInUsed(ips []net.IP, subnet *flv1.FlatNetworkSubnet) error {
 	if len(ips) == 0 {
 		return nil
 	}
@@ -218,11 +216,11 @@ func checkIPsInUsed(ips []net.IP, subnet *flatnetworkv1.FlatNetworkSubnet) error
 }
 
 func (h *Handler) validateAnnotationMac(workload *WorkloadReview) error {
-	ips, err := parseAnnotationIPs(workload.PodTemplateAnnotations(flatnetworkv1.AnnotationIP))
+	ips, err := parseAnnotationIPs(workload.PodTemplateAnnotations(flv1.AnnotationIP))
 	if err != nil {
 		return err
 	}
-	macs, err := parseAnnotationMacs(workload.PodTemplateAnnotations(flatnetworkv1.AnnotationMac))
+	macs, err := parseAnnotationMacs(workload.PodTemplateAnnotations(flv1.AnnotationMac))
 	if err != nil {
 		return err
 	}
@@ -234,14 +232,14 @@ func (h *Handler) validateAnnotationMac(workload *WorkloadReview) error {
 	if len(ips) != 0 {
 		if len(macs) != len(ips) {
 			return fmt.Errorf("pod annotation defines %v MAC addresses but have %v IPs defined, "+
-				"the number of MACs and IPs are not same", len(ips), len(macs))
+				"the number of MACs and IPs are not same", len(macs), len(ips))
 		}
 	}
 
 	if err := checkMacDuplicate(macs); err != nil {
 		return err
 	}
-	subnet, err := h.subnetCache.Get(flatnetworkv1.SubnetNamespace, workload.PodTemplateAnnotations(flatnetworkv1.AnnotationSubnet))
+	subnet, err := h.subnetCache.Get(flv1.SubnetNamespace, workload.PodTemplateAnnotations(flv1.AnnotationSubnet))
 	if err != nil {
 		return err
 	}
@@ -253,7 +251,7 @@ func (h *Handler) validateAnnotationMac(workload *WorkloadReview) error {
 
 func parseAnnotationMacs(s string) ([]net.HardwareAddr, error) {
 	ret := []net.HardwareAddr{}
-	if s == "" || s == flatnetworkv1.AllocateModeAuto {
+	if s == "" || s == flv1.AllocateModeAuto {
 		return ret, nil
 	}
 
@@ -280,7 +278,7 @@ func checkMacDuplicate(macs []net.HardwareAddr) error {
 	return nil
 }
 
-func checkMACsIsInUsed(macs []net.HardwareAddr, subnet *flatnetworkv1.FlatNetworkSubnet) error {
+func checkMACsIsInUsed(macs []net.HardwareAddr, subnet *flv1.FlatNetworkSubnet) error {
 	if len(macs) == 0 || len(subnet.Status.UsedMAC) == 0 {
 		return nil
 	}
@@ -296,56 +294,52 @@ func checkMACsIsInUsed(macs []net.HardwareAddr, subnet *flatnetworkv1.FlatNetwor
 }
 
 func (h *Handler) isUpdatingWorkloadSubnetLabel(workload *WorkloadReview) bool {
+	name, namespace := workload.ObjectMeta.Name, workload.ObjectMeta.Namespace
 	switch workload.AdmissionReview.Request.Kind.Kind {
-	case "Deployment":
-		name, namespace := workload.Deployment.Name, workload.Deployment.Namespace
+	case kindDeployment:
 		old, err := h.deploymentCache.Get(namespace, name)
 		if err != nil {
 			return false
 		}
-		if old.Labels[flatnetworkv1.LabelFlatNetworkIPType] != workload.Deployment.Labels[flatnetworkv1.LabelFlatNetworkIPType] ||
-			old.Labels[flatnetworkv1.LabelSubnet] != workload.Deployment.Labels[flatnetworkv1.LabelSubnet] {
+		if old.Labels[flv1.LabelFlatNetworkIPType] != workload.Deployment.Labels[flv1.LabelFlatNetworkIPType] ||
+			old.Labels[flv1.LabelSubnet] != workload.Deployment.Labels[flv1.LabelSubnet] {
 			return true
 		}
-	case "DaemonSet":
-		name, namespace := workload.DaemonSet.Name, workload.DaemonSet.Namespace
+	case kindDaemonSet:
 		old, err := h.daemonSetCache.Get(namespace, name)
 		if err != nil {
 			logrus.Warnf("%v", err)
 			return false
 		}
-		if old.Labels[flatnetworkv1.LabelFlatNetworkIPType] != workload.DaemonSet.Labels[flatnetworkv1.LabelFlatNetworkIPType] ||
-			old.Labels[flatnetworkv1.LabelSubnet] != workload.DaemonSet.Labels[flatnetworkv1.LabelSubnet] {
+		if old.Labels[flv1.LabelFlatNetworkIPType] != workload.DaemonSet.Labels[flv1.LabelFlatNetworkIPType] ||
+			old.Labels[flv1.LabelSubnet] != workload.DaemonSet.Labels[flv1.LabelSubnet] {
 			return true
 		}
-	case "StatefulSet":
-		name, namespace := workload.StatefulSet.Name, workload.StatefulSet.Namespace
+	case kindStatefulSet:
 		old, err := h.statefulSetCache.Get(namespace, name)
 		if err != nil {
 			return false
 		}
-		if old.Labels[flatnetworkv1.LabelFlatNetworkIPType] != workload.StatefulSet.Labels[flatnetworkv1.LabelFlatNetworkIPType] ||
-			old.Labels[flatnetworkv1.LabelSubnet] != workload.StatefulSet.Labels[flatnetworkv1.LabelSubnet] {
+		if old.Labels[flv1.LabelFlatNetworkIPType] != workload.StatefulSet.Labels[flv1.LabelFlatNetworkIPType] ||
+			old.Labels[flv1.LabelSubnet] != workload.StatefulSet.Labels[flv1.LabelSubnet] {
 			return true
 		}
-	case "CronJob":
-		name, namespace := workload.CronJob.Name, workload.CronJob.Namespace
+	case kindCronJob:
 		old, err := h.cronJobCache.Get(namespace, name)
 		if err != nil {
 			return false
 		}
-		if old.Labels[flatnetworkv1.LabelFlatNetworkIPType] != workload.CronJob.Labels[flatnetworkv1.LabelFlatNetworkIPType] ||
-			old.Labels[flatnetworkv1.LabelSubnet] != workload.CronJob.Labels[flatnetworkv1.LabelSubnet] {
+		if old.Labels[flv1.LabelFlatNetworkIPType] != workload.CronJob.Labels[flv1.LabelFlatNetworkIPType] ||
+			old.Labels[flv1.LabelSubnet] != workload.CronJob.Labels[flv1.LabelSubnet] {
 			return true
 		}
-	case "Job":
-		name, namespace := workload.Job.Name, workload.Job.Namespace
+	case kindJob:
 		old, err := h.jobCache.Get(namespace, name)
 		if err != nil {
 			return false
 		}
-		if old.Labels[flatnetworkv1.LabelFlatNetworkIPType] != workload.Job.Labels[flatnetworkv1.LabelFlatNetworkIPType] ||
-			old.Labels[flatnetworkv1.LabelSubnet] != workload.Job.Labels[flatnetworkv1.LabelSubnet] {
+		if old.Labels[flv1.LabelFlatNetworkIPType] != workload.Job.Labels[flv1.LabelFlatNetworkIPType] ||
+			old.Labels[flv1.LabelSubnet] != workload.Job.Labels[flv1.LabelSubnet] {
 			return true
 		}
 	}

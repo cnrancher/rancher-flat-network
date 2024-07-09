@@ -3,16 +3,13 @@ package webhook
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 
+	"github.com/cnrancher/rancher-flat-network-operator/pkg/controller/wrangler"
 	"github.com/pkg/errors"
-
 	"github.com/sirupsen/logrus"
 	admissionv1 "k8s.io/api/admission/v1"
-
-	"github.com/cnrancher/rancher-flat-network-operator/pkg/controller/wrangler"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
@@ -94,7 +91,7 @@ func readAdmissionReview(req *http.Request) (*admissionv1.AdmissionReview, int, 
 	var body []byte
 
 	if req.Body != nil {
-		if data, err := ioutil.ReadAll(req.Body); err == nil {
+		if data, err := io.ReadAll(req.Body); err == nil {
 			body = data
 		}
 	}
