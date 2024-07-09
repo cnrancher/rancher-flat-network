@@ -66,7 +66,7 @@ func Test_allocateIP(t *testing.T) {
 				{
 					// Gateway IP address
 					From: net.ParseIP("10.128.0.1"),
-					End:  net.ParseIP("10.128.0.1"),
+					To:   net.ParseIP("10.128.0.1"),
 				},
 			},
 		},
@@ -86,7 +86,7 @@ func Test_allocateIP(t *testing.T) {
 	subnet.Spec.Ranges = []flv1.IPRange{
 		{
 			From: net.IPv4(10, 128, 1, 101),
-			End:  net.IPv4(10, 128, 1, 102),
+			To:   net.IPv4(10, 128, 1, 102),
 		},
 	}
 	allocatedIP, err = allocateIP(ip, subnet)
@@ -98,7 +98,7 @@ func Test_allocateIP(t *testing.T) {
 	subnet.Spec.Ranges = []flv1.IPRange{
 		{
 			From: net.IPv4(10, 128, 1, 101),
-			End:  net.IPv4(10, 128, 1, 102),
+			To:   net.IPv4(10, 128, 1, 102),
 		},
 	}
 	allocatedIP, err = allocateIP(ip, subnet)
@@ -110,7 +110,7 @@ func Test_allocateIP(t *testing.T) {
 	subnet.Spec.Ranges = []flv1.IPRange{
 		{
 			From: net.IPv4(10, 128, 1, 101),
-			End:  net.IPv4(10, 128, 1, 102),
+			To:   net.IPv4(10, 128, 1, 102),
 		},
 	}
 	allocatedIP, err = allocateIP(ip, subnet)
@@ -135,7 +135,7 @@ func Test_allocateIP(t *testing.T) {
 	subnet.Spec.Ranges = []flv1.IPRange{
 		{
 			From: net.IPv4(10, 128, 1, 101),
-			End:  net.IPv4(10, 128, 1, 102),
+			To:   net.IPv4(10, 128, 1, 102),
 		},
 	}
 	ip.Spec.Addrs = []net.IP{
@@ -172,7 +172,7 @@ func Test_allocateIP(t *testing.T) {
 	subnet.Spec.Ranges = []flv1.IPRange{
 		{
 			From: net.IPv4(10, 128, 1, 101),
-			End:  net.IPv4(10, 128, 1, 102),
+			To:   net.IPv4(10, 128, 1, 102),
 		},
 	}
 	subnet.Status.UsedIP = nil

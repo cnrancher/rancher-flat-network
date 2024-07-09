@@ -24,7 +24,7 @@ func Test_ip2UsedRanges(t *testing.T) {
 	assert.Equal(t, usedIPs, []flv1.IPRange{
 		{
 			From: net.ParseIP("10.1.2.3"),
-			End:  net.ParseIP("10.1.2.3"),
+			To:   net.ParseIP("10.1.2.3"),
 		},
 	})
 
@@ -38,7 +38,7 @@ func Test_ip2UsedRanges(t *testing.T) {
 	assert.Equal(t, usedIPs, []flv1.IPRange{
 		{
 			From: net.ParseIP("10.1.2.3"),
-			End:  net.ParseIP("10.1.2.4"),
+			To:   net.ParseIP("10.1.2.4"),
 		},
 	})
 
@@ -52,11 +52,11 @@ func Test_ip2UsedRanges(t *testing.T) {
 	assert.Equal(t, usedIPs, []flv1.IPRange{
 		{
 			From: net.ParseIP("10.1.2.3"),
-			End:  net.ParseIP("10.1.2.4"),
+			To:   net.ParseIP("10.1.2.4"),
 		},
 		{
 			From: net.ParseIP("10.10.1.1"),
-			End:  net.ParseIP("10.10.1.1"),
+			To:   net.ParseIP("10.10.1.1"),
 		},
 	})
 
@@ -70,11 +70,11 @@ func Test_ip2UsedRanges(t *testing.T) {
 	assert.Equal(t, usedIPs, []flv1.IPRange{
 		{
 			From: net.ParseIP("10.1.2.3"),
-			End:  net.ParseIP("10.1.2.4"),
+			To:   net.ParseIP("10.1.2.4"),
 		},
 		{
 			From: net.ParseIP("10.10.1.1"),
-			End:  net.ParseIP("10.10.1.2"),
+			To:   net.ParseIP("10.10.1.2"),
 		},
 	})
 }

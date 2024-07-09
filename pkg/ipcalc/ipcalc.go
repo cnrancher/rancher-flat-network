@@ -65,11 +65,11 @@ func IPInRanges(ip net.IP, ipRanges []flv1.IPRange) bool {
 	}
 
 	for _, ipRange := range ipRanges {
-		if ipRange.From == nil || ipRange.End == nil {
+		if ipRange.From == nil || ipRange.To == nil {
 			continue
 		}
 		start := ipRange.From.To16()
-		end := ipRange.End.To16()
+		end := ipRange.To.To16()
 		if bytes.Compare(a, start) >= 0 && bytes.Compare(a, end) <= 0 {
 			return true
 		}
@@ -91,12 +91,12 @@ func GetAvailableIP(
 	if len(ipRanges) > 0 {
 		for _, r := range ipRanges {
 			start := slices.Clone(r.From.To16())
-			end := r.End.To16()
+			end := r.To.To16()
 			// Skip the already used range to increase performance.
 			if len(usedIPs) != 0 {
 				for _, u := range usedIPs {
 					if u.From.Equal(start) {
-						start = slices.Clone(u.End.To16())
+						start = slices.Clone(u.To.To16())
 					}
 				}
 			}
@@ -125,7 +125,7 @@ func GetAvailableIP(
 	if len(usedIPs) != 0 {
 		for _, u := range usedIPs {
 			if u.From.Equal(start) {
-				start = slices.Clone(u.End.To16())
+				start = slices.Clone(u.To.To16())
 			}
 		}
 	}
@@ -157,7 +157,7 @@ func AddIPToRange(ip net.IP, ipRanges []flv1.IPRange) []flv1.IPRange {
 	}
 	for i := range ipRanges {
 		var s1 net.IP = bytes.Clone(ipRanges[i].From)
-		var s2 net.IP = bytes.Clone(ipRanges[i].End)
+		var s2 net.IP = bytes.Clone(ipRanges[i].To)
 		IPDecrease(s1)
 		IPIncrease(s2)
 		if ip.Equal(s1) {
@@ -165,13 +165,13 @@ func AddIPToRange(ip net.IP, ipRanges []flv1.IPRange) []flv1.IPRange {
 			return ipRanges
 		}
 		if ip.Equal(s2) {
-			ipRanges[i].End = s2
+			ipRanges[i].To = s2
 			return ipRanges
 		}
 	}
 	ipRanges = append(ipRanges, flv1.IPRange{
 		From: bytes.Clone(ip),
-		End:  bytes.Clone(ip),
+		To:   bytes.Clone(ip),
 	})
 	slices.SortFunc(ipRanges, func(a, b flv1.IPRange) int {
 		return bytes.Compare(a.From, b.From)
@@ -192,7 +192,7 @@ func RemoveIPFromRange(ip net.IP, ipRanges []flv1.IPRange) []flv1.IPRange {
 	newRanges := []flv1.IPRange{}
 	for _, r := range ipRanges {
 		start := r.From.To16()
-		end := r.End.To16()
+		end := r.To.To16()
 		a := bytes.Compare(start, ip)
 		b := bytes.Compare(end, ip)
 		switch {
@@ -203,31 +203,31 @@ func RemoveIPFromRange(ip net.IP, ipRanges []flv1.IPRange) []flv1.IPRange {
 			IPIncrease(s2)
 			newRanges = append(newRanges, flv1.IPRange{
 				From: start,
-				End:  s1,
+				To:   s1,
 			})
 			newRanges = append(newRanges, flv1.IPRange{
 				From: s2,
-				End:  end,
+				To:   end,
 			})
 		case a == 0 && b > 0:
 			var s1 net.IP = bytes.Clone(ip)
 			IPIncrease(s1)
 			newRanges = append(newRanges, flv1.IPRange{
 				From: s1,
-				End:  end,
+				To:   end,
 			})
 		case a < 0 && b == 0:
 			var s2 net.IP = bytes.Clone(ip)
 			IPDecrease(s2)
 			newRanges = append(newRanges, flv1.IPRange{
 				From: start,
-				End:  s2,
+				To:   s2,
 			})
 		case a == 0 && b == 0:
 		default:
 			newRanges = append(newRanges, flv1.IPRange{
 				From: start,
-				End:  end,
+				To:   end,
 			})
 		}
 	}
@@ -354,9 +354,9 @@ func CheckIPRangesConflict(ranges1, ranges2 []flv1.IPRange) error {
 
 func ipRangeConflict(r1, r2 flv1.IPRange) error {
 	a1 := r1.From.To16()
-	a2 := r1.End.To16()
+	a2 := r1.To.To16()
 	b1 := r2.From.To16()
-	b2 := r2.End.To16()
+	b2 := r2.To.To16()
 	if a1 == nil || a2 == nil {
 		return fmt.Errorf("invalid IP Range provided: %v", utils.Print(r1))
 	}

@@ -16,6 +16,9 @@ spec:
       - image: {{ template "system_default_registry" . }}{{ .Values.deploy.image.repository }}:{{ .Values.deploy.image.tag }}
         name: rancher-flat-network-deploy
         imagePullPolicy: {{ .Values.deploy.image.pullPolicy }}
+        env:
+        - name: ROLLOUT_FLATNETWORK_DEPLOYMENT
+          value: "true"
 
 ---
 # Run webhook deploy every month to renew certificate.

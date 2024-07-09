@@ -143,9 +143,14 @@ func (h *handler) onSubnetCreate(subnet *flv1.FlatNetworkSubnet) (*flv1.FlatNetw
 		return subnet, err
 	}
 
+	if subnet.Namespace != flv1.SubnetNamespace {
+		logrus.WithFields(fieldsSubnet(subnet)).
+			Errorf("subnet [%v/%v] namespace should be [%v]", subnet.Namespace, subnet.Name,
+				flv1.SubnetNamespace)
+	}
 	// Update subnet labels.
 	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		result, err := h.subnetCache.Get(flv1.SubnetNamespace, subnet.Name)
+		result, err := h.subnetCache.Get(subnet.Namespace, subnet.Name)
 		if err != nil {
 			logrus.WithFields(fieldsSubnet(subnet)).
 				Errorf("failed to get subnet from cache: %v", err)
@@ -324,6 +329,6 @@ func fieldsSubnet(subnet *flv1.FlatNetworkSubnet) logrus.Fields {
 	}
 	return logrus.Fields{
 		"GID":    utils.GID(),
-		"SUBNET": fmt.Sprintf("%v", subnet.Name),
+		"Subnet": fmt.Sprintf("%v", subnet.Name),
 	}
 }

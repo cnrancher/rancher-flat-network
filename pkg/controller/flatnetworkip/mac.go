@@ -11,6 +11,13 @@ import (
 )
 
 func alreadyAllocatedMAC(ip *flv1.FlatNetworkIP) bool {
+	// If user does not specify custom MAC address, return true directly.
+	if len(ip.Spec.MACs) == 0 {
+		return true
+	}
+
+	// If CNI not allocate MAC address for pod, check user specified custom
+	// mac addresses or not.
 	if len(ip.Status.MAC) == 0 {
 		return len(ip.Spec.MACs) == 0
 	}
@@ -34,7 +41,7 @@ func allocateMAC(
 		return ip.Status.MAC, nil
 	}
 
-	// Use custom Mac from multiple addresses.
+	// Use custom MAC from multiple addresses.
 	for _, m := range ip.Spec.MACs {
 		_, ok := slices.BinarySearchFunc(subnet.Status.UsedMAC, m, func(a, b net.HardwareAddr) int {
 			return bytes.Compare(a, b)

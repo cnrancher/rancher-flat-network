@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-export CA_BUNDLE=$(cat /certs/ca.pem | base64 - | tr -d '\n')
+export CA_BUNDLE=$(cat /certs/ca.crt | base64 -w0)
 
 if command -v envsubst &> /dev/null; then
     envsubst

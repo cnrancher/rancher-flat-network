@@ -68,7 +68,7 @@ func Create(o *Options) (*types100.Interface, error) {
 			netlink.LinkDel(iv)
 			return fmt.Errorf("failed to refetch ipvlan %q: %v", o.IfName, err)
 		}
-		logrus.Debugf("refetch macvlan link object: %v", utils.Print(ipvlan))
+		logrus.Debugf("refetch ipvlan link object: %v", utils.Print(ipvlan))
 
 		result = &types100.Interface{
 			Name:    o.IfName,
@@ -79,7 +79,6 @@ func Create(o *Options) (*types100.Interface, error) {
 	}); err != nil {
 		return nil, err
 	}
-
 	return result, nil
 }
 

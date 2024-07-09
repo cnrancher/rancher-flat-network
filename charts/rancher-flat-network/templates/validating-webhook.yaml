@@ -15,7 +15,6 @@ webhooks:
         name: rancher-flat-network-webhook-svc
         namespace: cattle-flat-network
         path: "/validate"
-      caBundle: ${CA_BUNDLE}
     rules:
       - operations: [ "CREATE", "UPDATE" ]
         apiGroups: [ "flatnetwork.pandaria.io" ]

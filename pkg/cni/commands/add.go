@@ -75,15 +75,29 @@ func Add(args *skel.CmdArgs) error {
 		return fmt.Errorf("failed to get FlatNetworkSubnet: %w", err)
 	}
 
-	// Set host master card to promiscuous mode.
-	// TODO: Add custom option for master iface promiscuous mode.
-	if err := setPromiscOn(subnet.Spec.Master); err != nil {
-		return fmt.Errorf("failed to set promisc on %v: %w", subnet.Spec.Master, err)
+	/**
+	 * FYI: https://github.com/moby/libnetwork/blob/c1865b811b6247cc0a52c4f7a253fc05372b3d89/docs/macvlan.md#macvlan-bridge-mode-example-usage
+	 * Any Macvlan container sharing the same subnet can communicate via IP to
+	 * any other container in the same subnet without a gateway. It is important
+	 * to note, that the parent will go into promiscuous mode when a container
+	 * is attached to the parent since each container has a unique MAC address.
+	 * Alternatively, Ipvlan which is currently an experimental driver uses the
+	 * same MAC address as the parent interface and thus precluding the need for
+	 * the parent being promiscuous.
+	 */
+	switch subnet.Spec.FlatMode {
+	case flv1.FlatModeMacvlan:
+		if err := setPromiscOn(subnet.Spec.Master); err != nil {
+			return fmt.Errorf("failed to set promisc on %v: %w", subnet.Spec.Master, err)
+		}
+	case flv1.FlatModeIPvlan:
+		// IPvlan does not need to set promiscuous mode enabled for master since
+		// all sub-interfaces are using the same MAC address.
 	}
 
 	// Create/Get vlan interface on host network namespace.
 	// If the vlan ID is not 0, it will create a vlan iface [master].[vlanID]
-	// (eth0.1 for example) to transmit data in VLAN.
+	// (eth0.100 for example) to separate broadcast domain.
 	vlanIface, err := getVlanIfaceOnHost(subnet.Spec.Master, 0, subnet.Spec.VLAN)
 	if err != nil {
 		return fmt.Errorf("failed to create host vlan of subnet [%v] on iface [%s.%d]: %w",
@@ -100,8 +114,7 @@ func Add(args *skel.CmdArgs) error {
 	// Start flatnetwork iface creation
 	var iface *types100.Interface
 	switch subnet.Spec.FlatMode {
-	case FlatModeMacvlan:
-		// Create Macvlan network interface in container network namespace.
+	case flv1.FlatModeMacvlan:
 		iface, err = macvlan.Create(&macvlan.Options{
 			Mode:   subnet.Spec.Mode,
 			Master: vlanIface.Name,
@@ -113,8 +126,7 @@ func Add(args *skel.CmdArgs) error {
 		if err != nil {
 			return err
 		}
-	case FlatModeIPvlan:
-		// Create IPvlan network interface in container network namespace.
+	case flv1.FlatModeIPvlan:
 		iface, err = ipvlan.Create(&ipvlan.Options{
 			Mode:   subnet.Spec.Mode,
 			Master: vlanIface.Name,
@@ -125,38 +137,42 @@ func Add(args *skel.CmdArgs) error {
 		})
 	default:
 		return fmt.Errorf("unsupported flat mode [%v], only [%v, %v] supported",
-			subnet.Spec.FlatMode, FlatModeMacvlan, FlatModeIPvlan)
+			subnet.Spec.FlatMode, flv1.FlatModeMacvlan, flv1.FlatModeIPvlan)
 	}
 
 	logrus.Infof("create flat network [%v] iface [%v] for pod [%v:%v]: %v",
 		subnet.Spec.FlatMode, iface.Name, podNamespace, podName, utils.Print(iface))
 
-	// TODO: Update FlatNetworkIP status MAC address if needed
-	// flatNetworkIP.Status.MAC, _ = net.ParseMAC(iface.Mac)
-	// _, err = client.UpdateFlatNetworkIP(context.TODO(), podNamespace, flatNetworkIP)
-	// if err != nil {
-	// 	logrus.Errorf("failed to update flatNetworkIP: IPAM [%v]: %v",
-	// 		n.IPAM.Type, err)
-	// 	err2 := netns.Do(func(_ ns.NetNS) error {
-	// 		return ip.DelLinkByName(iface.Name)
-	// 	})
-	// 	if err2 != nil {
-	// 		logrus.Errorf("failed to uodate FlatNetworkIP DelLinkByName: %v \n", err2)
-	// 	}
-	// 	return err
-	// }
-	// logrus.Infof("update flatNetwork IP status MAC [%v]",
-	// 	flatNetworkIP.Status.MAC.String())
+	flatNetworkIP = flatNetworkIP.DeepCopy()
+	flatNetworkIP.Status.MAC, err = net.ParseMAC(iface.Mac)
+	if err != nil {
+		logrus.Errorf("failed to parse created iface MAC address: %v", err)
+	}
+	_, err = client.UpdateFlatNetworkIP(context.TODO(), podNamespace, flatNetworkIP)
+	if err != nil {
+		logrus.Errorf("failed to update flatNetworkIP: IPAM [%v]: %v",
+			n.IPAM.Type, err)
+		if err := netns.Do(func(_ ns.NetNS) error {
+			return ip.DelLinkByName(iface.Name)
+		}); err != nil {
+			logrus.Errorf("ip.DelLinkByName failed: %v", err)
+		}
+		return err
+	}
+	logrus.Infof("update flatNetwork IP status MAC [%v]",
+		flatNetworkIP.Status.MAC.String())
 
 	// Delete link if err to avoid link leak in this ns
 	defer func() {
-		if err != nil {
-			err2 := netns.Do(func(_ ns.NetNS) error {
-				return ip.DelLinkByName(args.IfName)
-			})
-			if err2 != nil {
-				logrus.Infof("ipam.ExecDel: %v %v\n", n.IPAM.Type, err2)
-			}
+		if err == nil {
+			return
+		}
+
+		if err := netns.Do(func(_ ns.NetNS) error {
+			return ip.DelLinkByName(args.IfName)
+		}); err != nil {
+			logrus.Errorf("ipam.ExecDel failed on IPAM type %v in NS [%v]: %v",
+				n.IPAM.Type, int(netns.Fd()), err)
 		}
 	}()
 
@@ -173,10 +189,14 @@ func Add(args *skel.CmdArgs) error {
 			n.IPAM.Type, string(ipamConf), err)
 	}
 
-	// Invoke ipam del if err to avoid ip leak
+	// Invoke ipam del if err to avoid ip leak on default NS
 	defer func() {
-		if err != nil {
-			ipam.ExecDel(n.IPAM.Type, ipamConf)
+		if err == nil {
+			return
+		}
+		if err := ipam.ExecDel(n.IPAM.Type, ipamConf); err != nil {
+			logrus.Errorf("ipam.ExecDel failed on IPAM type %v in default NS: %v",
+				n.IPAM.Type, err)
 		}
 	}()
 
@@ -239,7 +259,7 @@ func Add(args *skel.CmdArgs) error {
 		return fmt.Errorf("failed to add eth0 custom routes: %w", err)
 	}
 
-	// Skip change gw if using single nic macvlan
+	// Skip change gw if using single NIC macvlan
 	if subnet.Spec.PodDefaultGateway.Enable && args.IfName == "eth1" {
 		err = changeDefaultGateway(netns, subnet.Spec.PodDefaultGateway.ServiceCIDR, subnet.Spec.Gateway)
 		if err != nil {

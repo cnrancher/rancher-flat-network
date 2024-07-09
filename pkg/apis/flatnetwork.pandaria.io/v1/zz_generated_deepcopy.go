@@ -157,8 +157,8 @@ func (in *IPRange) DeepCopyInto(out *IPRange) {
 		*out = make(net.IP, len(*in))
 		copy(*out, *in)
 	}
-	if in.End != nil {
-		in, out := &in.End, &out.End
+	if in.To != nil {
+		in, out := &in.To, &out.To
 		*out = make(net.IP, len(*in))
 		copy(*out, *in)
 	}

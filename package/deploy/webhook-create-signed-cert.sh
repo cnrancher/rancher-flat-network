@@ -1,92 +1,63 @@
 #!/bin/bash
 
-# FYI:
-#   1. https://kubernetes.io/docs/tasks/administer-cluster/certificates/
-#   2. https://gist.github.com/tirumaraiselvan/b7eb1831d25dd9d59a785c11bd46c84b
+# FYI: https://kubernetes.io/docs/tasks/administer-cluster/certificates/
 
 set -euo pipefail
+
+cd /certs
+
+type easyrsa3/easyrsa
+type dig
+type kubectl
 
 service=${service:-"rancher-flat-network-webhook-svc"}
 secret=${secret:-"rancher-flat-network-webhook-certs"}
 namespace=${namespace:-"cattle-flat-network"}
 
-cd /certs
+MASTER_IP=${KUBERNETES_SERVICE_HOST:-}
+if [[ -z "${MASTER_IP:-}" ]]; then
+    MASTER_IP=$(dig +short kubernetes.default.svc.cluster.local | head -n 1)
+fi
 
-# 8760h == 365d
-cat > ca-config.json <<EOF
-{
-  "signing": {
-    "default": {
-      "expiry": "8760h"
-    },
-    "profiles": {
-      "rancher-flat-network-webhook-server": {
-        "usages": ["signing", "key encipherment", "server auth", "client auth"],
-        "expiry": "8760h"
-      }
-    }
-  }
-}
-EOF
+if [[ -z ${MASTER_IP:-} ]]; then
+    echo "Failed to get Cluster master IP"
+    exit 1
+fi
 
-cat > ca-csr.json <<EOF
-{
-  "CN": "Rancher FlatNetwork Operator Webhook CA",
-  "key": {
-    "algo": "rsa",
-    "size": 2048
-  },
-  "names": [
-    {
-      "C": "CN",
-      "L": "Shenyang",
-      "O": "SUSE",
-      "OU": "SUSE Rancher CA",
-      "ST": "LiaoNing"
-    }
-  ]
-}
-EOF
+pushd easyrsa3
 
-cfssl gencert -initca ca-csr.json | cfssljson -bare ca
+echo "Init PKI..."
+echo yes | ./easyrsa init-pki
+echo "-------------------------------------------------------"
 
-# Results: ca-key.pem ca.pem
+echo "Build CA..."
+./easyrsa --batch "--req-cn=${MASTER_IP}@`date +%s`" build-ca nopass
+echo "-------------------------------------------------------"
 
-cat > server-csr.json <<EOF
-{
-  "CN": "Rancher FlatNetwork Operator Webhook Cert",
-  "key": {
-    "algo": "rsa",
-    "size": 2048
-  },
-  "hosts": [
-    "${service}",
-    "${service}.${namespace}",
-    "${service}.${namespace}.svc",
-    "${service}.${namespace}.svc.cluster",
-    "${service}.${namespace}.svc.cluster.local"
-  ],
-  "names": [
-    {
-      "C": "CN",
-      "L": "Shenyang",
-      "O": "SUSE",
-      "OU": "SUSE Rancher",
-      "ST": "Liaoning"
-    }
-  ]
-}
-EOF
+echo "Generate cert..."
+echo yes | ./easyrsa --subject-alt-name="IP:${MASTER_IP},"\
+"DNS:${service},"\
+"DNS:${service}.${namespace},"\
+"DNS:${service}.${namespace}.svc,"\
+"DNS:${service}.${namespace}.svc.cluster,"\
+"DNS:${service}.${namespace}.svc.cluster.local" \
+    --days=365 \
+    build-server-full server nopass
 
-cfssl gencert \
-    -ca=ca.pem \
-    -ca-key=ca-key.pem \
-    -config=ca-config.json \
-    -profile=rancher-flat-network-webhook-server \
-    server-csr.json | cfssljson -bare server
+cp pki/ca.crt ../
+cp pki/issued/server.crt ../
+cp pki/private/server.key ../
+rm -r pki
 
-# Results: server-key.pem server.pem
+popd
+
+echo '----------------------------'
+ls -alh
+echo '----------------------------'
 
 # Rotate TLS secret for server
-kubectl delete -n ${namespace} secret ${secret} &> /dev/null || true
-kubectl create -n ${namespace} secret tls ${secret} --cert=server.pem --key=server-key.pem
+echo "Applying TLS secret..."
+if kubectl -n ${namespace} get secret ${secret} &> /dev/null; then
+    kubectl delete -n ${namespace} secret ${secret}
+fi
+kubectl create -n ${namespace} secret tls ${secret} --cert=server.crt --key=server.key

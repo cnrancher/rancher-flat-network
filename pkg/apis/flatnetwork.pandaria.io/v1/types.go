@@ -20,7 +20,6 @@ const (
 
 	// Specification for Labels
 	LabelSelectedIP        = "flatnetwork.pandaria.io/selectedIP"
-	LabelMultipleIPHash    = "flatnetwork.pandaria.io/multipleIPHash"
 	LabelSubnet            = "flatnetwork.pandaria.io/subnet"
 	LabelFlatNetworkIPType = "flatnetwork.pandaria.io/flatNetworkIPType"
 	LabelSelectedMac       = "flatnetwork.pandaria.io/selectedMac"
@@ -30,6 +29,9 @@ const (
 
 	AllocateModeAuto     = "auto"
 	AllocateModeSpecific = "specific"
+
+	FlatModeIPvlan  = "ipvlan"
+	FlatModeMacvlan = "macvlan"
 )
 
 // +genclient
@@ -66,7 +68,8 @@ type IPStatus struct {
 	// Addr is the allocated IP address.
 	Addr net.IP `json:"addr"`
 
-	// MAC is the allocated (user specified only) MAC addr
+	// MAC is actual allocated MAC address by CNI
+	// can be random in auto mode, or specidied by user.
 	MAC net.HardwareAddr `json:"mac"`
 }
 
@@ -98,7 +101,9 @@ type SubnetSpec struct {
 	CIDR string `json:"cidr"`
 
 	// Mode is the network mode for macvlan/ipvlan.
-	// Should be 'bridge'.
+	//
+	// macvlan: 'bridge, vepa, private, passthru' (default 'bridge');
+	// ipvlan: 'l2, l3, l3s' (default 'l2');
 	Mode string `json:"mode"`
 
 	// Gateway is the gateway of the subnet (optional).
@@ -143,5 +148,5 @@ type PodDefaultGateway struct {
 
 type IPRange struct {
 	From net.IP `json:"from"`
-	End  net.IP `json:"end"`
+	To   net.IP `json:"to"`
 }

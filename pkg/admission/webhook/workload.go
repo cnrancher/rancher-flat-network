@@ -308,7 +308,6 @@ func (h *Handler) isUpdatingWorkloadSubnetLabel(workload *WorkloadReview) bool {
 	case kindDaemonSet:
 		old, err := h.daemonSetCache.Get(namespace, name)
 		if err != nil {
-			logrus.Warnf("%v", err)
 			return false
 		}
 		if old.Labels[flv1.LabelFlatNetworkIPType] != workload.DaemonSet.Labels[flv1.LabelFlatNetworkIPType] ||

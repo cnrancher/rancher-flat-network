@@ -115,10 +115,10 @@ spec:
               ranges:
                 items:
                   properties:
-                    end:
+                    from:
                       nullable: true
                       type: string
-                    from:
+                    to:
                       nullable: true
                       type: string
                   type: object
@@ -156,10 +156,10 @@ spec:
               usedIP:
                 items:
                   properties:
-                    end:
+                    from:
                       nullable: true
                       type: string
-                    from:
+                    to:
                       nullable: true
                       type: string
                   type: object

@@ -22,7 +22,7 @@ func isValidRanges(subnet *flv1.FlatNetworkSubnet) bool {
 
 	for _, r := range subnet.Spec.Ranges {
 		s1 := r.From.To16()
-		s2 := r.End.To16()
+		s2 := r.To.To16()
 		if s1 == nil || s2 == nil {
 			return false
 		}

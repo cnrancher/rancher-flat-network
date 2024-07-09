@@ -20,11 +20,6 @@ import (
 	"github.com/containernetworking/cni/pkg/types/create"
 )
 
-const (
-	FlatModeMacvlan = "macvlan"
-	FlatModeIPvlan  = "ipvlan"
-)
-
 func getVlanIfaceOnHost(
 	master string, mtu int, vlanID int,
 ) (*types100.Interface, error) {
@@ -45,7 +40,6 @@ func getVlanIfaceOnHost(
 			return iface, nil
 		}
 	}
-	logrus.Infof("vlan iface not found on host, will create")
 	return createVLANOnHost(master, mtu, ifName, vlanID)
 }
 
