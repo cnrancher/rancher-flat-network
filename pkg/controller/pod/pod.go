@@ -110,7 +110,7 @@ func (h *handler) sync(_ string, pod *corev1.Pod) (*corev1.Pod, error) {
 	}
 	if flatnetworkIP == nil || flatnetworkIP.Status.Phase != "Active" {
 		logrus.WithFields(fieldsPod(pod)).
-			Infof("waiting for flat-network IP status to active")
+			Debugf("waiting for flat-network IP status to active")
 
 		// Requeue in few seconds to wait for IP status active.
 		// This will not block the pod creation process and just waiting for
@@ -173,7 +173,6 @@ func (h *handler) updatePodLabel(pod *corev1.Pod, ip *flv1.FlatNetworkIP) error 
 	annotationMac := pod.Annotations[flv1.AnnotationMac]
 
 	labels := map[string]string{}
-	labels[flv1.LabelMultipleIPHash] = calcHash(annotationIP, annotationMac)
 	labels[flv1.LabelSubnet] = annotationSubnet
 	labels[flv1.LabelSelectedIP] = ""
 	labels[flv1.LabelSelectedMac] = ""
@@ -184,7 +183,7 @@ func (h *handler) updatePodLabel(pod *corev1.Pod, ip *flv1.FlatNetworkIP) error 
 		s := ip.Status.Addr.String()
 		labels[flv1.LabelSelectedIP] = strings.ReplaceAll(s, ":", ".")
 	}
-	if ip.Status.MAC != nil {
+	if ip.Status.MAC != nil && annotationMac != "" {
 		labels[flv1.LabelSelectedMac] = strings.ReplaceAll(ip.Status.MAC.String(), ":", "_")
 	}
 	if annotationIP == flv1.AllocateModeAuto {
@@ -229,7 +228,7 @@ func (h *handler) updatePodLabel(pod *corev1.Pod, ip *flv1.FlatNetworkIP) error 
 		return err
 	}
 	logrus.WithFields(fieldsPod(pod)).
-		Infof("finished syncing pod flat network label")
+		Debugf("finished syncing pod flat network label")
 
 	return nil
 }

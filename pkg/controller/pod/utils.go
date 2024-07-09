@@ -1,7 +1,6 @@
 package pod
 
 import (
-	"crypto/sha256"
 	"fmt"
 	"net"
 	"strings"
@@ -40,7 +39,7 @@ func (h *handler) newFlatNetworkIP(pod *corev1.Pod) (*flv1.FlatNetworkIP, error)
 			ipAddrs = append(ipAddrs, a)
 		}
 	}
-	if annotationMAC != "" {
+	if annotationMAC != "" && annotationMAC != "auto" {
 		spec := strings.Split(annotationIP, "-")
 		for _, s := range spec {
 			a, err := net.ParseMAC(s)
@@ -93,10 +92,6 @@ func (h *handler) newFlatNetworkIP(pod *corev1.Pod) (*flv1.FlatNetworkIP, error)
 		flatNetworkIP.Annotations[flv1.AnnotationsIPv6to4] = "true"
 	}
 	return flatNetworkIP, nil
-}
-
-func calcHash(ip, mac string) string {
-	return fmt.Sprintf("hash-%x", sha256.Sum256([]byte(ip+mac)))
 }
 
 func flatNetworkIPUpdated(a, b *flv1.FlatNetworkIP) bool {

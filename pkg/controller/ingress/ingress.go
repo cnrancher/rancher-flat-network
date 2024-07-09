@@ -141,7 +141,7 @@ func fieldsIngress(ingress *networkingv1.Ingress) logrus.Fields {
 		return logrus.Fields{}
 	}
 	return logrus.Fields{
-		"GID": utils.GID(),
-		"IP":  fmt.Sprintf("%v/%v", ingress.Namespace, ingress.Name),
+		"GID":     utils.GID(),
+		"Ingress": fmt.Sprintf("%v/%v", ingress.Namespace, ingress.Name),
 	}
 }

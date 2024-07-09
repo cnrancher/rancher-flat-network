@@ -83,7 +83,7 @@ func (h *handler) syncDiscoveryV1EndpointSlice(
 			}
 			if addressType != endpointSlice.AddressType {
 				logrus.WithFields(fieldsService(svc)).
-					Warnf("skip to update endpointSlice [%v]: address type changed to IPv6, skip",
+					Infof("skip to update endpointSlice [%v]: address type changed to IPv6, skip",
 						endpointSlice.Name)
 				return nil
 			}
