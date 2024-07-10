@@ -14,6 +14,19 @@ const (
 	PodVethIface = "veth0"
 )
 
+var (
+	ipv4Mask = net.IPv4Mask(255, 255, 255, 255)
+	ipv6Mask net.IPMask
+)
+
+func init() {
+	// PodIP is IPv6, set IPv6 mask
+	ipv6Mask = make(net.IPMask, net.IPv6len)
+	for i := range ipv6Mask {
+		ipv6Mask[i] = 0xff
+	}
+}
+
 // CreatePairForPod creates an veth pair between pod and host to allow host
 // has ability to access to pod directly.
 func CreatePairForPod(netns ns.NetNS, master string, podIP net.IP) error {
@@ -66,16 +79,13 @@ func CreatePairForPod(netns ns.NetNS, master string, podIP net.IP) error {
 		LinkIndex: veth1Link.Attrs().Index,
 		Dst: &net.IPNet{
 			IP:   podIP,
-			Mask: net.IPv4Mask(255, 255, 255, 255),
+			Mask: ipv4Mask,
 		},
 	}
+	family := netlink.FAMILY_V4
 	if podIP.To4() == nil {
-		// PodIP is IPv6, set IPv6 mask
-		p := make(net.IPMask, net.IPv6len)
-		for i := range p {
-			p[i] = 0xff
-		}
-		r.Dst.Mask = p
+		r.Dst.Mask = ipv6Mask
+		family = netlink.FAMILY_V6
 	}
 	if err = netlink.RouteAdd(r); err != nil {
 		return fmt.Errorf("failed to add route [%v] for link [%v]: %w",
@@ -85,7 +95,7 @@ func CreatePairForPod(netns ns.NetNS, master string, podIP net.IP) error {
 		podIP.String(), veth1)
 
 	// List master addrs
-	masterAddrs, err := netlink.AddrList(masterLink, netlink.FAMILY_ALL)
+	masterAddrs, err := netlink.AddrList(masterLink, family)
 	if err != nil {
 		return fmt.Errorf("failed to list master addrs [%v]: %w",
 			master, err)
@@ -112,7 +122,10 @@ func CreatePairForPod(netns ns.NetNS, master string, podIP net.IP) error {
 		}
 		// Add host IP addrs to pod veth2
 		for _, a := range masterAddrs {
-			a.IPNet.Mask = net.IPv4Mask(255, 255, 255, 255)
+			a.IPNet.Mask = ipv4Mask
+			if family == netlink.FAMILY_V6 {
+				a.IPNet.Mask = ipv6Mask
+			}
 			if err = netlink.RouteAdd(&netlink.Route{
 				LinkIndex: veth2Link.Attrs().Index,
 				Dst:       a.IPNet,
@@ -121,6 +134,8 @@ func CreatePairForPod(netns ns.NetNS, master string, podIP net.IP) error {
 				return fmt.Errorf("failed to add route [%v] for link [%v]: %w",
 					a.IPNet.String(), PodVethIface, err)
 			}
+			logrus.Infof("add route host IP %q for veth1 [%v]",
+				a.IP.String(), veth1)
 		}
 		return nil
 	}); err != nil {
