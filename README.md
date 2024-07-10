@@ -36,7 +36,7 @@ To build and run this flat-network operator manually:
 1. Apply CRDs.
 
     ```console
-    $ kubectl apply -f ./charts/rancher-flat-network-operator-crd/templates/crd.yaml
+    $ kubectl apply -f ./charts/rancher-flat-network/templates/crd.yaml
     ```
 
 1. Build and run flat-network operator.
@@ -45,7 +45,7 @@ To build and run this flat-network operator manually:
     $ go build . && ./rancher-flat-network-operator --webhook-server=false
     ```
 
-1. Launch another terminal to create example workloads.
+1. Example workloads are available in [docs](./docs/) directory, run following command to create example subnet & workloads for test.
 
     ```console
     $ kubectl apply -f ./docs/macvlan
@@ -59,6 +59,10 @@ Environment variables for operator:
 - `CATTLE_ELECTION_LEASE_DURATION`: leader election lease duration, default `45s`.
 - `CATTLE_ELECTION_RENEW_DEADLINE`: leader election renew deadline, default `30s`.
 - `CATTLE_ELECTION_RETRY_PERIOD`: leader election retry period, default `2s`.
+
+### CNI
+
+> WIP
 
 ## License
 

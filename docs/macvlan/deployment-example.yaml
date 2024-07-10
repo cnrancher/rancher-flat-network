@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-macvlan-deployment
+  namespace: default
+  labels:
+    app: nginx
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+      annotations:
+        flatnetwork.pandaria.io/ip: "auto"
+        flatnetwork.pandaria.io/subnet: "macvlan-subnet100"
+        flatnetwork.pandaria.io/mac: ""
+        k8s.v1.cni.cncf.io/networks: '[{"name":"rancher-flat-network","interface":"eth1"}]'
+    spec:
+      containers:
+      - name: nginx
+        image: nginx
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-macvlan-deployment-ipv6
+  namespace: default
+  labels:
+    app: nginx-ipv6
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: nginx-ipv6
+  template:
+    metadata:
+      labels:
+        app: nginx-ipv6
+      annotations:
+        flatnetwork.pandaria.io/ip: "auto"
+        flatnetwork.pandaria.io/subnet: "macvlan-ipv6-subnet101"
+        flatnetwork.pandaria.io/mac: ""
+        k8s.v1.cni.cncf.io/networks: '[{"name":"rancher-flat-network","interface":"eth1"}]'
+    spec:
+      containers:
+      - name: nginx-ipv6
+        image: nginx

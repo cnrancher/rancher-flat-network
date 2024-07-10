@@ -1,0 +1,18 @@
+apiVersion: flatnetwork.pandaria.io/v1
+kind: FlatNetworkSubnet
+metadata:
+  name: ipvlan-subnet200
+  namespace: cattle-flat-network
+spec:
+  vlan: 200
+  cidr: 192.168.200.0/24
+  flatMode: ipvlan
+  gateway: ""
+  master: eth0
+  mode: "l2"
+  podDefaultGateway:
+    enable: true
+    serviceCIDR: '10.43.0.0/16'
+  ranges:
+  - from: 192.168.200.100
+    to: 192.168.200.200

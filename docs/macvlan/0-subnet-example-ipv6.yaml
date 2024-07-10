@@ -1,0 +1,16 @@
+apiVersion: flatnetwork.pandaria.io/v1
+kind: FlatNetworkSubnet
+metadata:
+  name: macvlan-ipv6-subnet101
+  namespace: cattle-flat-network
+spec:
+  vlan: 101
+  cidr: fd00:aaaa::/112
+  flatMode: macvlan
+  gateway: "fd00:aaaa::0001"
+  master: eth0
+  mode: "bridge"
+  podDefaultGateway: {}
+  ranges:
+  - from: fd00:aaaa::1000
+    to: fd00:aaaa::ffff

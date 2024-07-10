@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: nginx-ipvlan-deployment
+  namespace: default
+  labels:
+    app: nginx-ipvlan-deployment
+spec:
+  selector:
+    matchLabels:
+      app: nginx-ipvlan-deployment
+  template:
+    metadata:
+      labels:
+        app: nginx-ipvlan-deployment
+      annotations:
+        flatnetwork.pandaria.io/ip: "auto"
+        flatnetwork.pandaria.io/subnet: "ipvlan-subnet200"
+        flatnetwork.pandaria.io/mac: ""
+        k8s.v1.cni.cncf.io/networks: '[{"name":"rancher-flat-network","interface":"eth1"}]'
+    spec:
+      containers:
+      - name: nginx-ipvlan-deployment
+        image: nginx
+        imagePullPolicy: Always
+        securityContext:
+          privileged: true
+
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: nginx-ipvlan-deployment-ipv6
+  namespace: default
+  labels:
+    app: nginx-ipvlan-deployment-ipv6
+spec:
+  selector:
+    matchLabels:
+      app: nginx-ipvlan-deployment-ipv6
+  template:
+    metadata:
+      labels:
+        app: nginx-ipvlan-deployment-ipv6
+      annotations:
+        flatnetwork.pandaria.io/ip: "auto"
+        flatnetwork.pandaria.io/subnet: "ipvlan-ipv6-subnet201"
+        flatnetwork.pandaria.io/mac: ""
+        k8s.v1.cni.cncf.io/networks: '[{"name":"rancher-flat-network","interface":"eth1"}]'
+    spec:
+      containers:
+      - name: nginx-ipvlan-deployment-ipv6
+        image: nginx
+        imagePullPolicy: Always
