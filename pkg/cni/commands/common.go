@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/cnrancher/rancher-flat-network-operator/pkg/cni/macvlan"
 	"github.com/cnrancher/rancher-flat-network-operator/pkg/cni/types"
 	"github.com/cnrancher/rancher-flat-network-operator/pkg/utils"
 	"github.com/containernetworking/plugins/pkg/ip"
@@ -108,6 +107,7 @@ func addEth0CustomRoutes(netns ns.NetNS, routes []flv1.Route) error {
 			logrus.Warnf("addEth0CustomRoutes: failed to list routes: %v", err)
 			return nil
 		}
+		logrus.Debugf("existing routes: %v", utils.Print(rs))
 
 		if len(rs) == 0 {
 			return nil
@@ -149,26 +149,33 @@ func addEth0CustomRoutes(netns ns.NetNS, routes []flv1.Route) error {
 func changeDefaultGateway(netns ns.NetNS, serviceCIDR string, gateway net.IP) error {
 	logrus.Infof("changeDefaultGateway: %s", gateway)
 	err := netns.Do(func(_ ns.NetNS) error {
-		routes, err := netlink.RouteList(nil, netlink.FAMILY_V4)
+		// List IPv4 & IPv6 routes
+		routes, err := netlink.RouteList(nil, netlink.FAMILY_ALL)
 		if err != nil {
-			logrus.Debugf("%v", err)
-			return nil
+			logrus.Errorf("failed to list routes: %v", err)
+			return fmt.Errorf("failed to list routes in pod NS: %w", err)
 		}
 
-		originDefault := routes[0]
-		// 1. delete default gateway
-		err = netlink.RouteDel(&originDefault)
-		if err != nil {
-			return fmt.Errorf("failed to delete default gw: %w", err)
-		}
+		var originDefault netlink.Route
+		for _, r := range routes {
+			if r.Dst == nil || len(r.Dst.IP) == 0 {
+				originDefault = r
+				// 1. delete default gateway
+				if err := netlink.RouteDel(&r); err != nil {
+					return fmt.Errorf("failed to delete pod default gw: %w", err)
+				}
+				logrus.Infof("delete old default route GW [%v] in pod NS", r.Gw)
 
-		// 2. add eth1 gateway
-		eth1Route := originDefault
-		eth1Route.LinkIndex = eth1Route.LinkIndex + 1
-		eth1Route.Gw = gateway
-		err = netlink.RouteAdd(&eth1Route)
-		if err != nil {
-			return fmt.Errorf("failed to add default route: %w", err)
+				// 2. add eth1 gateway
+				eth1Route := r
+				// FIXME: should check link 'eth1' ID instead of simply +1.
+				eth1Route.LinkIndex = eth1Route.LinkIndex + 1
+				eth1Route.Gw = gateway
+				if err := netlink.RouteAdd(&eth1Route); err != nil {
+					return fmt.Errorf("failed to add default route: %w", err)
+				}
+				logrus.Infof("add default route GW [%v] in pod NS", eth1Route.Gw)
+			}
 		}
 
 		// 3. add serviceCIDR route
@@ -183,9 +190,7 @@ func changeDefaultGateway(netns ns.NetNS, serviceCIDR string, gateway net.IP) er
 		if err != nil {
 			return fmt.Errorf("failed to add serviceCIDR route: %w", err)
 		}
-
-		// TODO: 4. add clusterCIDR route
-
+		logrus.Infof("add serviceCIDR [%v] route [%v]", clusterRoute.Dst, clusterRoute.Dst)
 		return nil
 	})
 	if err != nil {
@@ -228,7 +233,7 @@ func mergeIPAMConfig(
 	}
 	ones, _ := n.Mask.Size()
 	routes, gateway := subnet.Spec.Routes, subnet.Spec.Gateway
-	enableIPv6 := flatNetworkIP.Annotations[flv1.AnnotationsIPv6to4] != ""
+	enable6to4 := flatNetworkIP.Annotations[flv1.AnnotationsIPv6to4] != ""
 	netConf.IPAM.Addresses = []types.Address{
 		{
 			Address: fmt.Sprintf("%v/%v", address.String(), ones),
@@ -238,7 +243,7 @@ func mergeIPAMConfig(
 
 	// add 6to4 address for IPv6
 	// https://en.wikipedia.org/wiki/6to4
-	if enableIPv6 {
+	if enable6to4 {
 		_, n, err := net.ParseCIDR(subnet.Spec.CIDR)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse subnet CIDR [%v]: %w",
@@ -255,7 +260,7 @@ func mergeIPAMConfig(
 	if len(routes) != 0 {
 		rs := []*cnitypes.Route{}
 		for _, v := range routes {
-			if v.Iface != "" && v.Iface != "eth1" {
+			if v.Iface != "" && v.Iface == "eth0" {
 				continue
 			}
 
@@ -317,51 +322,6 @@ func parsePrevResult(conf *types.NetConf) error {
 	conf.PrevResult, err = create.Create(conf.CNIVersion, resultBytes)
 	if err != nil {
 		return fmt.Errorf("could not parse prevResult: %w", err)
-	}
-
-	return nil
-}
-
-func validateCniContainerInterface(intf types100.Interface, modeExpected string) error {
-	var link netlink.Link
-	var err error
-
-	if intf.Name == "" {
-		return fmt.Errorf("container interface name missing in prevResult: %v", intf.Name)
-	}
-	link, err = netlink.LinkByName(intf.Name)
-	if err != nil {
-		return fmt.Errorf("container Interface name in prevResult: %s not found", intf.Name)
-	}
-	if intf.Sandbox == "" {
-		return fmt.Errorf("error: Container interface %s should not be in host namespace", link.Attrs().Name)
-	}
-
-	macv, isMacvlan := link.(*netlink.Macvlan)
-	if !isMacvlan {
-		return fmt.Errorf("error: Container interface %s not of type macvlan", link.Attrs().Name)
-	}
-
-	mode, err := macvlan.ModeFromString(modeExpected)
-	if err != nil {
-		return err
-	}
-	if macv.Mode != mode {
-		currString, err := macvlan.ModeToString(macv.Mode)
-		if err != nil {
-			return err
-		}
-		confString, err := macvlan.ModeToString(mode)
-		if err != nil {
-			return err
-		}
-		return fmt.Errorf("container macvlan mode %s does not match expected value: %s", currString, confString)
-	}
-
-	if intf.Mac != "" {
-		if intf.Mac != link.Attrs().HardwareAddr.String() {
-			return fmt.Errorf("interface %s Mac %s doesn't match container Mac: %s", intf.Name, intf.Mac, link.Attrs().HardwareAddr)
-		}
 	}
 
 	return nil

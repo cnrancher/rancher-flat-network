@@ -1,9 +1,11 @@
 package commands
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/cnrancher/rancher-flat-network-operator/pkg/cni/logger"
+	"github.com/cnrancher/rancher-flat-network-operator/pkg/cni/veth"
 	"github.com/cnrancher/rancher-flat-network-operator/pkg/utils"
 	"github.com/containernetworking/cni/pkg/skel"
 	"github.com/containernetworking/plugins/pkg/ip"
@@ -32,19 +34,31 @@ func Del(args *skel.CmdArgs) error {
 	if args.Netns == "" {
 		return nil
 	}
-	logrus.Infof("request to delete link [%v]", args.IfName)
 
 	// There is a netns so try to clean up. Delete can be called multiple times
 	// so don't return an error if the device is already removed.
 	if err := ns.WithNetNSPath(args.Netns, func(_ ns.NetNS) error {
+		logrus.Infof("request to delete link [%v]", args.IfName)
 		if err := ip.DelLinkByName(args.IfName); err != nil {
-			if err != ip.ErrLinkNotFound {
+			if errors.Is(err, ip.ErrLinkNotFound) {
 				logrus.Infof("link [%v] already deleted", args.IfName)
 				return err
 			}
-			logrus.Warnf("failed to delete link: %v", err)
+			logrus.Warnf("failed to delete link %q: %v", args.IfName, err)
+			return err
 		}
 		logrus.Infof("done delete link [%v]", args.IfName)
+
+		logrus.Infof("request to delete veth link [%v]", veth.PodVethIface)
+		if err := ip.DelLinkByName(veth.PodVethIface); err != nil {
+			if errors.Is(err, ip.ErrLinkNotFound) {
+				logrus.Infof("pod veth link [%v] already deleted",
+					veth.PodVethIface)
+				return nil
+			}
+			logrus.Warnf("failed to delete link %q: %v", veth.PodVethIface, err)
+			return err
+		}
 		return nil
 	}); err != nil {
 		// if NetNs is passed down by the Cloud Orchestration Engine, or if it called multiple times

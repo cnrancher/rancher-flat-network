@@ -12,6 +12,7 @@ import (
 	"github.com/cnrancher/rancher-flat-network-operator/pkg/cni/logger"
 	"github.com/cnrancher/rancher-flat-network-operator/pkg/cni/macvlan"
 	"github.com/cnrancher/rancher-flat-network-operator/pkg/cni/types"
+	"github.com/cnrancher/rancher-flat-network-operator/pkg/cni/veth"
 	"github.com/cnrancher/rancher-flat-network-operator/pkg/utils"
 	"github.com/containernetworking/cni/pkg/skel"
 	"github.com/containernetworking/plugins/pkg/ip"
@@ -111,7 +112,7 @@ func Add(args *skel.CmdArgs) error {
 	 */
 	switch subnet.Spec.FlatMode {
 	case flv1.FlatModeMacvlan:
-		if err := setPromiscOn(subnet.Spec.Master); err != nil {
+		if err = setPromiscOn(subnet.Spec.Master); err != nil {
 			return fmt.Errorf("failed to set promisc on %v: %w", subnet.Spec.Master, err)
 		}
 	case flv1.FlatModeIPvlan:
@@ -167,13 +168,24 @@ func Add(args *skel.CmdArgs) error {
 	logrus.Infof("create flat network [%v] iface [%v] for pod [%v:%v]: %v",
 		subnet.Spec.FlatMode, iface.Name, podNamespace, podName, utils.Print(iface))
 
-	flatNetworkIP = flatNetworkIP.DeepCopy()
-	flatNetworkIP.Status.MAC, err = net.ParseMAC(iface.Mac)
-	if err != nil {
-		logrus.Errorf("failed to parse created iface MAC address: %v", err)
-	}
-	flatNetworkIP, err = client.UpdateIPStatus(context.TODO(), podNamespace, flatNetworkIP)
-	if err != nil {
+	// Update flatNetworkIP status addr
+	if err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		flatNetworkIP, err = client.GetIP(context.TODO(), podNamespace, podName)
+		if err != nil {
+			logrus.Warnf("failed to get FlatNetworkIP [%v/%v]: %v",
+				podNamespace, podName, err)
+			return err
+		}
+
+		flatNetworkIP = flatNetworkIP.DeepCopy()
+		flatNetworkIP.Status.MAC, err = net.ParseMAC(iface.Mac)
+		if err != nil {
+			logrus.Errorf("failed to parse created iface MAC address: %v", err)
+			return err
+		}
+		flatNetworkIP, err = client.UpdateIPStatus(context.TODO(), podNamespace, flatNetworkIP)
+		return err
+	}); err != nil {
 		logrus.Errorf("failed to update flatNetworkIP: IPAM [%v]: %v",
 			n.IPAM.Type, err)
 		if err := netns.Do(func(_ ns.NetNS) error {
@@ -277,24 +289,42 @@ func Add(args *skel.CmdArgs) error {
 	if err != nil {
 		return fmt.Errorf("netns do failed, error: %w", err)
 	}
+
 	result.DNS = n.DNS
-	err = addEth0CustomRoutes(netns, subnet.Spec.Routes)
-	if err != nil {
+	if err = addEth0CustomRoutes(netns, subnet.Spec.Routes); err != nil {
 		return fmt.Errorf("failed to add eth0 custom routes: %w", err)
 	}
 
+	switch subnet.Spec.FlatMode {
+	case flv1.FlatModeMacvlan:
+
+	case flv1.FlatModeIPvlan:
+		// if err = ipvlan.UpdateL3Routes(netns, vlanIface, subnet); err != nil {
+		// 	return fmt.Errorf("failed to update IPvlan L3 routes: %w", err)
+		// }
+	}
+
 	// Skip change gw if using single NIC macvlan
-	if subnet.Spec.PodDefaultGateway.Enable && args.IfName == "eth1" {
-		err = changeDefaultGateway(netns, subnet.Spec.PodDefaultGateway.ServiceCIDR, subnet.Spec.Gateway)
+	if subnet.Spec.PodDefaultGateway.Enable && args.IfName != "eth0" {
+		err = changeDefaultGateway(
+			netns, subnet.Spec.PodDefaultGateway.ServiceCIDR, subnet.Spec.Gateway)
 		if err != nil {
 			return fmt.Errorf("failed to change default gateway: %w", err)
 		}
 	}
 
-	if err := cnitypes.PrintResult(result, n.CNIVersion); err != nil {
+	// Add veth pair and custom route to allow node to access FlatNetwork Pod
+	if err = veth.CreatePairForPod(netns, vlanIface.Name, flatNetworkIP.Status.Addr); err != nil {
+		err = fmt.Errorf("failed to create veth pair for pod: %w", err)
+		logrus.Errorf("%v", err)
+		return err
+	}
+
+	if err = cnitypes.PrintResult(result, n.CNIVersion); err != nil {
 		return fmt.Errorf("failed to print result: %w", err)
 	}
 	logrus.Infof("result: %v", utils.Print(result))
+	logrus.Infof("ADD: Done")
 
 	return nil
 }
