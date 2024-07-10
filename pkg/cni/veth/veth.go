@@ -62,13 +62,22 @@ func CreatePairForPod(netns ns.NetNS, master string, podIP net.IP) error {
 		return fmt.Errorf("failed to set veth1 up: %w", err)
 	}
 	// Add podIP route to veth1
-	if err = netlink.RouteAdd(&netlink.Route{
+	r := &netlink.Route{
 		LinkIndex: veth1Link.Attrs().Index,
 		Dst: &net.IPNet{
 			IP:   podIP,
 			Mask: net.IPv4Mask(255, 255, 255, 255),
 		},
-	}); err != nil {
+	}
+	if podIP.To4() == nil {
+		// PodIP is IPv6, set IPv6 mask
+		p := make(net.IPMask, net.IPv6len)
+		for i := range p {
+			p[i] = 0xff
+		}
+		r.Dst.Mask = p
+	}
+	if err = netlink.RouteAdd(r); err != nil {
 		return fmt.Errorf("failed to add route [%v] for link [%v]: %w",
 			podIP.String(), veth1, err)
 	}

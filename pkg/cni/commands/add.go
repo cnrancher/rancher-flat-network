@@ -295,15 +295,6 @@ func Add(args *skel.CmdArgs) error {
 		return fmt.Errorf("failed to add eth0 custom routes: %w", err)
 	}
 
-	switch subnet.Spec.FlatMode {
-	case flv1.FlatModeMacvlan:
-
-	case flv1.FlatModeIPvlan:
-		// if err = ipvlan.UpdateL3Routes(netns, vlanIface, subnet); err != nil {
-		// 	return fmt.Errorf("failed to update IPvlan L3 routes: %w", err)
-		// }
-	}
-
 	// Skip change gw if using single NIC macvlan
 	if subnet.Spec.PodDefaultGateway.Enable && args.IfName != "eth0" {
 		err = changeDefaultGateway(

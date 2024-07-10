@@ -40,24 +40,21 @@ func Del(args *skel.CmdArgs) error {
 	if err := ns.WithNetNSPath(args.Netns, func(_ ns.NetNS) error {
 		logrus.Infof("request to delete link [%v]", args.IfName)
 		if err := ip.DelLinkByName(args.IfName); err != nil {
-			if errors.Is(err, ip.ErrLinkNotFound) {
-				logrus.Infof("link [%v] already deleted", args.IfName)
+			if !errors.Is(err, ip.ErrLinkNotFound) {
+				logrus.Warnf("failed to delete link %q: %v", args.IfName, err)
 				return err
 			}
-			logrus.Warnf("failed to delete link %q: %v", args.IfName, err)
-			return err
+			logrus.Infof("link [%v] already deleted", args.IfName)
 		}
 		logrus.Infof("done delete link [%v]", args.IfName)
 
 		logrus.Infof("request to delete veth link [%v]", veth.PodVethIface)
 		if err := ip.DelLinkByName(veth.PodVethIface); err != nil {
-			if errors.Is(err, ip.ErrLinkNotFound) {
-				logrus.Infof("pod veth link [%v] already deleted",
-					veth.PodVethIface)
-				return nil
+			if !errors.Is(err, ip.ErrLinkNotFound) {
+				logrus.Warnf("failed to delete link %q: %v", args.IfName, err)
+				return err
 			}
-			logrus.Warnf("failed to delete link %q: %v", veth.PodVethIface, err)
-			return err
+			logrus.Infof("link [%v] already deleted", veth.PodVethIface)
 		}
 		return nil
 	}); err != nil {
