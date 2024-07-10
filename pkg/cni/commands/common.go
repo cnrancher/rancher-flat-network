@@ -19,6 +19,10 @@ import (
 	"github.com/containernetworking/cni/pkg/types/create"
 )
 
+const (
+	podIfaceEth0 = "eth0"
+)
+
 func getVlanIfaceOnHost(
 	master string, mtu int, vlanID int,
 ) (*types100.Interface, error) {
@@ -114,7 +118,7 @@ func addEth0CustomRoutes(netns ns.NetNS, routes []flv1.Route) error {
 		}
 		originDefault := rs[0]
 		for _, v := range routes {
-			if v.Iface != "eth0" {
+			if v.Iface != podIfaceEth0 {
 				continue
 			}
 
@@ -161,7 +165,7 @@ func changeDefaultGateway(netns ns.NetNS, serviceCIDR string, gateway net.IP) er
 			if r.Dst == nil || len(r.Dst.IP) == 0 {
 				originDefault = r
 				// 1. delete default gateway
-				if err := netlink.RouteDel(&r); err != nil {
+				if err := netlink.RouteDel(&originDefault); err != nil {
 					return fmt.Errorf("failed to delete pod default gw: %w", err)
 				}
 				logrus.Infof("delete old default route GW [%v] in pod NS", r.Gw)
@@ -260,7 +264,7 @@ func mergeIPAMConfig(
 	if len(routes) != 0 {
 		rs := []*cnitypes.Route{}
 		for _, v := range routes {
-			if v.Iface != "" && v.Iface == "eth0" {
+			if v.Iface != "" && v.Iface == podIfaceEth0 {
 				continue
 			}
 

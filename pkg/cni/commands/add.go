@@ -296,7 +296,7 @@ func Add(args *skel.CmdArgs) error {
 	}
 
 	// Skip change gw if using single NIC macvlan
-	if subnet.Spec.PodDefaultGateway.Enable && args.IfName != "eth0" {
+	if subnet.Spec.PodDefaultGateway.Enable && args.IfName != podIfaceEth0 {
 		err = changeDefaultGateway(
 			netns, subnet.Spec.PodDefaultGateway.ServiceCIDR, subnet.Spec.Gateway)
 		if err != nil {
