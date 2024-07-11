@@ -21,8 +21,8 @@ package v1
 import (
 	v1 "github.com/cnrancher/rancher-flat-network-operator/pkg/apis/flatnetwork.pandaria.io/v1"
 	"github.com/rancher/lasso/pkg/controller"
-	"github.com/rancher/wrangler/v2/pkg/generic"
-	"github.com/rancher/wrangler/v2/pkg/schemes"
+	"github.com/rancher/wrangler/v3/pkg/generic"
+	"github.com/rancher/wrangler/v3/pkg/schemes"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 

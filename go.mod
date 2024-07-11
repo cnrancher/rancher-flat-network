@@ -11,19 +11,18 @@ require (
 	github.com/j-keck/arping v1.0.3
 	github.com/k8snetworkplumbingwg/network-attachment-definition-client v1.7.0
 	github.com/pkg/errors v0.9.1
-	github.com/rancher/lasso v0.0.0-20240123150939-7055397d6dfa
-	github.com/rancher/wrangler v1.1.2
-	github.com/rancher/wrangler/v2 v2.1.4
+	github.com/rancher/lasso v0.0.0-20240710130346-32d96874d344
+	github.com/rancher/wrangler/v3 v3.0.0
 	github.com/sirupsen/logrus v1.9.3
 	github.com/stretchr/testify v1.9.0
 	github.com/vishvananda/netlink v1.2.1-beta.2
 	github.com/vishvananda/netns v0.0.4
 	gopkg.in/k8snetworkplumbingwg/multus-cni.v4 v4.0.2
-	k8s.io/api v0.29.6
-	k8s.io/apiextensions-apiserver v0.29.6
-	k8s.io/apimachinery v0.29.6
-	k8s.io/client-go v0.29.6
-	k8s.io/kubernetes v1.29.6
+	k8s.io/api v0.30.2
+	k8s.io/apiextensions-apiserver v0.30.2
+	k8s.io/apimachinery v0.30.2
+	k8s.io/client-go v0.30.2
+	k8s.io/kubernetes v1.30.2
 )
 
 require (
@@ -45,7 +44,7 @@ require (
 	github.com/google/gnostic-models v0.6.8 // indirect
 	github.com/google/go-cmp v0.6.0 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
-	github.com/google/uuid v1.3.0 // indirect
+	github.com/google/uuid v1.6.0 // indirect
 	github.com/imdario/mergo v0.3.12 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
@@ -63,7 +62,7 @@ require (
 	github.com/spf13/pflag v1.0.5 // indirect
 	golang.org/x/mod v0.17.0 // indirect
 	golang.org/x/net v0.25.0 // indirect
-	golang.org/x/oauth2 v0.10.0 // indirect
+	golang.org/x/oauth2 v0.16.0 // indirect
 	golang.org/x/sync v0.7.0 // indirect
 	golang.org/x/sys v0.21.0 // indirect
 	golang.org/x/term v0.20.0 // indirect
@@ -76,8 +75,9 @@ require (
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	k8s.io/code-generator v0.29.6 // indirect
-	k8s.io/gengo v0.0.0-20230829151522-9cce18d56c01 // indirect
+	k8s.io/code-generator v0.30.2 // indirect
+	k8s.io/gengo v0.0.0-20240228010128-51d4e06bde70 // indirect
+	k8s.io/gengo/v2 v2.0.0-20240228010128-51d4e06bde70 // indirect
 	k8s.io/klog/v2 v2.120.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20240228011516-70dd3763d340 // indirect
 	k8s.io/utils v0.0.0-20230726121419-3b25d923346b // indirect

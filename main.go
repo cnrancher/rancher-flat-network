@@ -22,8 +22,8 @@ import (
 	"github.com/cnrancher/rancher-flat-network-operator/pkg/controller/wrangler"
 	"github.com/cnrancher/rancher-flat-network-operator/pkg/logserver"
 	"github.com/cnrancher/rancher-flat-network-operator/pkg/utils"
-	"github.com/rancher/wrangler/pkg/kubeconfig"
-	"github.com/rancher/wrangler/pkg/signals"
+	"github.com/rancher/wrangler/v3/pkg/kubeconfig"
+	"github.com/rancher/wrangler/v3/pkg/signals"
 	"github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/writer"
 )
