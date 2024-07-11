@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/cnrancher/rancher-flat-network-operator/pkg/cni/common"
 	"github.com/cnrancher/rancher-flat-network-operator/pkg/cni/types"
 	"github.com/cnrancher/rancher-flat-network-operator/pkg/utils"
 	"github.com/containernetworking/plugins/pkg/ip"
@@ -17,10 +18,6 @@ import (
 	cnitypes "github.com/containernetworking/cni/pkg/types"
 	types100 "github.com/containernetworking/cni/pkg/types/100"
 	"github.com/containernetworking/cni/pkg/types/create"
-)
-
-const (
-	podIfaceEth0 = "eth0"
 )
 
 func getVlanIfaceOnHost(
@@ -118,7 +115,7 @@ func addEth0CustomRoutes(netns ns.NetNS, routes []flv1.Route) error {
 		}
 		originDefault := rs[0]
 		for _, v := range routes {
-			if v.Iface != podIfaceEth0 {
+			if v.Iface != common.PodIfaceEth0 {
 				continue
 			}
 
@@ -264,7 +261,7 @@ func mergeIPAMConfig(
 	if len(routes) != 0 {
 		rs := []*cnitypes.Route{}
 		for _, v := range routes {
-			if v.Iface != "" && v.Iface == podIfaceEth0 {
+			if v.Iface != "" && v.Iface == common.PodIfaceEth0 {
 				continue
 			}
 

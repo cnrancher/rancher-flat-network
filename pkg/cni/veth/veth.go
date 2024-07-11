@@ -45,6 +45,8 @@ func CreatePairForPod(netns ns.NetNS, master string, podIP net.IP) error {
 				return
 			}
 			netlink.LinkDel(l)
+			logrus.Infof("release veth pair [%v] due to error: %v",
+				veth1, err)
 		}
 	}()
 
@@ -91,8 +93,8 @@ func CreatePairForPod(netns ns.NetNS, master string, podIP net.IP) error {
 		return fmt.Errorf("failed to add route [%v] for link [%v]: %w",
 			podIP.String(), veth1, err)
 	}
-	logrus.Infof("add route podIP %q for veth1 [%v]",
-		podIP.String(), veth1)
+	logrus.Infof("add route podIP %q for veth [%v]",
+		r.Dst.String(), veth1)
 
 	// List master addrs
 	masterAddrs, err := netlink.AddrList(masterLink, family)
@@ -122,10 +124,17 @@ func CreatePairForPod(netns ns.NetNS, master string, podIP net.IP) error {
 		}
 		// Add host IP addrs to pod veth2
 		for _, a := range masterAddrs {
-			a.IPNet.Mask = ipv4Mask
+			// Skip Link Local Unicast
+			if a.IPNet.IP.IsLinkLocalUnicast() {
+				logrus.Debugf("skip add route addr %q: link local unicast", a.IPNet.IP.String())
+				continue
+			}
 			if family == netlink.FAMILY_V6 {
 				a.IPNet.Mask = ipv6Mask
+			} else {
+				a.IPNet.Mask = ipv4Mask
 			}
+
 			if err = netlink.RouteAdd(&netlink.Route{
 				LinkIndex: veth2Link.Attrs().Index,
 				Dst:       a.IPNet,
@@ -134,8 +143,8 @@ func CreatePairForPod(netns ns.NetNS, master string, podIP net.IP) error {
 				return fmt.Errorf("failed to add route [%v] for link [%v]: %w",
 					a.IPNet.String(), PodVethIface, err)
 			}
-			logrus.Infof("add route host IP %q for veth1 [%v]",
-				a.IP.String(), veth1)
+			logrus.Infof("add route host IP %q in pod veth [%v]",
+				a.IPNet.String(), PodVethIface)
 		}
 		return nil
 	}); err != nil {

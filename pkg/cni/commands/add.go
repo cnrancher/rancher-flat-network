@@ -7,12 +7,12 @@ import (
 	"net"
 	"time"
 
+	"github.com/cnrancher/rancher-flat-network-operator/pkg/cni/common"
 	"github.com/cnrancher/rancher-flat-network-operator/pkg/cni/ipvlan"
 	"github.com/cnrancher/rancher-flat-network-operator/pkg/cni/kubeclient"
 	"github.com/cnrancher/rancher-flat-network-operator/pkg/cni/logger"
 	"github.com/cnrancher/rancher-flat-network-operator/pkg/cni/macvlan"
 	"github.com/cnrancher/rancher-flat-network-operator/pkg/cni/types"
-	"github.com/cnrancher/rancher-flat-network-operator/pkg/cni/veth"
 	"github.com/cnrancher/rancher-flat-network-operator/pkg/utils"
 	"github.com/containernetworking/cni/pkg/skel"
 	"github.com/containernetworking/plugins/pkg/ip"
@@ -296,7 +296,7 @@ func Add(args *skel.CmdArgs) error {
 	}
 
 	// Skip change gw if using single NIC macvlan
-	if subnet.Spec.PodDefaultGateway.Enable && args.IfName != podIfaceEth0 {
+	if subnet.Spec.PodDefaultGateway.Enable && args.IfName != common.PodIfaceEth0 {
 		err = changeDefaultGateway(
 			netns, subnet.Spec.PodDefaultGateway.ServiceCIDR, subnet.Spec.Gateway)
 		if err != nil {
@@ -304,11 +304,10 @@ func Add(args *skel.CmdArgs) error {
 		}
 	}
 
-	// Add veth pair and custom route to allow node to access FlatNetwork Pod
-	if err = veth.CreatePairForPod(netns, vlanIface.Name, flatNetworkIP.Status.Addr); err != nil {
-		err = fmt.Errorf("failed to create veth pair for pod: %w", err)
-		logrus.Errorf("%v", err)
-		return err
+	// Add FlatNetwork IP route for Pod on Host NS
+	err = common.AddFlatNetworkRouteToHost(netns, flatNetworkIP.Status.Addr, vlanIface.Name)
+	if err != nil {
+		return fmt.Errorf("common.AddFlatNetworkRouteToHost: %w", err)
 	}
 
 	if err = cnitypes.PrintResult(result, n.CNIVersion); err != nil {
