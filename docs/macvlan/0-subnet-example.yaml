@@ -13,7 +13,8 @@ spec:
   gateway: "10.2.3.1"
   master: eth0
   mode: "bridge"
-  podDefaultGateway: {}
+  flatNetworkDefaultGateway:
+    enable: true
   ranges:
   - from: 10.2.3.100
     to: 10.2.3.200

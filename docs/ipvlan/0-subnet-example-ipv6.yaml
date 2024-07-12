@@ -10,7 +10,8 @@ spec:
   gateway: ""
   master: eth0
   mode: "l2"
-  podDefaultGateway: {}
+  flatNetworkDefaultGateway:
+    enable: false
   ranges:
   - from: fd00:eeee::1000
     to: fd00:eeee::ffff

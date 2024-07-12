@@ -10,9 +10,24 @@ spec:
   gateway: ""
   master: eth0
   mode: "l2"
-  podDefaultGateway:
+  routes:
+  - dev: "eth0"
+    dst: "99.99.0.0/16"
+    src: ""
+    via: ""
+    priority: 0
+  - dev: "eth0"
+    dst: "99.100.0.0/16"
+    src: ""
+    via: ""
+    priority: 100
+  - dev: "eth0"
+    dst: "99.110.0.0/16"
+    src: ""
+    via: ""
+    priority: 200
+  flatNetworkDefaultGateway:
     enable: true
-    serviceCIDR: '10.43.0.0/16'
   ranges:
   - from: 192.168.200.100
     to: 192.168.200.200
