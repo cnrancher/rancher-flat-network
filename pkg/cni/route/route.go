@@ -79,7 +79,7 @@ func CheckRouteExists(
 				continue
 			}
 		}
-		logrus.Debugf("route [%v] aready exists on pod", utils.Print(r))
+		logrus.Debugf("route [%v] already exists on pod", utils.Print(r))
 		return true, nil
 	}
 	return false, nil
@@ -262,6 +262,8 @@ func UpdatePodDefaultGateway(
 			replaced.LinkIndex = link.Attrs().Index
 			replaced.Src = flatNetworkIP
 			replaced.Gw = nil
+			// FIXME: gateway may encounter error if not reachable
+			_ = gateway
 			logrus.Debugf("reques to replace default route %v", utils.Print(replaced))
 			if err := netlink.RouteReplace(&replaced); err != nil {
 				return fmt.Errorf("failed to replace default route: %w", err)
