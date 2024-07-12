@@ -95,6 +95,11 @@ spec:
               flatMode:
                 nullable: true
                 type: string
+              flatNetworkDefaultGateway:
+                properties:
+                  enable:
+                    type: boolean
+                type: object
               gateway:
                 nullable: true
                 type: string
@@ -104,14 +109,6 @@ spec:
               mode:
                 nullable: true
                 type: string
-              podDefaultGateway:
-                properties:
-                  enable:
-                    type: boolean
-                  serviceCIDR:
-                    nullable: true
-                    type: string
-                type: object
               ranges:
                 items:
                   properties:
@@ -127,13 +124,18 @@ spec:
               routes:
                 items:
                   properties:
-                    destination:
+                    dev:
                       nullable: true
                       type: string
-                    gateway:
+                    dst:
                       nullable: true
                       type: string
-                    interface:
+                    priority:
+                      type: integer
+                    src:
+                      nullable: true
+                      type: string
+                    via:
                       nullable: true
                       type: string
                   type: object

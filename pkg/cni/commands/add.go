@@ -12,6 +12,7 @@ import (
 	"github.com/cnrancher/rancher-flat-network-operator/pkg/cni/kubeclient"
 	"github.com/cnrancher/rancher-flat-network-operator/pkg/cni/logger"
 	"github.com/cnrancher/rancher-flat-network-operator/pkg/cni/macvlan"
+	"github.com/cnrancher/rancher-flat-network-operator/pkg/cni/route"
 	"github.com/cnrancher/rancher-flat-network-operator/pkg/cni/types"
 	"github.com/cnrancher/rancher-flat-network-operator/pkg/utils"
 	"github.com/containernetworking/cni/pkg/skel"
@@ -37,9 +38,9 @@ const (
 
 var (
 	getPodRetry = wait.Backoff{
-		Steps:    10,
-		Duration: 100 * time.Millisecond,
-		Factor:   5.0,
+		Steps:    5,
+		Duration: time.Second,
+		Factor:   1.0,
 		Jitter:   0.1,
 	}
 	errIPNotAllocated = fmt.Errorf("pod IP not allocated")
@@ -112,7 +113,7 @@ func Add(args *skel.CmdArgs) error {
 	 */
 	switch subnet.Spec.FlatMode {
 	case flv1.FlatModeMacvlan:
-		if err = setPromiscOn(subnet.Spec.Master); err != nil {
+		if err = common.SetPromiscOn(subnet.Spec.Master); err != nil {
 			return fmt.Errorf("failed to set promisc on %v: %w", subnet.Spec.Master, err)
 		}
 	case flv1.FlatModeIPvlan:
@@ -123,7 +124,7 @@ func Add(args *skel.CmdArgs) error {
 	// Create/Get vlan interface on host network namespace.
 	// If the vlan ID is not 0, it will create a vlan iface [master].[vlanID]
 	// (eth0.100 for example) to separate broadcast domain.
-	vlanIface, err := getVlanIfaceOnHost(subnet.Spec.Master, 0, subnet.Spec.VLAN)
+	vlanIface, err := common.GetVlanIfaceOnHost(subnet.Spec.Master, 0, subnet.Spec.VLAN)
 	if err != nil {
 		return fmt.Errorf("failed to create host vlan of subnet [%v] on iface [%s.%d]: %w",
 			subnet.Name, subnet.Spec.Master, subnet.Spec.VLAN, err)
@@ -148,9 +149,6 @@ func Add(args *skel.CmdArgs) error {
 			NetNS:  netns,
 			MAC:    flatNetworkIP.Status.MAC,
 		})
-		if err != nil {
-			return err
-		}
 	case flv1.FlatModeIPvlan:
 		iface, err = ipvlan.Create(&ipvlan.Options{
 			Mode:   subnet.Spec.Mode,
@@ -161,8 +159,11 @@ func Add(args *skel.CmdArgs) error {
 			MAC:    flatNetworkIP.Status.MAC,
 		})
 	default:
-		return fmt.Errorf("unsupported flat mode [%v], only [%v, %v] supported",
+		err = fmt.Errorf("invalid flat mode [%v], only [%v, %v] supported",
 			subnet.Spec.FlatMode, flv1.FlatModeMacvlan, flv1.FlatModeIPvlan)
+	}
+	if err != nil {
+		return err
 	}
 
 	logrus.Infof("create flat network [%v] iface [%v] for pod [%v:%v]: %v",
@@ -291,21 +292,21 @@ func Add(args *skel.CmdArgs) error {
 	}
 
 	result.DNS = n.DNS
-	if err = addEth0CustomRoutes(netns, subnet.Spec.Routes); err != nil {
-		return fmt.Errorf("failed to add eth0 custom routes: %w", err)
+	if err := route.AddPodFlatNetworkCustomRoutes(netns, subnet.Spec.Routes); err != nil {
+		return fmt.Errorf("failed to add custom routes: %w", err)
 	}
 
 	// Skip change gw if using single NIC macvlan
-	if subnet.Spec.PodDefaultGateway.Enable && args.IfName != common.PodIfaceEth0 {
-		err = changeDefaultGateway(
-			netns, subnet.Spec.PodDefaultGateway.ServiceCIDR, subnet.Spec.Gateway)
+	if subnet.Spec.FlatNetworkDefaultGateway.Enable && args.IfName != common.PodIfaceEth0 {
+		err = route.UpdatePodDefaultGateway(
+			netns, args.IfName, flatNetworkIP.Status.Addr, subnet.Spec.Gateway)
 		if err != nil {
 			return fmt.Errorf("failed to change default gateway: %w", err)
 		}
 	}
 
 	// Add FlatNetwork IP route for Pod on Host NS
-	err = common.AddFlatNetworkRouteToHost(netns, flatNetworkIP.Status.Addr, vlanIface.Name)
+	err = route.AddFlatNetworkRouteToHost(netns, flatNetworkIP.Status.Addr, vlanIface.Name)
 	if err != nil {
 		return fmt.Errorf("common.AddFlatNetworkRouteToHost: %w", err)
 	}

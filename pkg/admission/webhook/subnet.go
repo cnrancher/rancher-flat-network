@@ -52,13 +52,14 @@ func validateSubnetRouteGateway(subnet *flv1.FlatNetworkSubnet) error {
 		return fmt.Errorf("failed to parse subnet CIDR %q: %w", subnet.Spec.CIDR, err)
 	}
 	for _, v := range subnet.Spec.Routes {
-		if v.Iface == "eth1" || v.Iface == "" {
-			if len(v.GW) == 0 {
+		if v.Dev == "eth1" || v.Dev == "" {
+			if len(v.Via) == 0 {
 				continue
 			}
-			ip := slices.Clone(v.GW)
+			ip := slices.Clone(v.Via)
 			if !ipnet.Contains(ip) {
-				return fmt.Errorf("invalid gateway ip '%s' is not in network '%s'", v.GW, subnet.Spec.CIDR)
+				return fmt.Errorf("invalid via (gateway) ip '%s' is not in network '%s'",
+					v.Via, subnet.Spec.CIDR)
 			}
 		}
 	}

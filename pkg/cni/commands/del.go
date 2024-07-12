@@ -3,8 +3,8 @@ package commands
 import (
 	"fmt"
 
-	"github.com/cnrancher/rancher-flat-network-operator/pkg/cni/common"
 	"github.com/cnrancher/rancher-flat-network-operator/pkg/cni/logger"
+	"github.com/cnrancher/rancher-flat-network-operator/pkg/cni/route"
 	"github.com/cnrancher/rancher-flat-network-operator/pkg/utils"
 	"github.com/containernetworking/cni/pkg/skel"
 	"github.com/containernetworking/plugins/pkg/ipam"
@@ -59,13 +59,6 @@ func Del(args *skel.CmdArgs) error {
 
 		return nil
 	}); err != nil {
-		// if NetNs is passed down by the Cloud Orchestration Engine, or if it called multiple times
-		// so don't return an error if the device is already removed.
-		// https://github.com/kubernetes/kubernetes/issues/43014#issuecomment-287164444
-		_, ok := err.(ns.NSPathNotExistErr)
-		if ok {
-			return nil
-		}
 		return fmt.Errorf("ip del link failed, netns: %v, interface: %v: %w",
 			args.Netns, args.IfName, err)
 	}
@@ -77,7 +70,7 @@ func Del(args *skel.CmdArgs) error {
 		if a.IP.IsLinkLocalUnicast() {
 			continue
 		}
-		if err := common.DelFlatNetworkRouteFromHost(a.IP); err != nil {
+		if err := route.DelFlatNetworkRouteFromHost(a.IP); err != nil {
 			return fmt.Errorf("failed to delete route [%v] from host: %w",
 				a.IP.String(), err)
 		}

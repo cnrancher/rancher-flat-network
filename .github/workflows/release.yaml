@@ -10,7 +10,7 @@ on:
 # org level vars:
 #   - PUBLIC_REGISTRY: docker.io
 # repo level vars:
-#   - PUBLIC_REGISTRY_REPO: rancher
+#   - PUBLIC_REGISTRY_REPO: cnrancher
 # repo level secrets:
 #   - PUBLIC_REGISTRY_USERNAME
 #   - PUBLIC_REGISTRY_PASSWORD

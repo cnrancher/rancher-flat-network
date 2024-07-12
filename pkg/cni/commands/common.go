@@ -8,197 +8,12 @@ import (
 	"github.com/cnrancher/rancher-flat-network-operator/pkg/cni/common"
 	"github.com/cnrancher/rancher-flat-network-operator/pkg/cni/types"
 	"github.com/cnrancher/rancher-flat-network-operator/pkg/utils"
-	"github.com/containernetworking/plugins/pkg/ip"
-	"github.com/containernetworking/plugins/pkg/ns"
 	"github.com/sirupsen/logrus"
-	"github.com/vishvananda/netlink"
-	"github.com/vishvananda/netns"
 
 	flv1 "github.com/cnrancher/rancher-flat-network-operator/pkg/apis/flatnetwork.pandaria.io/v1"
 	cnitypes "github.com/containernetworking/cni/pkg/types"
-	types100 "github.com/containernetworking/cni/pkg/types/100"
 	"github.com/containernetworking/cni/pkg/types/create"
 )
-
-func getVlanIfaceOnHost(
-	master string, mtu int, vlanID int,
-) (*types100.Interface, error) {
-	links, err := netlink.LinkList()
-	if err != nil {
-		return nil, fmt.Errorf("netlink.LinkList: failed to list links: %w", err)
-	}
-
-	ifName := master
-	if vlanID != 0 {
-		ifName = ifName + "." + fmt.Sprint(vlanID)
-	}
-	for _, l := range links {
-		if l.Attrs().Name == ifName {
-			iface := &types100.Interface{}
-			iface.Name = ifName
-			iface.Mac = l.Attrs().HardwareAddr.String()
-			return iface, nil
-		}
-	}
-	return createVLANOnHost(master, mtu, ifName, vlanID)
-}
-
-// createVLANOnHost creates a VLAN interface <ifname>.<vlanID> (eth0.1) on root
-// network namespace.
-func createVLANOnHost(
-	master string, MTU int, ifName string, vlanID int,
-) (*types100.Interface, error) {
-	rootNS, err := netns.Get()
-	if err != nil {
-		return nil, fmt.Errorf(
-			"createVLANOnHost: failed to get root network NS: %w", err)
-	}
-	defer rootNS.Close()
-
-	m, err := netlink.LinkByName(master)
-	if err != nil {
-		return nil, fmt.Errorf(
-			"createVLANOnHost: failed to lookup master %q: %v", master, err)
-	}
-
-	vlan := &netlink.Vlan{
-		LinkAttrs: netlink.LinkAttrs{
-			MTU:         MTU,
-			Name:        ifName,
-			ParentIndex: m.Attrs().Index,
-			Namespace:   netlink.NsFd(int(rootNS)),
-		},
-		VlanId: vlanID,
-	}
-	if err := netlink.LinkAdd(vlan); err != nil {
-		return nil, fmt.Errorf(
-			"createVLANOnHost: failed to create VLAN on %q: %w", ifName, err)
-	}
-	if err := netlink.LinkSetUp(vlan); err != nil {
-		netlink.LinkDel(vlan)
-		return nil, fmt.Errorf(
-			"createVLANOnHost: failed to set vlan iface [%v] status UP: %w",
-			ifName, err)
-	}
-	logrus.Infof("create vlan interface [%v] on host", ifName)
-
-	// Re-fetch vlan to get all properties/attributes
-	contVlan, err := netlink.LinkByName(ifName)
-	if err != nil {
-		netlink.LinkDel(vlan)
-		return nil, fmt.Errorf(
-			"createVLANOnHost: failed to refetch vlan iface [%v]: %w",
-			ifName, err)
-	}
-	iface := &types100.Interface{
-		Name: ifName,
-		Mac:  contVlan.Attrs().HardwareAddr.String(),
-	}
-	return iface, nil
-}
-
-func addEth0CustomRoutes(netns ns.NetNS, routes []flv1.Route) error {
-	if len(routes) == 0 {
-		return nil
-	}
-
-	err := netns.Do(func(_ ns.NetNS) error {
-		rs, err := netlink.RouteList(nil, netlink.FAMILY_V4)
-		if err != nil {
-			logrus.Warnf("addEth0CustomRoutes: failed to list routes: %v", err)
-			return nil
-		}
-		logrus.Debugf("existing routes: %v", utils.Print(rs))
-
-		if len(rs) == 0 {
-			return nil
-		}
-		originDefault := rs[0]
-		for _, v := range routes {
-			if v.Iface != common.PodIfaceEth0 {
-				continue
-			}
-
-			eth0Link, _ := netlink.LinkByIndex(originDefault.LinkIndex)
-			if v.Dst == "0.0.0.0/0" {
-				if err := ip.AddDefaultRoute(v.GW, eth0Link); err != nil {
-					return err
-				}
-				continue
-			}
-
-			_, dst, err := net.ParseCIDR(v.Dst)
-			if err != nil {
-				logrus.Infof("%v", err)
-				continue
-			}
-
-			err = ip.AddRoute(dst, v.GW, eth0Link)
-			if err != nil {
-				return fmt.Errorf("%v %s", err, v.GW)
-			}
-		}
-
-		return nil
-	})
-	if err != nil {
-		return fmt.Errorf("addEth0CustomRoutes: failed to add custom route: %w", err)
-	}
-	return nil
-}
-
-func changeDefaultGateway(netns ns.NetNS, serviceCIDR string, gateway net.IP) error {
-	logrus.Infof("changeDefaultGateway: %s", gateway)
-	err := netns.Do(func(_ ns.NetNS) error {
-		// List IPv4 & IPv6 routes
-		routes, err := netlink.RouteList(nil, netlink.FAMILY_ALL)
-		if err != nil {
-			logrus.Errorf("failed to list routes: %v", err)
-			return fmt.Errorf("failed to list routes in pod NS: %w", err)
-		}
-
-		var originDefault netlink.Route
-		for _, r := range routes {
-			if r.Dst == nil || len(r.Dst.IP) == 0 {
-				originDefault = r
-				// 1. delete default gateway
-				if err := netlink.RouteDel(&originDefault); err != nil {
-					return fmt.Errorf("failed to delete pod default gw: %w", err)
-				}
-				logrus.Infof("delete old default route GW [%v] in pod NS", r.Gw)
-
-				// 2. add eth1 gateway
-				eth1Route := r
-				// FIXME: should check link 'eth1' ID instead of simply +1.
-				eth1Route.LinkIndex = eth1Route.LinkIndex + 1
-				eth1Route.Gw = gateway
-				if err := netlink.RouteAdd(&eth1Route); err != nil {
-					return fmt.Errorf("failed to add default route: %w", err)
-				}
-				logrus.Infof("add default route GW [%v] in pod NS", eth1Route.Gw)
-			}
-		}
-
-		// 3. add serviceCIDR route
-		clusterRoute := originDefault
-		_, dst, err := net.ParseCIDR(serviceCIDR)
-		if err != nil {
-			return fmt.Errorf("failed to parse CIDR %q: %w",
-				serviceCIDR, err)
-		}
-		clusterRoute.Dst = dst
-		err = netlink.RouteAdd(&clusterRoute)
-		if err != nil {
-			return fmt.Errorf("failed to add serviceCIDR route: %w", err)
-		}
-		logrus.Infof("add serviceCIDR [%v] route [%v]", clusterRoute.Dst, clusterRoute.Dst)
-		return nil
-	})
-	if err != nil {
-		return fmt.Errorf("changeDefaultGateway: %w", err)
-	}
-	return nil
-}
 
 func loadCNINetConf(bytes []byte) (*types.NetConf, error) {
 	n := &types.NetConf{}
@@ -206,22 +21,6 @@ func loadCNINetConf(bytes []byte) (*types.NetConf, error) {
 		return nil, fmt.Errorf("failed to load netconf: %w", err)
 	}
 	return n, nil
-}
-
-func setPromiscOn(iface string) error {
-	link, err := netlink.LinkByName(iface)
-	if err != nil {
-		return fmt.Errorf("failed to search iface %q: %w", iface, err)
-	}
-
-	if link.Attrs().Promisc == 1 {
-		return nil
-	}
-	if err = netlink.SetPromiscOn(link); err != nil {
-		return fmt.Errorf("netlink.SetPromiscOn failed on iface %q: %w", iface, err)
-	}
-	logrus.Infof("set promisc on master link [%v]", iface)
-	return nil
 }
 
 func mergeIPAMConfig(
@@ -261,7 +60,7 @@ func mergeIPAMConfig(
 	if len(routes) != 0 {
 		rs := []*cnitypes.Route{}
 		for _, v := range routes {
-			if v.Iface != "" && v.Iface == common.PodIfaceEth0 {
+			if v.Dev != "" && v.Dev == common.PodIfaceEth0 {
 				continue
 			}
 
@@ -272,7 +71,7 @@ func mergeIPAMConfig(
 			}
 			rs = append(rs, &cnitypes.Route{
 				Dst: *n,
-				GW:  v.GW,
+				GW:  v.Via,
 			})
 		}
 		netConf.IPAM.Routes = rs

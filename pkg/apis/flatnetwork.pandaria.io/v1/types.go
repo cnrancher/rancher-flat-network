@@ -115,9 +115,9 @@ type SubnetSpec struct {
 	// Routes defines the custom routes.
 	Routes []Route `json:"routes,omitempty"`
 
-	// PodDefaultGateway let pod use the flat-network interface as the
+	// FlatNetworkDefaultGateway let pod use the flat-network interface as the
 	// default gateway.
-	PodDefaultGateway PodDefaultGateway `json:"podDefaultGateway,omitempty"`
+	FlatNetworkDefaultGateway FlatNetworkDefaultGateway `json:"flatNetworkDefaultGateway,omitempty"`
 }
 
 type SubnetStatus struct {
@@ -135,15 +135,17 @@ type SubnetStatus struct {
 	UsedMAC []net.HardwareAddr `json:"usedMac"`
 }
 
+// Example: ip route add <DST_CIDR> dev <DEV_NAME> via <VIA_GATEWAY_ADDR> src <SRC_ADDR> metrics <PRIORITY>
 type Route struct {
-	Dst   string `json:"destination"`
-	GW    net.IP `json:"gateway,omitempty"`
-	Iface string `json:"interface,omitempty"`
+	Dev      string `json:"dev"`                // Interface (dev) name
+	Dst      string `json:"dst"`                // Dst CIDR
+	Src      net.IP `json:"src,omitempty"`      // Src (optional)
+	Via      net.IP `json:"via,omitempty"`      // Via (gateway) (optional)
+	Priority int    `json:"priority,omitempty"` // Priority (optional)
 }
 
-type PodDefaultGateway struct {
-	Enable      bool   `json:"enable,omitempty"`
-	ServiceCIDR string `json:"serviceCIDR,omitempty"`
+type FlatNetworkDefaultGateway struct {
+	Enable bool `json:"enable,omitempty"`
 }
 
 type IPRange struct {

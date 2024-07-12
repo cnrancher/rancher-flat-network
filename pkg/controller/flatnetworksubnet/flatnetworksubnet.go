@@ -228,7 +228,7 @@ func (h *handler) validateSubnet(subnet *flv1.FlatNetworkSubnet) error {
 			utils.Print(subnet.Spec.Ranges))
 	}
 
-	// TODO: validate routes, podDefaultGateway
+	// TODO: validate routes, defaultGateway
 
 	return nil
 }
