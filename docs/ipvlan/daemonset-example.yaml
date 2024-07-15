@@ -53,6 +53,6 @@ spec:
       containers:
       - name: alpine-ipvlan-deployment-ipv6
         image: alpine
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         command: ["sleep"]
         args: ["infinity"]

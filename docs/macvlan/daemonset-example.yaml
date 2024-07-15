@@ -23,7 +23,7 @@ spec:
       containers:
       - name: alpine-macvlan-daemonset
         image: alpine
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         command: ["sleep"]
         args: ["infinity"]
 
@@ -52,6 +52,6 @@ spec:
       containers:
       - name: alpine-macvlan-daemonset-ipv6
         image: alpine
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         command: ["sleep"]
         args: ["infinity"]

@@ -13,7 +13,7 @@ questions:
   - "Default"
   - "K3s"
 - variable: multus.cni.version
-  description: "CNI Version for multus"
+  description: "CNI Version for multus (K3s: '1.0.0'; RKE2: '0.3.1')"
   default: "1.0.0"
   type: enum
   label: "CNI Version"
