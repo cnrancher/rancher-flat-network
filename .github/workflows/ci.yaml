@@ -1,0 +1,29 @@
+name: CI
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Install Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.22.x
+      - name: Analysis
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: v1.59
+      - name: CI
+        env:
+          REPO: ${{ vars.PUBLIC_REGISTRY }}/${{ vars.PUBLIC_REGISTRY_REPO }}
+        run: |
+          ./scripts/validate.sh
+          ./scripts/test.sh
+          ./scripts/build.sh
+          ./scripts/image.sh
+          ./scripts/package.sh
