@@ -10,8 +10,10 @@ spec:
   gateway: ""
   master: eth0
   mode: "l2"
-  flatNetworkDefaultGateway:
-    enable: false
+  routeSettings:
+    addNodeCIDR: true
+    addPodIPToHost: true
+    flatNetworkDefaultGateway: false
   ranges:
   - from: fd00:eeee::1000
     to: fd00:eeee::ffff

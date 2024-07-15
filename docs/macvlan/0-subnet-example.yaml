@@ -13,8 +13,10 @@ spec:
   gateway: "10.2.3.1"
   master: eth0
   mode: "bridge"
-  flatNetworkDefaultGateway:
-    enable: true
+  routeSettings:
+    addNodeCIDR: true
+    addPodIPToHost: true
+    flatNetworkDefaultGateway: false
   ranges:
   - from: 10.2.3.100
     to: 10.2.3.200

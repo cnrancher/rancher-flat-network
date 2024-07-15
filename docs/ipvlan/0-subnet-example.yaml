@@ -26,8 +26,10 @@ spec:
     src: ""
     via: ""
     priority: 200
-  flatNetworkDefaultGateway:
-    enable: true
+  routeSettings:
+    addNodeCIDR: true
+    addPodIPToHost: true
+    flatNetworkDefaultGateway: false
   ranges:
   - from: 192.168.200.100
     to: 192.168.200.200
