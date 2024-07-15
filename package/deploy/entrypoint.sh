@@ -27,6 +27,9 @@ if [[ ${IS_OPERATOR_INIT_CONTAINER:-} != "" ]]; then
     exit 0
 fi
 
+echo "Applying CRDs"
+kubectl apply -f /crd.yaml
+
 echo "Generating rancher-flat-network-operator webhook TLS secrets..."
 ./webhook-create-signed-cert.sh
 echo
