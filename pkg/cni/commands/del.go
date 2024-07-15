@@ -64,16 +64,21 @@ func Del(args *skel.CmdArgs) error {
 	}
 
 	if len(addrs) == 0 {
+		logrus.Infof("skip delete route on host: no addrs on pod %v",
+			args.IfName)
 		return nil
 	}
 	for _, a := range addrs {
 		if a.IP.IsLinkLocalUnicast() {
+			logrus.Infof("skip delete LinkLocalUnicask route on host: %v",
+				a.IP)
 			continue
 		}
 		if err := route.DelFlatNetworkRouteFromHost(a.IP); err != nil {
 			return fmt.Errorf("failed to delete route [%v] from host: %w",
 				a.IP.String(), err)
 		}
+		logrus.Infof("done delete route %v on route", a.IP)
 	}
 
 	return nil

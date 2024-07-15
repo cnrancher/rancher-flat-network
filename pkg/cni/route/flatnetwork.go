@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/cnrancher/rancher-flat-network-operator/pkg/cni/common"
+	"github.com/cnrancher/rancher-flat-network-operator/pkg/utils"
 	"github.com/containernetworking/plugins/pkg/ns"
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
@@ -117,8 +118,14 @@ func DelFlatNetworkRouteFromHost(flatNetworkIP net.IP) error {
 		return nil
 	}
 
-	if err := netlink.RouteDel(route); err != nil {
+	r := &netlink.Route{
+		LinkIndex: route.LinkIndex,
+		Dst:       route.Dst,
+	}
+	if err := netlink.RouteDel(r); err != nil {
 		if strings.Contains(err.Error(), "no such process") {
+			logrus.Infof("DelFlatNetworkRouteFromHost: skip delete: %v: %v",
+				utils.Print(r), err)
 			return nil
 		}
 		err = fmt.Errorf("failed to delete flatNetwork IP %q route from host: %w",
