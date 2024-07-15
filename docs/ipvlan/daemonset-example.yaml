@@ -1,18 +1,18 @@
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
-  name: nginx-ipvlan-deployment
+  name: alpine-ipvlan-deployment
   namespace: default
   labels:
-    app: nginx-ipvlan-deployment
+    app: alpine-ipvlan-deployment
 spec:
   selector:
     matchLabels:
-      app: nginx-ipvlan-deployment
+      app: alpine-ipvlan-deployment
   template:
     metadata:
       labels:
-        app: nginx-ipvlan-deployment
+        app: alpine-ipvlan-deployment
       annotations:
         flatnetwork.pandaria.io/ip: "auto"
         flatnetwork.pandaria.io/subnet: "ipvlan-subnet200"
@@ -20,9 +20,11 @@ spec:
         k8s.v1.cni.cncf.io/networks: '[{"name":"rancher-flat-network","interface":"eth1"}]'
     spec:
       containers:
-      - name: nginx-ipvlan-deployment
-        image: nginx
+      - name: alpine-ipvlan-deployment
+        image: alpine
         imagePullPolicy: Always
+        command: ["sleep"]
+        args: ["infinity"]
         securityContext:
           privileged: true
 
@@ -30,18 +32,18 @@ spec:
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
-  name: nginx-ipvlan-deployment-ipv6
+  name: alpine-ipvlan-deployment-ipv6
   namespace: default
   labels:
-    app: nginx-ipvlan-deployment-ipv6
+    app: alpine-ipvlan-deployment-ipv6
 spec:
   selector:
     matchLabels:
-      app: nginx-ipvlan-deployment-ipv6
+      app: alpine-ipvlan-deployment-ipv6
   template:
     metadata:
       labels:
-        app: nginx-ipvlan-deployment-ipv6
+        app: alpine-ipvlan-deployment-ipv6
       annotations:
         flatnetwork.pandaria.io/ip: "auto"
         flatnetwork.pandaria.io/subnet: "ipvlan-ipv6-subnet201"
@@ -49,6 +51,8 @@ spec:
         k8s.v1.cni.cncf.io/networks: '[{"name":"rancher-flat-network","interface":"eth1"}]'
     spec:
       containers:
-      - name: nginx-ipvlan-deployment-ipv6
-        image: nginx
+      - name: alpine-ipvlan-deployment-ipv6
+        image: alpine
         imagePullPolicy: Always
+        command: ["sleep"]
+        args: ["infinity"]

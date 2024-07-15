@@ -1,19 +1,19 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: nginx-ipvlan-deployment
+  name: alpine-ipvlan-deployment
   namespace: default
   labels:
-    app: nginx-ipvlan
+    app: alpine-ipvlan
 spec:
   replicas: 2
   selector:
     matchLabels:
-      app: nginx-ipvlan
+      app: alpine-ipvlan
   template:
     metadata:
       labels:
-        app: nginx-ipvlan
+        app: alpine-ipvlan
       annotations:
         flatnetwork.pandaria.io/ip: "auto"
         flatnetwork.pandaria.io/subnet: "ipvlan-subnet200"
@@ -21,26 +21,28 @@ spec:
         k8s.v1.cni.cncf.io/networks: '[{"name":"rancher-flat-network","interface":"eth1"}]'
     spec:
       containers:
-      - name: nginx-ipvlan
-        image: nginx
+      - name: alpine-ipvlan
+        image: alpine
+        command: ["sleep"]
+        args: ["infinity"]
 
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: nginx-ipvlan-deployment-ipv6
+  name: alpine-ipvlan-deployment-ipv6
   namespace: default
   labels:
-    app: nginx-ipvlan-ipv6
+    app: alpine-ipvlan-ipv6
 spec:
   replicas: 2
   selector:
     matchLabels:
-      app: nginx-ipvlan-ipv6
+      app: alpine-ipvlan-ipv6
   template:
     metadata:
       labels:
-        app: nginx-ipvlan-ipv6
+        app: alpine-ipvlan-ipv6
       annotations:
         flatnetwork.pandaria.io/ip: "auto"
         flatnetwork.pandaria.io/subnet: "ipvlan-ipv6-subnet201"
@@ -48,5 +50,7 @@ spec:
         k8s.v1.cni.cncf.io/networks: '[{"name":"rancher-flat-network","interface":"eth1"}]'
     spec:
       containers:
-      - name: nginx-ipvlan
-        image: nginx
+      - name: alpine-ipvlan
+        image: alpine
+        command: ["sleep"]
+        args: ["infinity"]

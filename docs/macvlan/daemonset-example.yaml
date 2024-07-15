@@ -1,18 +1,18 @@
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
-  name: nginx-macvlan-daemonset
+  name: alpine-macvlan-daemonset
   namespace: default
   labels:
-    app: nginx-macvlan-daemonset
+    app: alpine-macvlan-daemonset
 spec:
   selector:
     matchLabels:
-      app: nginx-macvlan-daemonset
+      app: alpine-macvlan-daemonset
   template:
     metadata:
       labels:
-        app: nginx-macvlan-daemonset
+        app: alpine-macvlan-daemonset
       annotations:
         flatnetwork.pandaria.io/ip: "auto"
         flatnetwork.pandaria.io/subnet: "macvlan-subnet100"
@@ -21,26 +21,28 @@ spec:
         # v1.multus-cni.io/default-network: '[{"name":"rancher-flat-network","interface":"eth0"}]'
     spec:
       containers:
-      - name: nginx-macvlan-daemonset
-        image: nginx
+      - name: alpine-macvlan-daemonset
+        image: alpine
         imagePullPolicy: Always
+        command: ["sleep"]
+        args: ["infinity"]
 
 ---
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
-  name: nginx-macvlan-daemonset-ipv6
+  name: alpine-macvlan-daemonset-ipv6
   namespace: default
   labels:
-    app: nginx-macvlan-daemonset-ipv6
+    app: alpine-macvlan-daemonset-ipv6
 spec:
   selector:
     matchLabels:
-      app: nginx-macvlan-daemonset-ipv6
+      app: alpine-macvlan-daemonset-ipv6
   template:
     metadata:
       labels:
-        app: nginx-macvlan-daemonset-ipv6
+        app: alpine-macvlan-daemonset-ipv6
       annotations:
         flatnetwork.pandaria.io/ip: "auto"
         flatnetwork.pandaria.io/subnet: "macvlan-ipv6-subnet101"
@@ -48,6 +50,8 @@ spec:
         k8s.v1.cni.cncf.io/networks: '[{"name":"rancher-flat-network","interface":"eth1"}]'
     spec:
       containers:
-      - name: nginx-macvlan-daemonset-ipv6
-        image: nginx
+      - name: alpine-macvlan-daemonset-ipv6
+        image: alpine
         imagePullPolicy: Always
+        command: ["sleep"]
+        args: ["infinity"]
