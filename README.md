@@ -59,6 +59,7 @@ Environment variables for operator:
 - `CATTLE_ELECTION_LEASE_DURATION`: leader election lease duration, default `45s`.
 - `CATTLE_ELECTION_RENEW_DEADLINE`: leader election renew deadline, default `30s`.
 - `CATTLE_ELECTION_RETRY_PERIOD`: leader election retry period, default `2s`.
+- `FLAT_NETWORK_CNI_ARP_POLICY`: CNI ARP Policy, default `arp_notify`, available `arp_notify`, `arping`.
 
 ### CNI
 

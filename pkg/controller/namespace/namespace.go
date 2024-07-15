@@ -26,7 +26,7 @@ const (
 
 	arpPolicyEnv     = "FLAT_NETWORK_CNI_ARP_POLICY"
 	proxyARPEnv      = "FLAT_CNI_PROXY_ARP"
-	defaultARPPolicy = "arping"
+	defaultARPPolicy = "arp_notify"
 
 	defaultRequeueTime = time.Minute * 10
 )
@@ -158,10 +158,10 @@ func getNetAttachDefConfig() string {
 
 func getARPPolicy() string {
 	arpPolicy := os.Getenv(arpPolicyEnv)
-	if arpPolicy != "" {
-		return arpPolicy
+	if arpPolicy != defaultARPPolicy && arpPolicy != "arping" {
+		return defaultARPPolicy
 	}
-	return defaultARPPolicy
+	return arpPolicy
 }
 
 func getProxyARP() string {
