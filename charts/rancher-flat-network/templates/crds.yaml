@@ -95,11 +95,6 @@ spec:
               flatMode:
                 nullable: true
                 type: string
-              flatNetworkDefaultGateway:
-                properties:
-                  enable:
-                    type: boolean
-                type: object
               gateway:
                 nullable: true
                 type: string
@@ -121,6 +116,15 @@ spec:
                   type: object
                 nullable: true
                 type: array
+              routeSettings:
+                properties:
+                  addNodeCIDR:
+                    type: boolean
+                  addPodIPToHost:
+                    type: boolean
+                  flatNetworkDefaultGateway:
+                    type: boolean
+                type: object
               routes:
                 items:
                   properties:

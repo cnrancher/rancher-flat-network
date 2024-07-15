@@ -110,14 +110,13 @@ type SubnetSpec struct {
 	Gateway net.IP `json:"gateway"`
 
 	// Ranges is the IP range to allocate IP address (optional).
-	Ranges []IPRange `json:"ranges"`
+	Ranges []IPRange `json:"ranges,omitempty"`
 
 	// Routes defines the custom routes.
 	Routes []Route `json:"routes,omitempty"`
 
-	// FlatNetworkDefaultGateway let pod use the flat-network interface as the
-	// default gateway.
-	FlatNetworkDefaultGateway FlatNetworkDefaultGateway `json:"flatNetworkDefaultGateway,omitempty"`
+	// RouteSettings provides some advanced options for custom routes.
+	RouteSettings RouteSettings `json:"routeSettings,oitempty"`
 }
 
 type SubnetStatus struct {
@@ -131,7 +130,7 @@ type SubnetStatus struct {
 	UsedIP      []IPRange `json:"usedIP"`
 	UsedIPCount int       `json:"usedIPCount"`
 
-	// UsedMAC is the **USER SPECIFIED** used Mac address.
+	// UsedMAC is the **USER SPECIFIED** used MAC address.
 	UsedMAC []net.HardwareAddr `json:"usedMac"`
 }
 
@@ -144,10 +143,25 @@ type Route struct {
 	Priority int    `json:"priority,omitempty"` // Priority (optional)
 }
 
-type FlatNetworkDefaultGateway struct {
-	Enable bool `json:"enable,omitempty"`
+type RouteSettings struct {
+	// AddNodeCIDR adds node CIDR route for flat-network pod if enabled.
+	AddNodeCIDR bool `json:"addNodeCIDR"`
+
+	// AddPodIPToHost adds pod flat-network IP routes on host if enabled.
+	// If true, it will allow node to directly access Pods running on the current node by flat-network IP.
+	// If false, node cannot access Pods running on the current node by flat-network IP.
+	AddPodIPToHost bool `json:"addPodIPToHost"`
+
+	// FlatNetworkDefaultGateway lets Pod using the flat-network iface as default gateway.
+	// NOTE: need to add custom routes (serviceCIDR, clusterCIDR, nodeCIDR)
+	// if pod using the flat-network iface as the default gateway.
+	//
+	// And the pods’ access to other networks will be restricted.
+	// For example, Pods cannot directly access the public networks.
+	FlatNetworkDefaultGateway bool `json:"flatNetworkDefaultGateway"`
 }
 
+// IPRange defines the closed interval [from, to] of IP ranges.
 type IPRange struct {
 	From net.IP `json:"from"`
 	To   net.IP `json:"to"`

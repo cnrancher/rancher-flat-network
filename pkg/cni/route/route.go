@@ -3,7 +3,6 @@ package route
 import (
 	"fmt"
 	"net"
-	"slices"
 
 	"github.com/containernetworking/plugins/pkg/ns"
 	"github.com/sirupsen/logrus"
@@ -79,7 +78,7 @@ func CheckRouteExists(
 				continue
 			}
 		}
-		logrus.Debugf("route [%v] already exists on pod", utils.Print(r))
+		logrus.Debugf("route already exists on pod: [%v]", utils.Print(r))
 		return true, nil
 	}
 	return false, nil
@@ -142,14 +141,12 @@ func getHostAddrCustomRoutes(linkID int, gwV4, gwV6 net.IP) ([]flv1.Route, error
 	return routes, nil
 }
 
-// AddPodFlatNetworkCustomRoutes adds user defined custom routes and
-// host IP routes to pod NS
-func AddPodFlatNetworkCustomRoutes(podNS ns.NetNS, customRoutes []flv1.Route) error {
+func AddPodNodeCIDRRoutes(podNS ns.NetNS) error {
 	// Add host iface IP addr routes and user custom routes to Pod
-	customRoutes = slices.Clone(customRoutes)
+	customRoutes := []flv1.Route{}
 	defaultRoutes, err := GetDefaultRoutes()
 	if err != nil {
-		return fmt.Errorf("addPodFlatNetworkCustomRoutes: %w", err)
+		return fmt.Errorf("addPodNodeCIDRRoutes: %w", err)
 	}
 
 	defaultLinkID := map[int]bool{} // map[linkID]true
@@ -179,12 +176,12 @@ func AddPodFlatNetworkCustomRoutes(podNS ns.NetNS, customRoutes []flv1.Route) er
 		}
 		return nil
 	}); err != nil {
-		return fmt.Errorf("addPodFlatNetworkCustomRoutes: %w", err)
+		return fmt.Errorf("addPodNodeCIDRRoutes: %w", err)
 	}
 	for id := range defaultLinkID {
 		results, err := getHostAddrCustomRoutes(id, podDefaultGatewayV4, podDefaultGatewayV6)
 		if err != nil {
-			return fmt.Errorf("addPodFlatNetworkCustomRoutes: %w", err)
+			return fmt.Errorf("addPodNodeCIDRRoutes: %w", err)
 		}
 		if len(results) == 0 {
 			continue
@@ -192,7 +189,16 @@ func AddPodFlatNetworkCustomRoutes(podNS ns.NetNS, customRoutes []flv1.Route) er
 		customRoutes = append(customRoutes, results...)
 	}
 
-	err = podNS.Do(func(_ ns.NetNS) error {
+	return AddPodFlatNetworkCustomRoutes(podNS, customRoutes)
+}
+
+// AddPodFlatNetworkCustomRoutes adds user defined custom routes and
+// host IP routes to pod NS
+func AddPodFlatNetworkCustomRoutes(podNS ns.NetNS, customRoutes []flv1.Route) error {
+	if podNS == nil || len(customRoutes) == 0 {
+		return nil
+	}
+	err := podNS.Do(func(_ ns.NetNS) error {
 		for _, r := range customRoutes {
 			link, err := netlink.LinkByName(r.Dev)
 			if err != nil {
@@ -264,7 +270,7 @@ func UpdatePodDefaultGateway(
 			replaced.Gw = nil
 			// FIXME: gateway may encounter error if not reachable
 			_ = gateway
-			logrus.Debugf("reques to replace default route %v", utils.Print(replaced))
+			logrus.Debugf("request to replace default route %v", utils.Print(replaced))
 			if err := netlink.RouteReplace(&replaced); err != nil {
 				return fmt.Errorf("failed to replace default route: %w", err)
 			}

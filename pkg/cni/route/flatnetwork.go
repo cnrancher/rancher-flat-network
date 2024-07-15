@@ -84,6 +84,10 @@ func AddFlatNetworkRouteToHost(
 		err = fmt.Errorf("failed to add pod flatNetwork IP %q route on host: %w",
 			flatNetworkIP.String(), err)
 		logrus.Error(err)
+		if err := netlink.RouteDel(r); err != nil {
+			logrus.Errorf("failed to delete existing route %q on host: %v",
+				flatNetworkIP.String(), err)
+		}
 		return err
 	}
 	logrus.Infof("create flatNetwork route [%v dev %v src %v] on host NS",

@@ -292,23 +292,35 @@ func Add(args *skel.CmdArgs) error {
 	}
 
 	result.DNS = n.DNS
-	if err := route.AddPodFlatNetworkCustomRoutes(netns, subnet.Spec.Routes); err != nil {
-		return fmt.Errorf("failed to add custom routes: %w", err)
-	}
 
-	// Skip change gw if using single NIC macvlan
-	if subnet.Spec.FlatNetworkDefaultGateway.Enable && args.IfName != common.PodIfaceEth0 {
-		err = route.UpdatePodDefaultGateway(
-			netns, args.IfName, flatNetworkIP.Status.Addr, subnet.Spec.Gateway)
+	// Add NodeCIDR route in Pod NS
+	if subnet.Spec.RouteSettings.AddNodeCIDR {
+		err = route.AddPodNodeCIDRRoutes(netns)
 		if err != nil {
-			return fmt.Errorf("failed to change default gateway: %w", err)
+			return fmt.Errorf("route.AddPodNodeCIDRRoutes: %w", err)
 		}
 	}
 
-	// Add FlatNetwork IP route for Pod on Host NS
-	err = route.AddFlatNetworkRouteToHost(netns, flatNetworkIP.Status.Addr, vlanIface.Name)
-	if err != nil {
-		return fmt.Errorf("common.AddFlatNetworkRouteToHost: %w", err)
+	// Add FlatNetwork IP route to Pod on Host NS
+	if subnet.Spec.RouteSettings.AddPodIPToHost {
+		err = route.AddFlatNetworkRouteToHost(netns, flatNetworkIP.Status.Addr, vlanIface.Name)
+		if err != nil {
+			return fmt.Errorf("route.AddFlatNetworkRouteToHost: %w", err)
+		}
+	}
+
+	// Skip change gw if using single NIC
+	if subnet.Spec.RouteSettings.FlatNetworkDefaultGateway && args.IfName != common.PodIfaceEth0 {
+		err = route.UpdatePodDefaultGateway(
+			netns, args.IfName, flatNetworkIP.Status.Addr, subnet.Spec.Gateway)
+		if err != nil {
+			return fmt.Errorf("route.UpdatePodDefaultGateway: %w", err)
+		}
+	}
+
+	// Add other user-defined custom routes
+	if err := route.AddPodFlatNetworkCustomRoutes(netns, subnet.Spec.Routes); err != nil {
+		return fmt.Errorf("failed to add custom routes: %w", err)
 	}
 
 	if err = cnitypes.PrintResult(result, n.CNIVersion); err != nil {
