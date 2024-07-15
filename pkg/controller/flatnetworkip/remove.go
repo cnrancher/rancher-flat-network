@@ -5,17 +5,48 @@ import (
 	"fmt"
 	"net"
 	"slices"
+	"time"
 
 	flv1 "github.com/cnrancher/rancher-flat-network-operator/pkg/apis/flatnetwork.pandaria.io/v1"
 	"github.com/cnrancher/rancher-flat-network-operator/pkg/ipcalc"
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
+)
+
+const (
+	maxWaitForPodRemovePeriod = 60
 )
 
 func (h *handler) handleIPRemove(_ string, ip *flv1.FlatNetworkIP) (*flv1.FlatNetworkIP, error) {
 	if ip == nil || ip.Name == "" {
 		return ip, nil
+	}
+
+	// Wait until pod deleted
+	i := 0
+	for ; i < maxWaitForPodRemovePeriod; i++ {
+		pod, err := h.podCache.Get(ip.Namespace, ip.Name)
+		if err != nil {
+			if errors.IsNotFound(err) {
+				break
+			}
+			return ip, fmt.Errorf("failed to get pod from cache: %w", err)
+		}
+		if pod.DeletionTimestamp == nil {
+			break
+		}
+		if pod.UID != types.UID(ip.Spec.PodID) {
+			break
+		}
+		logrus.WithFields(fieldsIP(ip)).
+			Debugf("waiting for pod deleted...")
+		time.Sleep(time.Second)
+	}
+	if i >= maxWaitForPodRemovePeriod {
+		return ip, fmt.Errorf("failed to wait for pod [%v/%v] remove after [%v] times retry",
+			ip.Namespace, ip.Name, maxWaitForPodRemovePeriod)
 	}
 
 	h.allocateIPMutex.Lock()
