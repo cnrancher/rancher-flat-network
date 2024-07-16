@@ -13,8 +13,8 @@ import (
 	batchv1 "k8s.io/api/batch/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	flv1 "github.com/cnrancher/rancher-flat-network-operator/pkg/apis/flatnetwork.pandaria.io/v1"
-	"github.com/cnrancher/rancher-flat-network-operator/pkg/ipcalc"
+	flv1 "github.com/cnrancher/rancher-flat-network/pkg/apis/flatnetwork.pandaria.io/v1"
+	"github.com/cnrancher/rancher-flat-network/pkg/ipcalc"
 )
 
 type WorkloadReview struct {

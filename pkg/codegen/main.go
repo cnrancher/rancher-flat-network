@@ -18,14 +18,14 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	flatnetworkv1 "github.com/cnrancher/rancher-flat-network-operator/pkg/apis/flatnetwork.pandaria.io/v1"
+	flatnetworkv1 "github.com/cnrancher/rancher-flat-network/pkg/apis/flatnetwork.pandaria.io/v1"
 )
 
 func main() {
 	os.Unsetenv("GOPATH")
 
 	controllergen.Run(args.Options{
-		OutputPackage: "github.com/cnrancher/rancher-flat-network-operator/pkg/generated",
+		OutputPackage: "github.com/cnrancher/rancher-flat-network/pkg/generated",
 		Boilerplate:   "pkg/codegen/boilerplate.go.txt",
 		Groups: map[string]args.Group{
 			"flatnetwork.pandaria.io": {

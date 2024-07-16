@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/cnrancher/rancher-flat-network-operator/pkg/cni/common"
-	"github.com/cnrancher/rancher-flat-network-operator/pkg/cni/types"
-	"github.com/cnrancher/rancher-flat-network-operator/pkg/utils"
+	"github.com/cnrancher/rancher-flat-network/pkg/cni/common"
+	"github.com/cnrancher/rancher-flat-network/pkg/cni/types"
+	"github.com/cnrancher/rancher-flat-network/pkg/utils"
 	"github.com/sirupsen/logrus"
 
-	flv1 "github.com/cnrancher/rancher-flat-network-operator/pkg/apis/flatnetwork.pandaria.io/v1"
+	flv1 "github.com/cnrancher/rancher-flat-network/pkg/apis/flatnetwork.pandaria.io/v1"
 	cnitypes "github.com/containernetworking/cni/pkg/types"
 	"github.com/containernetworking/cni/pkg/types/create"
 )

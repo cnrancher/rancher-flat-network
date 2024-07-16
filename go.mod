@@ -1,4 +1,4 @@
-module github.com/cnrancher/rancher-flat-network-operator
+module github.com/cnrancher/rancher-flat-network
 
 go 1.22.0
 

@@ -1,11 +1,17 @@
 package main
 
 import (
+	"fmt"
 	"runtime"
 
-	"github.com/cnrancher/rancher-flat-network-operator/pkg/cni/commands"
+	"github.com/cnrancher/rancher-flat-network/pkg/cni/commands"
+	"github.com/cnrancher/rancher-flat-network/pkg/utils"
 	"github.com/containernetworking/cni/pkg/skel"
 	"github.com/containernetworking/cni/pkg/version"
+)
+
+var (
+	about string
 )
 
 func init() {
@@ -13,6 +19,11 @@ func init() {
 	// since namespace ops (unshare, setns) are done for a single thread, we
 	// must ensure that the goroutine does not jump from OS thread to thread
 	runtime.LockOSThread()
+
+	about = fmt.Sprintf("rancher-flat-network-cni %v", utils.Version)
+	if utils.GitCommit != "" {
+		about += " - " + utils.GitCommit
+	}
 }
 
 func main() {
@@ -22,5 +33,5 @@ func main() {
 		Del:   commands.Del,
 		Check: commands.Check,
 	}
-	skel.PluginMainFuncs(funcs, versions, "rancher-flat-network-cni")
+	skel.PluginMainFuncs(funcs, versions, about)
 }

@@ -11,9 +11,9 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/cnrancher/rancher-flat-network-operator/pkg/controller/wrangler"
-	corecontroller "github.com/cnrancher/rancher-flat-network-operator/pkg/generated/controllers/core/v1"
-	"github.com/cnrancher/rancher-flat-network-operator/pkg/utils"
+	"github.com/cnrancher/rancher-flat-network/pkg/controller/wrangler"
+	corecontroller "github.com/cnrancher/rancher-flat-network/pkg/generated/controllers/core/v1"
+	"github.com/cnrancher/rancher-flat-network/pkg/utils"
 	k8scnicncfiov1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	ndClientSet "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/client/clientset/versioned"
 )

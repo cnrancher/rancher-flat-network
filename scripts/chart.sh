@@ -2,25 +2,25 @@
 
 set -euo pipefail
 
-if ! hash helm 2>/dev/null; then
-    exit 0
-fi
+cd $(dirname $0)/../
 
-cd $(dirname $0)/..
-WORKINGDIR=$(pwd)
-source ./scripts/version.sh
+type helm > /dev/null
 
+TAG=${TAG:-'latest'}
+
+# Cleanup
 rm -rf build/charts &> /dev/null || true
 mkdir -p build dist/artifacts &> /dev/null || true
 cp -rf charts build/ &> /dev/null || true
 
+# Update version
 sed -i \
-    -e 's/^version:.*/version: '${HELM_VERSION}'/' \
-    -e 's/appVersion:.*/appVersion: '${HELM_VERSION}'/' \
+    -e 's/^version:.*/version: '${TAG/v/}'/' \
+    -e 's/appVersion:.*/appVersion: '${TAG/v/}'/' \
     build/charts/rancher-flat-network/Chart.yaml
 
 sed -i \
-    -e 's/tag:.*/tag: '${HELM_TAG}'/' \
+    -e 's/tag:.*/tag: '${TAG}'/' \
     build/charts/rancher-flat-network/values.yaml
 
 helm package -d ./dist/artifacts ./build/charts/rancher-flat-network

@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	flv1 "github.com/cnrancher/rancher-flat-network-operator/pkg/apis/flatnetwork.pandaria.io/v1"
-	clientset "github.com/cnrancher/rancher-flat-network-operator/pkg/generated/clientset/versioned"
+	flv1 "github.com/cnrancher/rancher-flat-network/pkg/apis/flatnetwork.pandaria.io/v1"
+	clientset "github.com/cnrancher/rancher-flat-network/pkg/generated/clientset/versioned"
 	"github.com/containernetworking/cni/pkg/skel"
 	cnitypes "github.com/containernetworking/cni/pkg/types"
 	"gopkg.in/k8snetworkplumbingwg/multus-cni.v4/pkg/types"

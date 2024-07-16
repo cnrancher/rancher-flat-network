@@ -6,19 +6,19 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cnrancher/rancher-flat-network-operator/pkg/controller/wrangler"
-	"github.com/cnrancher/rancher-flat-network-operator/pkg/utils"
+	"github.com/cnrancher/rancher-flat-network/pkg/controller/wrangler"
+	"github.com/cnrancher/rancher-flat-network/pkg/utils"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/util/retry"
 
-	flv1 "github.com/cnrancher/rancher-flat-network-operator/pkg/apis/flatnetwork.pandaria.io/v1"
-	appscontroller "github.com/cnrancher/rancher-flat-network-operator/pkg/generated/controllers/apps/v1"
-	batchcontroller "github.com/cnrancher/rancher-flat-network-operator/pkg/generated/controllers/batch/v1"
-	corecontroller "github.com/cnrancher/rancher-flat-network-operator/pkg/generated/controllers/core/v1"
-	flcontroller "github.com/cnrancher/rancher-flat-network-operator/pkg/generated/controllers/flatnetwork.pandaria.io/v1"
+	flv1 "github.com/cnrancher/rancher-flat-network/pkg/apis/flatnetwork.pandaria.io/v1"
+	appscontroller "github.com/cnrancher/rancher-flat-network/pkg/generated/controllers/apps/v1"
+	batchcontroller "github.com/cnrancher/rancher-flat-network/pkg/generated/controllers/batch/v1"
+	corecontroller "github.com/cnrancher/rancher-flat-network/pkg/generated/controllers/core/v1"
+	flcontroller "github.com/cnrancher/rancher-flat-network/pkg/generated/controllers/flatnetwork.pandaria.io/v1"
 )
 
 const (

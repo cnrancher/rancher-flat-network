@@ -3,7 +3,7 @@ package service
 import (
 	"fmt"
 
-	"github.com/cnrancher/rancher-flat-network-operator/pkg/utils"
+	"github.com/cnrancher/rancher-flat-network/pkg/utils"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	discoveryv1 "k8s.io/api/discovery/v1"

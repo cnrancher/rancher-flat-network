@@ -3,9 +3,9 @@ package commands
 import (
 	"fmt"
 
-	"github.com/cnrancher/rancher-flat-network-operator/pkg/cni/logger"
-	"github.com/cnrancher/rancher-flat-network-operator/pkg/cni/route"
-	"github.com/cnrancher/rancher-flat-network-operator/pkg/utils"
+	"github.com/cnrancher/rancher-flat-network/pkg/cni/logger"
+	"github.com/cnrancher/rancher-flat-network/pkg/cni/route"
+	"github.com/cnrancher/rancher-flat-network/pkg/utils"
 	"github.com/containernetworking/cni/pkg/skel"
 	"github.com/containernetworking/plugins/pkg/ipam"
 	"github.com/containernetworking/plugins/pkg/ns"

@@ -21,7 +21,7 @@ limitations under the License.
 package v1
 
 import (
-	flatnetwork "github.com/cnrancher/rancher-flat-network-operator/pkg/apis/flatnetwork.pandaria.io"
+	flatnetwork "github.com/cnrancher/rancher-flat-network/pkg/apis/flatnetwork.pandaria.io"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"

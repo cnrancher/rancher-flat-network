@@ -4,17 +4,6 @@ on:
   push:
     tags:
       - 'v*'
-
-# GitHub settings / example values:
-#
-# org level vars:
-#   - PUBLIC_REGISTRY: docker.io
-# repo level vars:
-#   - PUBLIC_REGISTRY_REPO: cnrancher
-# repo level secrets:
-#   - PUBLIC_REGISTRY_USERNAME
-#   - PUBLIC_REGISTRY_PASSWORD
-
 jobs:
   release:
     permissions:
@@ -37,25 +26,33 @@ jobs:
       with:
         fetch-depth: 0
         ref: ${{ github.ref_name}}
-    - name: Build and push all image variations
+    - name: Lint
+      uses: golangci/golangci-lint-action@v6
+      with:
+        version: v1.59
+    - name: Verify
       run: |
-        ./scripts/validate.sh
-        ./scripts/test.sh
-        ./scripts/build.sh
-        ./scripts/image-push.sh
-      env:
-        TAG: ${{ github.ref_name }}
-        REPO: ${{ vars.PUBLIC_REGISTRY }}/${{ vars.PUBLIC_REGISTRY_REPO }}
-    - name: Create release
+        make verify
+    - name: Test
+      run: |
+        make test
+    - name: Go Release
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # required for creating GH release
-      id: goreleaser
+        TAG: ${{ github.ref_name }}
+        COMMIT: ${{ github.sha }}
       uses: goreleaser/goreleaser-action@v6
       with:
         distribution: goreleaser
         version: "~> v2"
         args: release --clean --verbose
-    - name: Upload charts to release
+    - name: Image Push
+      run: |
+        make image-push
+      env:
+        TAG: ${{ github.ref_name }}
+        REPO: ${{ vars.PUBLIC_REGISTRY }}/${{ vars.PUBLIC_REGISTRY_REPO }}
+    - name: Upload Charts
       env:
         TAG: ${{ github.ref_name }}
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # required for updating GH release

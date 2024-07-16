@@ -7,8 +7,8 @@ import (
 	"slices"
 	"time"
 
-	flv1 "github.com/cnrancher/rancher-flat-network-operator/pkg/apis/flatnetwork.pandaria.io/v1"
-	"github.com/cnrancher/rancher-flat-network-operator/pkg/ipcalc"
+	flv1 "github.com/cnrancher/rancher-flat-network/pkg/apis/flatnetwork.pandaria.io/v1"
+	"github.com/cnrancher/rancher-flat-network/pkg/ipcalc"
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"

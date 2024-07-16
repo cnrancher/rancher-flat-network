@@ -6,7 +6,7 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/cnrancher/rancher-flat-network-operator/pkg/controller/wrangler"
+	"github.com/cnrancher/rancher-flat-network/pkg/controller/wrangler"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -14,10 +14,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 
-	appscontroller "github.com/cnrancher/rancher-flat-network-operator/pkg/generated/controllers/apps/v1"
-	batchcontroller "github.com/cnrancher/rancher-flat-network-operator/pkg/generated/controllers/batch/v1"
-	corecontroller "github.com/cnrancher/rancher-flat-network-operator/pkg/generated/controllers/core/v1"
-	flcontroller "github.com/cnrancher/rancher-flat-network-operator/pkg/generated/controllers/flatnetwork.pandaria.io/v1"
+	appscontroller "github.com/cnrancher/rancher-flat-network/pkg/generated/controllers/apps/v1"
+	batchcontroller "github.com/cnrancher/rancher-flat-network/pkg/generated/controllers/batch/v1"
+	corecontroller "github.com/cnrancher/rancher-flat-network/pkg/generated/controllers/core/v1"
+	flcontroller "github.com/cnrancher/rancher-flat-network/pkg/generated/controllers/flatnetwork.pandaria.io/v1"
 )
 
 type Handler struct {

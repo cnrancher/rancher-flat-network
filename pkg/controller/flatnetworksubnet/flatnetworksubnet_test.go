@@ -4,7 +4,7 @@ import (
 	"net"
 	"testing"
 
-	flv1 "github.com/cnrancher/rancher-flat-network-operator/pkg/apis/flatnetwork.pandaria.io/v1"
+	flv1 "github.com/cnrancher/rancher-flat-network/pkg/apis/flatnetwork.pandaria.io/v1"
 	"github.com/stretchr/testify/assert"
 )
 

@@ -5,8 +5,8 @@ import (
 	"net"
 	"strings"
 
-	"github.com/cnrancher/rancher-flat-network-operator/pkg/cni/common"
-	"github.com/cnrancher/rancher-flat-network-operator/pkg/utils"
+	"github.com/cnrancher/rancher-flat-network/pkg/cni/common"
+	"github.com/cnrancher/rancher-flat-network/pkg/utils"
 	"github.com/containernetworking/plugins/pkg/ns"
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"

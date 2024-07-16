@@ -19,7 +19,7 @@ limitations under the License.
 package apps
 
 import (
-	v1 "github.com/cnrancher/rancher-flat-network-operator/pkg/generated/controllers/apps/v1"
+	v1 "github.com/cnrancher/rancher-flat-network/pkg/generated/controllers/apps/v1"
 	"github.com/rancher/lasso/pkg/controller"
 )
 
