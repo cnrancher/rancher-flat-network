@@ -1,4 +1,13 @@
-# rancher-flat-network
+<div align="center">
+  <h1>rancher-flat-network</h1>
+  <p>
+    <a href="https://github.com/cnrancher/rancher-flat-network/actions/workflows/ci.yaml"><img alt="CI" src="https://github.com/cnrancher/rancher-flat-network/actions/workflows/ci.yaml/badge.svg"></a>
+    <a href="https://goreportcard.com/report/github.com/cnrancher/rancher-flat-network"><img alt="Go Report Card" src="https://goreportcard.com/badge/github.com/cnrancher/rancher-flat-network"></a>
+    <a href="https://github.com/cnrancher/rancher-flat-network/releases"><img alt="GitHub release" src="https://img.shields.io/github/v/release/cnrancher/rancher-flat-network?color=default&label=release&logo=github"></a>
+    <a href="https://github.com/cnrancher/rancher-flat-network/releases"><img alt="GitHub pre-release" src="https://img.shields.io/github/v/release/cnrancher/rancher-flat-network?include_prereleases&label=pre-release&logo=github"></a>
+    <img alt="License" src="https://img.shields.io/badge/License-Apache_2.0-blue.svg">
+  </p>
+</div>
 
 Rancher Flat-Network Operator (based on [Wrangler V2](https://github.com/rancher/wrangler/)) & CNI plugin for managing
 pods using the flat-networks (Macvlan/IPvlan).
