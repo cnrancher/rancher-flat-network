@@ -1,5 +1,5 @@
 TAG?=$(shell git describe --abbrev=0 --tags 2>/dev/null || echo "v0.0.0" )
-COMMIT?=$(shell git rev-parse --short HEAD)
+COMMIT?=$(shell git rev-parse HEAD)
 
 default: build
 

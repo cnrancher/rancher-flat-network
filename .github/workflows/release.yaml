@@ -57,7 +57,7 @@ jobs:
         TAG: ${{ github.ref_name }}
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # required for updating GH release
       run: |
-        ./scripts/package.sh
+        make chart
         for f in $(find dist/artifacts/ -name '*.tgz'); do
           echo "Uploading $f to GitHub release $TAG"
           gh release upload $TAG $f
