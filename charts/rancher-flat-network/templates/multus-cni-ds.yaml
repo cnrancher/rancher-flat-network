@@ -79,10 +79,10 @@ spec:
         resources:
           requests:
             cpu: "100m"
-            memory: "50Mi"
+            memory: "64Mi"
           limits:
             cpu: "100m"
-            memory: "50Mi"
+            memory: "64Mi"
         securityContext:
           privileged: true
         volumeMounts:

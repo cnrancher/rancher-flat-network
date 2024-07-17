@@ -1,11 +1,7 @@
-# Macvlan/IPvlan master interface, automatic detection by default.
-iface: ""
 # ARP refresh policy
 arpPolicy: "arp_notify"
 # Enable or disable Proxy ARP on Pod nic
 proxyARP: false
-# Pod CIDR, set to same value of the Kubernetes config.
-podCIDR: "10.42.0.0/16"
 # Set to 'K3s' if using K3s cluster.
 clusterType: default
 
@@ -16,10 +12,11 @@ flatNetworkOperator:
   cattleDevMode: ""
   limits:
     memory: "512M"
+    cpu: "100m"
   image:
     repository: "cnrancher/rancher-flat-network-operator"
     tag: v0.0.0
-    pullPolicy: IfNotPresents
+    pullPolicy: IfNotPresent
 
 # Configuration for rancher-flat-network-deploy
 deploy:

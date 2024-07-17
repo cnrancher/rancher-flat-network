@@ -38,6 +38,7 @@ spec:
         resources:
           limits:
             memory: {{ .Values.flatNetworkOperator.limits.memory | quote }}
+            cpu: {{ .Values.flatNetworkOperator.limits.cpu | quote }}
         volumeMounts:
         - name: webhook-certs
           mountPath: /etc/webhook/certs
