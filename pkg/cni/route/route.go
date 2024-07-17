@@ -10,6 +10,7 @@ import (
 	"github.com/vishvananda/netlink/nl"
 
 	flv1 "github.com/cnrancher/rancher-flat-network/pkg/apis/flatnetwork.pandaria.io/v1"
+	"github.com/cnrancher/rancher-flat-network/pkg/cni/common"
 	"github.com/cnrancher/rancher-flat-network/pkg/utils"
 )
 
@@ -106,15 +107,15 @@ func EnsureRouteExists(
 	return nil
 }
 
-// getHostAddrCustomRoutes for adding host iface IP addr routes to pod
-func getHostAddrCustomRoutes(linkID int, gwV4, gwV6 net.IP) ([]flv1.Route, error) {
+// getHostCIDRCustomRoutes for adding host iface IP addr routes to pod
+func getHostCIDRCustomRoutes(linkID int, gwV4, gwV6 net.IP) ([]flv1.Route, error) {
 	link, err := netlink.LinkByIndex(linkID)
 	if err != nil {
-		return nil, fmt.Errorf("getHostAddrCustomRoutes: %w", err)
+		return nil, fmt.Errorf("getHostCIDRCustomRoutes: %w", err)
 	}
 	addrs, err := netlink.AddrList(link, netlink.FAMILY_ALL)
 	if err != nil {
-		return nil, fmt.Errorf("getHostAddrCustomRoutes: %w", err)
+		return nil, fmt.Errorf("getHostCIDRCustomRoutes: %w", err)
 	}
 	if len(addrs) == 0 {
 		return nil, nil
@@ -125,7 +126,7 @@ func getHostAddrCustomRoutes(linkID int, gwV4, gwV6 net.IP) ([]flv1.Route, error
 			continue
 		}
 		r := flv1.Route{
-			Dev: link.Attrs().Name,
+			Dev: common.PodIfaceEth0,
 			Dst: a.IPNet.String(),
 			Via: nil,
 		}
@@ -137,7 +138,7 @@ func getHostAddrCustomRoutes(linkID int, gwV4, gwV6 net.IP) ([]flv1.Route, error
 		}
 		routes = append(routes, r)
 	}
-	logrus.Debugf("getHostAddrCustomRoutes: %v", utils.Print(routes))
+	logrus.Debugf("getHostCIDRCustomRoutes: %v", utils.Print(routes))
 	return routes, nil
 }
 
@@ -179,7 +180,7 @@ func AddPodNodeCIDRRoutes(podNS ns.NetNS) error {
 		return fmt.Errorf("addPodNodeCIDRRoutes: %w", err)
 	}
 	for id := range defaultLinkID {
-		results, err := getHostAddrCustomRoutes(id, podDefaultGatewayV4, podDefaultGatewayV6)
+		results, err := getHostCIDRCustomRoutes(id, podDefaultGatewayV4, podDefaultGatewayV6)
 		if err != nil {
 			return fmt.Errorf("addPodNodeCIDRRoutes: %w", err)
 		}

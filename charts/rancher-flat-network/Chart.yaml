@@ -8,12 +8,11 @@ version: 999
 appVersion: 999
 annotations:
   catalog.cattle.io/certified: rancher
-  catalog.cattle.io/kube-version: ">= 1.18.0-0"
+  catalog.cattle.io/display-name: Rancher FlatNetwork
+  catalog.cattle.io/kube-version: '>= 1.25.0-0'
   catalog.cattle.io/namespace: cattle-flat-network
   catalog.cattle.io/os: linux
   catalog.cattle.io/permits-os: linux
-  catalog.cattle.io/provides-gvr: flatnetworksubnets.flatnetwork.pandaria.io
-  catalog.cattle.io/rancher-version: ">= 2.6.0-alpha"
+  catalog.cattle.io/rancher-version: '>= 2.8.0-alpha'
   catalog.cattle.io/release-name: rancher-flat-network
-  catalog.cattle.io/display-name: Rancher FlatNetwork
-  catalog.cattle.io/scope: management
+  catalog.cattle.io/type: cluster-tool
