@@ -184,7 +184,7 @@ func Test_allocateIP(t *testing.T) {
 func Test_alreadyAllocatedMAC(t *testing.T) {
 	ip := &flv1.FlatNetworkIP{
 		Spec: flv1.IPSpec{
-			MACs: []net.HardwareAddr{},
+			MACs: []string{},
 		},
 		Status: flv1.IPStatus{},
 	}

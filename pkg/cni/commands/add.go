@@ -179,11 +179,7 @@ func Add(args *skel.CmdArgs) error {
 		}
 
 		flatNetworkIP = flatNetworkIP.DeepCopy()
-		flatNetworkIP.Status.MAC, err = net.ParseMAC(iface.Mac)
-		if err != nil {
-			logrus.Errorf("failed to parse created iface MAC address: %v", err)
-			return err
-		}
+		flatNetworkIP.Status.MAC = iface.Mac
 		flatNetworkIP, err = client.UpdateIPStatus(context.TODO(), podNamespace, flatNetworkIP)
 		return err
 	}); err != nil {
@@ -197,7 +193,7 @@ func Add(args *skel.CmdArgs) error {
 		return err
 	}
 	logrus.Infof("update flatNetwork IP status MAC [%v]",
-		flatNetworkIP.Status.MAC.String())
+		flatNetworkIP.Status.MAC)
 
 	// Delete link if err to avoid link leak in this ns
 	defer func() {

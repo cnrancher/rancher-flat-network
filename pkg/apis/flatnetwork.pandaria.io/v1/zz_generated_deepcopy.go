@@ -191,14 +191,8 @@ func (in *IPSpec) DeepCopyInto(out *IPSpec) {
 	}
 	if in.MACs != nil {
 		in, out := &in.MACs, &out.MACs
-		*out = make([]net.HardwareAddr, len(*in))
-		for i := range *in {
-			if (*in)[i] != nil {
-				in, out := &(*in)[i], &(*out)[i]
-				*out = make(net.HardwareAddr, len(*in))
-				copy(*out, *in)
-			}
-		}
+		*out = make([]string, len(*in))
+		copy(*out, *in)
 	}
 	return
 }
@@ -219,11 +213,6 @@ func (in *IPStatus) DeepCopyInto(out *IPStatus) {
 	if in.Addr != nil {
 		in, out := &in.Addr, &out.Addr
 		*out = make(net.IP, len(*in))
-		copy(*out, *in)
-	}
-	if in.MAC != nil {
-		in, out := &in.MAC, &out.MAC
-		*out = make(net.HardwareAddr, len(*in))
 		copy(*out, *in)
 	}
 	return
@@ -334,14 +323,8 @@ func (in *SubnetStatus) DeepCopyInto(out *SubnetStatus) {
 	}
 	if in.UsedMAC != nil {
 		in, out := &in.UsedMAC, &out.UsedMAC
-		*out = make([]net.HardwareAddr, len(*in))
-		for i := range *in {
-			if (*in)[i] != nil {
-				in, out := &(*in)[i], &(*out)[i]
-				*out = make(net.HardwareAddr, len(*in))
-				copy(*out, *in)
-			}
-		}
+		*out = make([]string, len(*in))
+		copy(*out, *in)
 	}
 	return
 }

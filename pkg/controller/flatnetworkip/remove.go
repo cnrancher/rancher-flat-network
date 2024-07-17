@@ -1,9 +1,7 @@
 package flatnetworkip
 
 import (
-	"bytes"
 	"fmt"
-	"net"
 	"slices"
 	"time"
 
@@ -66,9 +64,10 @@ func (h *handler) handleIPRemove(_ string, ip *flv1.FlatNetworkIP) (*flv1.FlatNe
 		result.Status.UsedIP = ipcalc.RemoveIPFromRange(ip.Status.Addr, result.Status.UsedIP)
 		result.Status.UsedIPCount--
 		if len(ip.Status.MAC) != 0 {
-			result.Status.UsedMAC = slices.DeleteFunc(result.Status.UsedMAC, func(m net.HardwareAddr) bool {
-				return bytes.Equal(m, ip.Status.MAC)
+			result.Status.UsedMAC = slices.DeleteFunc(result.Status.UsedMAC, func(m string) bool {
+				return m == ip.Status.MAC
 			})
+			slices.Sort(result.Status.UsedMAC)
 		}
 		_, err = h.subnetClient.UpdateStatus(result)
 		return err
@@ -77,7 +76,7 @@ func (h *handler) handleIPRemove(_ string, ip *flv1.FlatNetworkIP) (*flv1.FlatNe
 		logrus.WithFields(fieldsIP(ip)).
 			Errorf("failed to remove usedIP & usedMAC from subnet: %v", err)
 	}
-	if ip.Status.MAC != nil {
+	if ip.Status.MAC != "" {
 		logrus.WithFields(fieldsIP(ip)).
 			Infof("remove IP [%v] MAC [%v] from subnet [%v]",
 				ip.Status.Addr, ip.Status.MAC, ip.Spec.Subnet)

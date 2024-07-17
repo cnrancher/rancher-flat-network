@@ -18,7 +18,7 @@ type Options struct {
 	MTU    int
 	IfName string
 	NetNS  ns.NetNS
-	MAC    net.HardwareAddr
+	MAC    string
 }
 
 func Create(o *Options) (*types100.Interface, error) {
@@ -38,13 +38,20 @@ func Create(o *Options) (*types100.Interface, error) {
 	if err != nil {
 		return nil, err
 	}
+	var mac net.HardwareAddr
+	if o.MAC != "" {
+		mac, err = net.ParseMAC(o.MAC)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse MAC %q: %w", o.MAC, err)
+		}
+	}
 	mv := &netlink.Macvlan{
 		LinkAttrs: netlink.LinkAttrs{
 			MTU:          o.MTU,
 			Name:         tmpName,
 			ParentIndex:  master.Attrs().Index,
 			Namespace:    netlink.NsFd(int(o.NetNS.Fd())),
-			HardwareAddr: o.MAC,
+			HardwareAddr: mac,
 		},
 		Mode: mode,
 	}

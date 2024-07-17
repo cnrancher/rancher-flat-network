@@ -183,8 +183,8 @@ func (h *handler) updatePodLabel(pod *corev1.Pod, ip *flv1.FlatNetworkIP) error 
 		s := ip.Status.Addr.String()
 		labels[flv1.LabelSelectedIP] = strings.ReplaceAll(s, ":", ".")
 	}
-	if ip.Status.MAC != nil && annotationMac != "" {
-		labels[flv1.LabelSelectedMac] = strings.ReplaceAll(ip.Status.MAC.String(), ":", "_")
+	if ip.Status.MAC != "" && annotationMac != "" {
+		labels[flv1.LabelSelectedMac] = strings.ReplaceAll(ip.Status.MAC, ":", "")
 	}
 	if annotationIP == flv1.AllocateModeAuto {
 		labels[flv1.LabelFlatNetworkIPType] = flv1.AllocateModeAuto

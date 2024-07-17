@@ -18,7 +18,7 @@ type Options struct {
 	MTU    int
 	IfName string
 	NetNS  ns.NetNS
-	MAC    net.HardwareAddr
+	MAC    string
 }
 
 func Create(o *Options) (*types100.Interface, error) {
@@ -39,21 +39,27 @@ func Create(o *Options) (*types100.Interface, error) {
 	if err != nil {
 		return nil, err
 	}
-
+	var mac net.HardwareAddr
+	if o.MAC != "" {
+		mac, err = net.ParseMAC(o.MAC)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse MAC %q: %w", o.MAC, err)
+		}
+	}
 	iv := &netlink.IPVlan{
 		LinkAttrs: netlink.LinkAttrs{
-			MTU:         o.MTU,
-			Name:        tmpName,
-			ParentIndex: m.Attrs().Index,
-			Namespace:   netlink.NsFd(int(o.NetNS.Fd())),
+			MTU:          o.MTU,
+			Name:         tmpName,
+			ParentIndex:  m.Attrs().Index,
+			Namespace:    netlink.NsFd(int(o.NetNS.Fd())),
+			HardwareAddr: mac,
 		},
 		Mode: mode,
 	}
-
 	if err := netlink.LinkAdd(iv); err != nil {
 		return nil, fmt.Errorf("failed to create ipvlan: %v", err)
 	}
-
+	logrus.Debugf("created ipvlan iface: %v", utils.Print(iv))
 	var result *types100.Interface
 	if err := o.NetNS.Do(func(_ ns.NetNS) error {
 		err := ip.RenameLink(tmpName, o.IfName)

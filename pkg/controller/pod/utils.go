@@ -23,7 +23,7 @@ func (h *handler) newFlatNetworkIP(pod *corev1.Pod) (*flv1.FlatNetworkIP, error)
 
 	var (
 		ipAddrs  []net.IP
-		macAddrs []net.HardwareAddr
+		macAddrs []string
 	)
 	switch annotationIP {
 	case flv1.AllocateModeAuto:
@@ -47,7 +47,7 @@ func (h *handler) newFlatNetworkIP(pod *corev1.Pod) (*flv1.FlatNetworkIP, error)
 				return nil, fmt.Errorf("newFlatNetworkIP: invalid annotation [%v: %v]",
 					flv1.AnnotationMac, annotationMAC)
 			}
-			macAddrs = append(macAddrs, a)
+			macAddrs = append(macAddrs, a.String())
 		}
 	}
 	subnet, err := h.subnetCache.Get(flv1.SubnetNamespace, annotationSubnet)

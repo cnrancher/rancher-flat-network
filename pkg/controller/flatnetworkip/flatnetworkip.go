@@ -3,7 +3,6 @@ package flatnetworkip
 import (
 	"context"
 	"fmt"
-	"net"
 	"slices"
 	"sync"
 	"time"
@@ -200,8 +199,9 @@ func (h *handler) onIPCreate(ip *flv1.FlatNetworkIP) (*flv1.FlatNetworkIP, error
 		result = result.DeepCopy()
 		result.Status.UsedIP = ipcalc.AddIPToRange(allocatedIP, result.Status.UsedIP)
 		result.Status.UsedIPCount++
-		if allocatedMAC != nil {
+		if allocatedMAC != "" {
 			result.Status.UsedMAC = append(result.Status.UsedMAC, allocatedMAC)
+			slices.Sort(result.Status.UsedMAC)
 		}
 		result, err = h.subnetClient.UpdateStatus(result)
 		if err != nil {
@@ -241,8 +241,8 @@ func (h *handler) onIPCreate(ip *flv1.FlatNetworkIP) (*flv1.FlatNetworkIP, error
 		subnet.Status.UsedIP = ipcalc.RemoveIPFromRange(allocatedIP, subnet.Status.UsedIP)
 		subnet.Status.UsedIPCount--
 		if len(allocatedMAC) != 0 && len(subnet.Status.UsedMAC) != 0 {
-			subnet.Status.UsedMAC = slices.DeleteFunc(subnet.Status.UsedMAC, func(a net.HardwareAddr) bool {
-				return a.String() == allocatedIP.String()
+			subnet.Status.UsedMAC = slices.DeleteFunc(subnet.Status.UsedMAC, func(s string) bool {
+				return s == allocatedMAC
 			})
 		}
 		subnet, err = h.subnetClient.UpdateStatus(subnet)
@@ -255,7 +255,7 @@ func (h *handler) onIPCreate(ip *flv1.FlatNetworkIP) (*flv1.FlatNetworkIP, error
 			ip.Namespace, ip.Name, err)
 	}
 
-	macString := ip.Status.MAC.String()
+	macString := ip.Status.MAC
 	if macString == "" {
 		macString = flv1.AllocateModeAuto
 	}

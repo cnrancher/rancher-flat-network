@@ -55,7 +55,7 @@ type IPSpec struct {
 	Addrs []net.IP `json:"addrs"`
 
 	// MACs is the user specified MAC addresses (optional).
-	MACs []net.HardwareAddr `json:"macs"`
+	MACs []string `json:"macs"`
 
 	// PodID is the Pod metadata.UID
 	PodID string `json:"podId"`
@@ -70,7 +70,7 @@ type IPStatus struct {
 
 	// MAC is actual allocated MAC address by CNI
 	// can be random in auto mode, or specidied by user.
-	MAC net.HardwareAddr `json:"mac"`
+	MAC string `json:"mac"`
 }
 
 ////////////////////
@@ -131,7 +131,7 @@ type SubnetStatus struct {
 	UsedIPCount int       `json:"usedIPCount"`
 
 	// UsedMAC is the **USER SPECIFIED** used MAC address.
-	UsedMAC []net.HardwareAddr `json:"usedMac"`
+	UsedMAC []string `json:"usedMac"`
 }
 
 // Example: ip route add <DST_CIDR> dev <DEV_NAME> via <VIA_GATEWAY_ADDR> src <SRC_ADDR> metrics <PRIORITY>

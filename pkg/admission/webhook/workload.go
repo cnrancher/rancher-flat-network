@@ -285,7 +285,7 @@ func checkMACsIsInUsed(macs []net.HardwareAddr, subnet *flv1.FlatNetworkSubnet) 
 	for _, m := range macs {
 		s := m.String()
 		for _, um := range subnet.Status.UsedMAC {
-			if um.String() == s {
+			if um == s {
 				return fmt.Errorf("mac %v is already in use", s)
 			}
 		}
