@@ -18,8 +18,8 @@ flatNetworkOperator:
     memory: "512M"
   image:
     repository: "cnrancher/rancher-flat-network-operator"
-    tag: "v0.0.0"
-    pullPolicy: Always
+    tag: v0.0.0
+    pullPolicy: IfNotPresents
 
 # Configuration for rancher-flat-network-deploy
 deploy:
@@ -28,15 +28,15 @@ deploy:
   rolloutSchedule: "0 0 1 * *"
   image:
     repository: "cnrancher/rancher-flat-network-deploy"
-    tag: "v0.0.0"
-    pullPolicy: Always
+    tag: v0.0.0
+    pullPolicy: IfNotPresent
 
 # Configuration for rancher-flat-network-cni
 flatNetworkCNI:
   image:
     repository: "cnrancher/rancher-flat-network-cni"
-    tag: "v0.0.0"
-    pullPolicy: Always
+    tag: v0.0.0
+    pullPolicy: IfNotPresent
 
 # Configuration for multus-cni
 multus:
@@ -46,7 +46,7 @@ multus:
   image:
     repository: "cnrancher/hardened-multus-cni"
     tag: "v4.0.2-rancher1"
-    pullPolicy: Always
+    pullPolicy: IfNotPresent
 
 global:
   cattle:

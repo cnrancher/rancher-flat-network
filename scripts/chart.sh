@@ -20,7 +20,7 @@ sed -i \
     build/charts/rancher-flat-network/Chart.yaml
 
 sed -i \
-    -e 's/tag:.*/tag: '${TAG}'/' \
+    -e 's/tag: v0.0.0/tag: "'${TAG}'"/' \
     build/charts/rancher-flat-network/values.yaml
 
 helm package -d ./dist/artifacts ./build/charts/rancher-flat-network
