@@ -163,6 +163,7 @@ func (h *handler) onSubnetCreate(subnet *flv1.FlatNetworkSubnet) (*flv1.FlatNetw
 		result.Labels["master"] = result.Spec.Master
 		result.Labels["vlan"] = fmt.Sprintf("%v", result.Spec.VLAN)
 		result.Labels["mode"] = result.Spec.Mode
+		result.Labels["flatMode"] = result.Spec.FlatMode
 		result, err = h.subnetClient.Update(result)
 		if err != nil {
 			return err
