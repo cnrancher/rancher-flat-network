@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"reflect"
 	"slices"
 	"time"
 
@@ -241,6 +242,41 @@ func (h *handler) onSubnetUpdate(subnet *flv1.FlatNetworkSubnet) (*flv1.FlatNetw
 
 	// Sync this subnet in every 10 minutes.
 	defer h.subnetEnqueueAfter(subnet.Namespace, subnet.Name, time.Minute*10)
+
+	// Update subnet labels.
+	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		result, err := h.subnetCache.Get(subnet.Namespace, subnet.Name)
+		if err != nil {
+			logrus.WithFields(fieldsSubnet(subnet)).
+				Errorf("failed to get subnet from cache: %v", err)
+			return err
+		}
+		result = result.DeepCopy()
+		if result.Labels == nil {
+			result.Labels = make(map[string]string)
+		}
+		result.Labels["master"] = result.Spec.Master
+		result.Labels["vlan"] = fmt.Sprintf("%v", result.Spec.VLAN)
+		result.Labels["mode"] = result.Spec.Mode
+		result.Labels["flatMode"] = result.Spec.FlatMode
+		if reflect.DeepEqual(result.Labels, subnet.Labels) {
+			// Skip if already updated
+			return nil
+		}
+
+		result, err = h.subnetClient.Update(result)
+		if err != nil {
+			return err
+		}
+		logrus.WithFields(fieldsSubnet(subnet)).
+			Infof("update subnet label %q: %v",
+				subnet.Name, utils.Print(result.Labels))
+		subnet = result
+		return nil
+	})
+	if err != nil {
+		return subnet, fmt.Errorf("failed to update label and gateway of subnet: %w", err)
+	}
 
 	// List IPs using this subnet.
 	ips, err := h.ipCache.List("", labels.SelectorFromSet(labels.Set{
