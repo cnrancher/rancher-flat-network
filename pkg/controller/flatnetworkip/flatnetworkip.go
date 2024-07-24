@@ -135,11 +135,6 @@ func (h *handler) handleIP(_ string, ip *flv1.FlatNetworkIP) (*flv1.FlatNetworkI
 	if ip == nil || ip.Name == "" || ip.DeletionTimestamp != nil {
 		return ip, nil
 	}
-	result, err := h.ipCache.Get(ip.Namespace, ip.Name)
-	if err != nil {
-		return ip, fmt.Errorf("failed to get IP from cache: %v", err)
-	}
-	ip = result
 
 	switch ip.Status.Phase {
 	case flatNetworkIPActivePhase:
@@ -173,6 +168,15 @@ func (h *handler) onIPCreate(ip *flv1.FlatNetworkIP) (*flv1.FlatNetworkIP, error
 	if err != nil {
 		return ip, fmt.Errorf("onIPCreate: failed to get subnet [%v] of ip [%v/%v]: %w",
 			ip.Spec.Subnet, ip.Namespace, ip.Name, err)
+	}
+	switch subnet.Status.Phase {
+	case "Active":
+	default:
+		// Do not allocate IP if subnet is not active
+		logrus.Infof("waiting for subnet %q status %q",
+			subnet.Name, subnet.Status.Phase)
+		h.ipEnqueueAfter(ip.Namespace, ip.Name, time.Second*5)
+		return ip, nil
 	}
 
 	allocatedIP, err := allocateIP(ip, subnet)

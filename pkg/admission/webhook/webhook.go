@@ -164,7 +164,7 @@ func (h *Handler) validateAdmissionReview(ar *admissionv1.AdmissionReview) (bool
 		ar.Request.Name, ar.Request.Namespace, ar.Request.Kind, ar.Request.Resource)
 	switch ar.Request.Kind.Kind {
 	case "FlatNetworkSubnet":
-		return h.validateMacvlanSubnet(ar)
+		return h.validateFlatNetworkSubnet(ar)
 	case kindDeployment, kindDaemonSet, kindStatefulSet, kindCronJob, kindJob:
 		return h.validateWorkload(ar)
 	default:

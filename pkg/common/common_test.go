@@ -1,4 +1,4 @@
-package webhook
+package common
 
 import (
 	"net"
@@ -8,52 +8,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
-
-func TestCheckRoutesGW(t *testing.T) {
-	subnet := &flv1.FlatNetworkSubnet{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "vlan10-a",
-			Namespace: flv1.SubnetNamespace,
-		},
-		Spec: flv1.SubnetSpec{
-			FlatMode: "macvlan",
-			VLAN:     10,
-			CIDR:     "10.27.18.0/24",
-			Routes: []flv1.Route{
-				{
-					Dst: "192.168.10.0/24",
-					Via: net.ParseIP("10.27.18.254"),
-					Dev: "eth1",
-				},
-			},
-		},
-	}
-
-	err := validateSubnetRouteGateway(subnet)
-	assert.Nil(t, err)
-
-	// 10.27.18.0/28: 10.27.18.0 - 10.27.18.15
-	subnet = &flv1.FlatNetworkSubnet{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "vlan10-b",
-			Namespace: flv1.SubnetNamespace,
-		},
-		Spec: flv1.SubnetSpec{
-			VLAN: 10,
-			CIDR: "10.27.18.0/28",
-			Routes: []flv1.Route{
-				{
-					Dst: "192.168.10.0/24",
-					Via: net.ParseIP("10.27.18.254"),
-					Dev: "eth1",
-				},
-			},
-		},
-	}
-
-	err = validateSubnetRouteGateway(subnet)
-	assert.NotNil(t, err)
-}
 
 func Test_checkSubnetFlatMode(t *testing.T) {
 	subnets := []*flv1.FlatNetworkSubnet{
@@ -100,8 +54,8 @@ func Test_checkSubnetFlatMode(t *testing.T) {
 			Gateway:  net.IPv4(192, 168, 12, 1),
 		},
 	}
-	assert.Nil(t, checkSubnetFlatMode(subnet, subnets))
+	assert.Nil(t, CheckSubnetFlatMode(subnet, subnets))
 
 	subnet.Spec.FlatMode = flv1.FlatModeIPvlan
-	assert.NotNil(t, checkSubnetFlatMode(subnet, subnets))
+	assert.NotNil(t, CheckSubnetFlatMode(subnet, subnets))
 }

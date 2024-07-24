@@ -9,11 +9,13 @@ import (
 	"slices"
 	"time"
 
+	"github.com/cnrancher/rancher-flat-network/pkg/common"
 	"github.com/cnrancher/rancher-flat-network/pkg/controller/wrangler"
 	"github.com/cnrancher/rancher-flat-network/pkg/ipcalc"
 	"github.com/cnrancher/rancher-flat-network/pkg/utils"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/tools/record"
@@ -35,9 +37,17 @@ const (
 	subnetFailedPhase  = "Failed"
 )
 
+const (
+	labelMaster   = "master"
+	labelVlan     = "vlan"
+	labelMode     = "mode"
+	labelFlatMode = "flatMode"
+)
+
 type handler struct {
 	subnetClient flcontroller.FlatNetworkSubnetClient
 	subnetCache  flcontroller.FlatNetworkSubnetCache
+	ipClient     flcontroller.FlatNetworkIPClient
 	ipCache      flcontroller.FlatNetworkIPCache
 	podClient    corecontroller.PodClient
 
@@ -54,6 +64,7 @@ func Register(
 	h := &handler{
 		subnetClient: wctx.FlatNetwork.FlatNetworkSubnet(),
 		subnetCache:  wctx.FlatNetwork.FlatNetworkSubnet().Cache(),
+		ipClient:     wctx.FlatNetwork.FlatNetworkIP(),
 		ipCache:      wctx.FlatNetwork.FlatNetworkIP().Cache(),
 		podClient:    wctx.Core.Pod(),
 
@@ -123,13 +134,6 @@ func (h *handler) handleSubnet(
 	if subnet.Name == "" || subnet.DeletionTimestamp != nil {
 		return subnet, nil
 	}
-	result, err := h.subnetCache.Get(subnet.Namespace, subnet.Name)
-	if err != nil {
-		logrus.WithFields(fieldsSubnet(subnet)).
-			Errorf("failed to get subnet from cache: %v", err)
-		return subnet, err
-	}
-	subnet = result
 
 	switch subnet.Status.Phase {
 	case subnetActivePhase:
@@ -140,7 +144,25 @@ func (h *handler) handleSubnet(
 }
 
 func (h *handler) onSubnetCreate(subnet *flv1.FlatNetworkSubnet) (*flv1.FlatNetworkSubnet, error) {
-	if err := h.validateSubnet(subnet); err != nil {
+	// Webhook may not working properly when creating subnets parallely, need to double-check
+	// subnet spec and ensure no conflicts with other subnets.
+	if err := common.ValidateSubnet(subnet); err != nil {
+		return subnet, err
+	}
+	set := map[string]string{
+		labelMaster: subnet.Spec.Master,
+		labelVlan:   fmt.Sprintf("%v", subnet.Spec.VLAN),
+	}
+	subnets, err := h.subnetCache.List(subnet.Namespace, labels.SelectorFromSet(set))
+	if err != nil {
+		return subnet, fmt.Errorf("failed to list subnet from cache by selector %q: %w", utils.Print(set), err)
+	}
+	// Ensure only one flatMode on iface
+	if err := common.CheckSubnetFlatMode(subnet, subnets); err != nil {
+		return subnet, err
+	}
+	// Ensure no subnet CIDR conflict
+	if err := common.CheckSubnetConflict(subnet, subnets); err != nil {
 		return subnet, err
 	}
 
@@ -148,9 +170,10 @@ func (h *handler) onSubnetCreate(subnet *flv1.FlatNetworkSubnet) (*flv1.FlatNetw
 		logrus.WithFields(fieldsSubnet(subnet)).
 			Errorf("subnet [%v/%v] namespace should be [%v]", subnet.Namespace, subnet.Name,
 				flv1.SubnetNamespace)
+		return subnet, fmt.Errorf("invalid subnet namespace %q", subnet.Namespace)
 	}
 	// Update subnet labels.
-	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		result, err := h.subnetCache.Get(subnet.Namespace, subnet.Name)
 		if err != nil {
 			logrus.WithFields(fieldsSubnet(subnet)).
@@ -165,6 +188,12 @@ func (h *handler) onSubnetCreate(subnet *flv1.FlatNetworkSubnet) (*flv1.FlatNetw
 		result.Labels["vlan"] = fmt.Sprintf("%v", result.Spec.VLAN)
 		result.Labels["mode"] = result.Spec.Mode
 		result.Labels["flatMode"] = result.Spec.FlatMode
+		_, network, err := net.ParseCIDR(result.Spec.CIDR)
+		if err != nil {
+			return fmt.Errorf("failed to parse CIDR %q: %w",
+				result.Spec.CIDR, err)
+		}
+		result.Spec.CIDR = network.String()
 		result, err = h.subnetClient.Update(result)
 		if err != nil {
 			return err
@@ -205,46 +234,35 @@ func (h *handler) onSubnetCreate(subnet *flv1.FlatNetworkSubnet) (*flv1.FlatNetw
 	return subnet, nil
 }
 
-func (h *handler) validateSubnet(subnet *flv1.FlatNetworkSubnet) error {
-	switch subnet.Spec.FlatMode {
-	case "macvlan":
-	case "ipvlan":
-	default:
-		return fmt.Errorf("unrecognized subnet flatMode [%v]", subnet.Spec.FlatMode)
-	}
-
-	_, network, err := net.ParseCIDR(subnet.Spec.CIDR)
-	if err != nil {
-		return fmt.Errorf("failed to parse subnet CIDR [%v]: %w",
-			subnet.Spec.CIDR, err)
-	}
-
-	if len(subnet.Spec.Gateway) != 0 {
-		if !network.Contains(subnet.Spec.Gateway) {
-			return fmt.Errorf("invalid subnet gateway [%v] provided", subnet.Spec.Gateway)
-		}
-	}
-
-	if !isValidRanges(subnet) {
-		return fmt.Errorf("invalid subnet ranges provided: %v",
-			utils.Print(subnet.Spec.Ranges))
-	}
-
-	// TODO: validate routes, defaultGateway
-
-	return nil
-}
-
 func (h *handler) onSubnetUpdate(subnet *flv1.FlatNetworkSubnet) (*flv1.FlatNetworkSubnet, error) {
-	if err := h.validateSubnet(subnet); err != nil {
+	set := map[string]string{
+		labelMaster: subnet.Spec.Master,
+		labelVlan:   fmt.Sprintf("%v", subnet.Spec.VLAN),
+	}
+	subnets, err := h.subnetCache.List(subnet.Namespace, labels.SelectorFromSet(set))
+	if err != nil {
+		return subnet, fmt.Errorf("failed to list subnet from cache by selector %q: %w", utils.Print(set), err)
+	}
+	// Ensure only one flatMode on iface
+	if err := common.CheckSubnetFlatMode(subnet, subnets); err != nil {
 		return subnet, err
+	}
+	// Ensure no subnet CIDR conflict
+	if err := common.CheckSubnetConflict(subnet, subnets); err != nil {
+		return subnet, err
+	}
+	if subnet.Namespace != flv1.SubnetNamespace {
+		logrus.WithFields(fieldsSubnet(subnet)).
+			Errorf("subnet [%v/%v] namespace should be [%v]", subnet.Namespace, subnet.Name,
+				flv1.SubnetNamespace)
+		return subnet, fmt.Errorf("invalid subnet namespace %q", subnet.Namespace)
 	}
 
 	// Sync this subnet in every 10 minutes.
 	defer h.subnetEnqueueAfter(subnet.Namespace, subnet.Name, time.Minute*10)
 
 	// Update subnet labels.
-	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		result, err := h.subnetCache.Get(subnet.Namespace, subnet.Name)
 		if err != nil {
 			logrus.WithFields(fieldsSubnet(subnet)).
@@ -255,11 +273,22 @@ func (h *handler) onSubnetUpdate(subnet *flv1.FlatNetworkSubnet) (*flv1.FlatNetw
 		if result.Labels == nil {
 			result.Labels = make(map[string]string)
 		}
-		result.Labels["master"] = result.Spec.Master
-		result.Labels["vlan"] = fmt.Sprintf("%v", result.Spec.VLAN)
-		result.Labels["mode"] = result.Spec.Mode
-		result.Labels["flatMode"] = result.Spec.FlatMode
-		if reflect.DeepEqual(result.Labels, subnet.Labels) {
+		result.Labels[labelMaster] = result.Spec.Master
+		result.Labels[labelVlan] = fmt.Sprintf("%v", result.Spec.VLAN)
+		result.Labels[labelMode] = result.Spec.Mode
+		result.Labels[labelFlatMode] = result.Spec.FlatMode
+		_, network, err := net.ParseCIDR(result.Spec.CIDR)
+		if err != nil {
+			return fmt.Errorf("failed to parse CIDR %q: %w",
+				result.Spec.CIDR, err)
+		}
+		result.Spec.CIDR = network.String()
+		result, err = h.subnetClient.Update(result)
+		if err != nil {
+			return err
+		}
+		if reflect.DeepEqual(result.Labels, subnet.Labels) &&
+			result.Spec.CIDR == subnet.Spec.CIDR {
 			// Skip if already updated
 			return nil
 		}
@@ -286,7 +315,7 @@ func (h *handler) onSubnetUpdate(subnet *flv1.FlatNetworkSubnet) (*flv1.FlatNetw
 		return subnet, fmt.Errorf("failed to list IP from cache: %w", err)
 	}
 
-	// Only cleanup the duplicated IPs using this subnet.
+	// Cleanup the duplicated IPs using this subnet.
 	duplicatedIPs := filterDuplicatedIP(ips)
 	if len(duplicatedIPs) != 0 {
 		return subnet, h.cleanupDuplicatedIPs(subnet, ips)
@@ -326,11 +355,24 @@ func (h *handler) cleanupDuplicatedIPs(subnet *flv1.FlatNetworkSubnet, ips []*fl
 				ip.Status.Addr.String())
 		err := h.podClient.Delete(ip.Namespace, ip.Name, &metav1.DeleteOptions{})
 		if err != nil {
-			return fmt.Errorf("failed to delete pod [%v/%v]: %w",
-				ip.Namespace, ip.Name, err)
+			if !errors.IsNotFound(err) {
+				return fmt.Errorf("failed to delete pod [%v/%v]: %w",
+					ip.Namespace, ip.Name, err)
+			}
 		}
 		logrus.WithFields(fieldsSubnet(subnet)).
 			Infof("request to delete pod have duplicated IP [%v/%v]: %v",
+				ip.Namespace, ip.Name, ip.Status.Addr.String())
+
+		err = h.ipClient.Delete(ip.Namespace, ip.Name, &metav1.DeleteOptions{})
+		if err != nil {
+			if !errors.IsNotFound(err) {
+				return fmt.Errorf("failed to delete flatNetworkIP [%v/%v]: %w",
+					ip.Namespace, ip.Name, err)
+			}
+		}
+		logrus.WithFields(fieldsSubnet(subnet)).
+			Infof("request to delete duplicated IP [%v/%v]: %v",
 				ip.Namespace, ip.Name, ip.Status.Addr.String())
 	}
 	return nil
