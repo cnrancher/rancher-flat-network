@@ -175,10 +175,11 @@ func CheckSubnetFlatMode(
 			return fmt.Errorf("subnet [%v] in flatMode [%v] already using master iface [%v]",
 				s.Name, s.Spec.FlatMode, master)
 		}
-		if s.Spec.Mode != subnet.Spec.Mode {
-			return fmt.Errorf("subnet [%v] already using %q mode %q on master iface [%v]",
-				s.Name, s.Spec.FlatMode, s.Spec.Mode, master)
-		}
+		// Linux allows different macvlan/ipvlan modes on same master iface
+		// if s.Spec.Mode != subnet.Spec.Mode {
+		// 	return fmt.Errorf("subnet [%v] already using %q mode %q on master iface [%v]",
+		// 		s.Name, s.Spec.FlatMode, s.Spec.Mode, master)
+		// }
 	}
 	return nil
 }
