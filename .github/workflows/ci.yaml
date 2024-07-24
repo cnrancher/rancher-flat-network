@@ -41,5 +41,5 @@ jobs:
         run: |
           make image
         env:
-          TAG: ${{ github.ref_name }}
+          TAG: dev
           REPO: ${{ vars.PUBLIC_REGISTRY }}/${{ vars.PUBLIC_REGISTRY_REPO }}

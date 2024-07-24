@@ -144,7 +144,7 @@ func (h *handler) handleSubnet(
 }
 
 func (h *handler) onSubnetCreate(subnet *flv1.FlatNetworkSubnet) (*flv1.FlatNetworkSubnet, error) {
-	// Webhook may not working properly when creating subnets parallely, need to double-check
+	// Webhook may not working properly when creating subnets parallelly, need to double-check
 	// subnet spec and ensure no conflicts with other subnets.
 	if err := common.ValidateSubnet(subnet); err != nil {
 		return subnet, err
