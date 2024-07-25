@@ -6,6 +6,7 @@ import (
 	"time"
 
 	flv1 "github.com/cnrancher/rancher-flat-network/pkg/apis/flatnetwork.pandaria.io/v1"
+	"github.com/cnrancher/rancher-flat-network/pkg/controller/wrangler"
 	"github.com/cnrancher/rancher-flat-network/pkg/ipcalc"
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -47,8 +48,8 @@ func (h *handler) handleIPRemove(_ string, ip *flv1.FlatNetworkIP) (*flv1.FlatNe
 			ip.Namespace, ip.Name, maxWaitForPodRemovePeriod)
 	}
 
-	h.allocateIPMutex.Lock()
-	defer h.allocateIPMutex.Unlock()
+	unlock := wrangler.IPAllocateLock(ip.Spec.Subnet)
+	defer unlock()
 
 	err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		result, err := h.subnetCache.Get(flv1.SubnetNamespace, ip.Spec.Subnet)
@@ -61,8 +62,10 @@ func (h *handler) handleIPRemove(_ string, ip *flv1.FlatNetworkIP) (*flv1.FlatNe
 		}
 
 		result = result.DeepCopy()
-		result.Status.UsedIP = ipcalc.RemoveIPFromRange(ip.Status.Addr, result.Status.UsedIP)
-		result.Status.UsedIPCount--
+		if ipcalc.IPInRanges(ip.Status.Addr, result.Status.UsedIP) {
+			result.Status.UsedIP = ipcalc.RemoveIPFromRange(ip.Status.Addr, result.Status.UsedIP)
+			result.Status.UsedIPCount--
+		}
 		if len(ip.Status.MAC) != 0 {
 			result.Status.UsedMAC = slices.DeleteFunc(result.Status.UsedMAC, func(m string) bool {
 				return m == ip.Status.MAC

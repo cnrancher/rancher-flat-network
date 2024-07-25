@@ -136,11 +136,11 @@ type SubnetStatus struct {
 
 // Example: ip route add <DST_CIDR> dev <DEV_NAME> via <VIA_GATEWAY_ADDR> src <SRC_ADDR> metrics <PRIORITY>
 type Route struct {
-	Dev      string `json:"dev"`                // Interface (dev) name
-	Dst      string `json:"dst"`                // Dst CIDR
-	Src      net.IP `json:"src,omitempty"`      // Src (optional)
-	Via      net.IP `json:"via,omitempty"`      // Via (gateway) (optional)
-	Priority int    `json:"priority,omitempty"` // Priority (optional)
+	Dev      string `json:"dev"`           // Interface (dev) name
+	Dst      string `json:"dst"`           // Dst CIDR
+	Src      net.IP `json:"src,omitempty"` // Src (optional)
+	Via      net.IP `json:"via,omitempty"` // Via (gateway) (optional)
+	Priority int    `json:"priority"`      // Priority (optional)
 }
 
 type RouteSettings struct {

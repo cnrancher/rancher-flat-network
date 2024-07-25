@@ -160,8 +160,8 @@ func (h *handler) onIPCreate(ip *flv1.FlatNetworkIP) (*flv1.FlatNetworkIP, error
 				ip.Spec.PodID, pod.UID)
 	}
 
-	h.allocateIPMutex.Lock()
-	defer h.allocateIPMutex.Unlock()
+	unlock := wrangler.IPAllocateLock(ip.Spec.Subnet)
+	defer unlock()
 
 	// Ensure the flat-network subnet resource exists.
 	subnet, err := h.subnetCache.Get(flv1.SubnetNamespace, ip.Spec.Subnet)
@@ -201,8 +201,10 @@ func (h *handler) onIPCreate(ip *flv1.FlatNetworkIP) (*flv1.FlatNetworkIP, error
 			return err
 		}
 		result = result.DeepCopy()
-		result.Status.UsedIP = ipcalc.AddIPToRange(allocatedIP, result.Status.UsedIP)
-		result.Status.UsedIPCount++
+		if !ipcalc.IPInRanges(allocatedIP, result.Status.UsedIP) {
+			result.Status.UsedIP = ipcalc.AddIPToRange(allocatedIP, result.Status.UsedIP)
+			result.Status.UsedIPCount++
+		}
 		if allocatedMAC != "" {
 			result.Status.UsedMAC = append(result.Status.UsedMAC, allocatedMAC)
 			slices.Sort(result.Status.UsedMAC)
@@ -215,8 +217,10 @@ func (h *handler) onIPCreate(ip *flv1.FlatNetworkIP) (*flv1.FlatNetworkIP, error
 		return err
 	})
 	if err != nil {
-		return ip, fmt.Errorf("failed to update subnet [%v] status: %w",
+		err = fmt.Errorf("failed to update subnet [%v] usedIP status: %w",
 			subnet.Name, err)
+		logrus.Errorf("%v", err)
+		return ip, err
 	}
 
 	// Update IP status to active.
@@ -242,14 +246,16 @@ func (h *handler) onIPCreate(ip *flv1.FlatNetworkIP) (*flv1.FlatNetworkIP, error
 	if err != nil {
 		// Fallback subnet status.
 		subnet = subnet.DeepCopy()
-		subnet.Status.UsedIP = ipcalc.RemoveIPFromRange(allocatedIP, subnet.Status.UsedIP)
-		subnet.Status.UsedIPCount--
+		if ipcalc.IPInRanges(allocatedIP, subnet.Status.UsedIP) {
+			subnet.Status.UsedIP = ipcalc.RemoveIPFromRange(allocatedIP, subnet.Status.UsedIP)
+			subnet.Status.UsedIPCount--
+		}
 		if len(allocatedMAC) != 0 && len(subnet.Status.UsedMAC) != 0 {
 			subnet.Status.UsedMAC = slices.DeleteFunc(subnet.Status.UsedMAC, func(s string) bool {
 				return s == allocatedMAC
 			})
 		}
-		subnet, err = h.subnetClient.UpdateStatus(subnet)
+		_, err = h.subnetClient.UpdateStatus(subnet)
 		if err != nil {
 			logrus.WithFields(fieldsIP(ip)).
 				Warnf("failed to update (fallback) subnet [%v] status: %v",
@@ -275,6 +281,8 @@ func (h *handler) onIPUpdate(ip *flv1.FlatNetworkIP) (*flv1.FlatNetworkIP, error
 	subnet, err := h.subnetCache.Get(flv1.SubnetNamespace, ip.Spec.Subnet)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
+			logrus.WithFields(fieldsIP(ip)).
+				Warnf("delete IP as the subnet %q not exists", ip.Spec.Subnet)
 			err = h.ipClient.Delete(ip.Namespace, ip.Name, &metav1.DeleteOptions{})
 			return ip, err
 		}

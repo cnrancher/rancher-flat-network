@@ -307,6 +307,17 @@ func (h *handler) onSubnetUpdate(subnet *flv1.FlatNetworkSubnet) (*flv1.FlatNetw
 		return subnet, fmt.Errorf("failed to update label and gateway of subnet: %w", err)
 	}
 
+	if wrangler.IsIPAllocating(subnet.Name) {
+		// Do not self-check when allocating IPs
+		return subnet, nil
+	}
+	// Disable ip allocate when updating subnet usedIPs
+	unlock := wrangler.IPAllocateLock(subnet.Name)
+	defer unlock()
+
+	// The following sections are used to self-recover from unexpected situations:
+	// cleaning up duplicate IPs, checking whether the used IPs is correct.
+
 	// List IPs using this subnet.
 	ips, err := h.ipCache.List("", labels.SelectorFromSet(labels.Set{
 		"subnet": subnet.Name,
@@ -316,30 +327,75 @@ func (h *handler) onSubnetUpdate(subnet *flv1.FlatNetworkSubnet) (*flv1.FlatNetw
 	}
 
 	// Cleanup the duplicated IPs using this subnet.
-	duplicatedIPs := filterDuplicatedIP(ips)
+	duplicatedIPs := filterDuplicatedIP(subnet, ips)
 	if len(duplicatedIPs) != 0 {
 		return subnet, h.cleanupDuplicatedIPs(subnet, ips)
 	}
 
+	// Ensure the usedIPs are correct.
+	usedIPCount := 0
+	usedIP := []flv1.IPRange{}
+	for _, ip := range ips {
+		if ip == nil || ip.DeletionTimestamp != nil || len(ip.Status.Addr) == 0 {
+			continue
+		}
+		usedIPCount++
+		usedIP = ipcalc.AddIPToRange(ip.Status.Addr, usedIP)
+	}
+	usedIP = ipcalc.AddIPToRange(subnet.Spec.Gateway, usedIP)
+	usedIPCount++
+	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		result, err := h.subnetCache.Get(subnet.Namespace, subnet.Name)
+		if err != nil {
+			logrus.WithFields(fieldsSubnet(subnet)).
+				Errorf("failed to get subnet from cache: %v", err)
+			return err
+		}
+		if result.Status.UsedIPCount == usedIPCount && reflect.DeepEqual(usedIP, result.Status.UsedIP) {
+			subnet = result
+			return nil
+		}
+		result = result.DeepCopy()
+		result.Status.UsedIPCount = usedIPCount
+		result.Status.UsedIP = usedIP
+		result, err = h.subnetClient.UpdateStatus(result)
+		if err != nil {
+			return err
+		}
+		logrus.WithFields(fieldsSubnet(subnet)).
+			Infof("update subnet usedIP count to %d", result.Status.UsedIPCount)
+		logrus.WithFields(fieldsSubnet(subnet)).
+			Infof("update subnet usedIP to %v", utils.Print(result.Status.UsedIP))
+		subnet = result
+		return nil
+	})
+	if err != nil {
+		return subnet, fmt.Errorf("failed to update subnet usedIP: %w", err)
+	}
 	return subnet, nil
 }
 
-func filterDuplicatedIP(ips []*flv1.FlatNetworkIP) []*flv1.FlatNetworkIP {
+func filterDuplicatedIP(
+	subnet *flv1.FlatNetworkSubnet, ips []*flv1.FlatNetworkIP,
+) []*flv1.FlatNetworkIP {
 	duplicatedIPs := []*flv1.FlatNetworkIP{}
 	if len(ips) == 0 {
 		return duplicatedIPs
 	}
-	set := map[string]bool{}
+	set := map[string]string{}
 	for _, ip := range ips {
-		if ip == nil || len(ip.Status.Addr) == 0 {
+		if ip == nil || len(ip.Status.Addr.To16()) == 0 || ip.DeletionTimestamp != nil {
 			continue
 		}
 		a := ip.Status.Addr.String()
-		if !set[a] {
-			set[a] = true
+		if set[a] == "" {
+			set[a] = ip.Name
 			continue
 		}
 		duplicatedIPs = append(duplicatedIPs, ip)
+		logrus.WithFields(fieldsSubnet(subnet)).
+			Warnf("found duplicated pod IP [%v] using by [%v] and [%v], will delete",
+				ip.Status.Addr.String(), ip.Name, set[a])
 	}
 	return duplicatedIPs
 }
@@ -350,9 +406,9 @@ func (h *handler) cleanupDuplicatedIPs(subnet *flv1.FlatNetworkSubnet, ips []*fl
 	}
 
 	for _, ip := range ips {
-		logrus.WithFields(fieldsSubnet(subnet)).
-			Warnf("found duplicated pod IP [%v], will delete",
-				ip.Status.Addr.String())
+		if len(ip.Status.Addr.To16()) == 0 || ip.DeletionTimestamp != nil {
+			continue
+		}
 		err := h.podClient.Delete(ip.Namespace, ip.Name, &metav1.DeleteOptions{})
 		if err != nil {
 			if !errors.IsNotFound(err) {
@@ -361,18 +417,7 @@ func (h *handler) cleanupDuplicatedIPs(subnet *flv1.FlatNetworkSubnet, ips []*fl
 			}
 		}
 		logrus.WithFields(fieldsSubnet(subnet)).
-			Infof("request to delete pod have duplicated IP [%v/%v]: %v",
-				ip.Namespace, ip.Name, ip.Status.Addr.String())
-
-		err = h.ipClient.Delete(ip.Namespace, ip.Name, &metav1.DeleteOptions{})
-		if err != nil {
-			if !errors.IsNotFound(err) {
-				return fmt.Errorf("failed to delete flatNetworkIP [%v/%v]: %w",
-					ip.Namespace, ip.Name, err)
-			}
-		}
-		logrus.WithFields(fieldsSubnet(subnet)).
-			Infof("request to delete duplicated IP [%v/%v]: %v",
+			Warnf("request to delete pod have duplicated IP [%v/%v]: %v",
 				ip.Namespace, ip.Name, ip.Status.Addr.String())
 	}
 	return nil

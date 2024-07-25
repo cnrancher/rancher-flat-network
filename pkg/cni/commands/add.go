@@ -38,8 +38,8 @@ const (
 
 var (
 	getPodRetry = wait.Backoff{
-		Steps:    5,
-		Duration: time.Second,
+		Steps:    10,
+		Duration: time.Second * 3,
 		Factor:   1.0,
 		Jitter:   0.1,
 	}

@@ -35,7 +35,7 @@ go.work
 /bin/
 /build/
 /dist/
-/rancher-flat-network-operator
+/rancher-flat-network*
 
 # Generated code
 # zz_*
