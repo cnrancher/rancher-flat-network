@@ -6,6 +6,7 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"io"
 	"os"
 	"time"
@@ -38,6 +39,7 @@ var (
 	worker         int
 	webhookServer  bool
 	version        bool
+	versionString  string
 	debug          bool
 )
 
@@ -68,6 +70,12 @@ func init() {
 			logrus.DebugLevel,
 		},
 	})
+
+	if utils.GitCommit != "" {
+		versionString = fmt.Sprintf("%v - %v", utils.Version, utils.GitCommit)
+	} else {
+		versionString = utils.Version
+	}
 }
 
 func main() {
@@ -92,14 +100,11 @@ func main() {
 		logrus.Debugf("debug output enabled")
 	}
 	if version {
-		if utils.GitCommit != "" {
-			logrus.Infof("rancher-flat-network-operator %v - %v", utils.Version, utils.GitCommit)
-		} else {
-			logrus.Infof("rancher-flat-network-operator %v", utils.Version)
-		}
+		logrus.Infof("rancher-flat-network-operator %v", versionString)
 		return
 	}
 
+	logrus.Infof("starting rancher-flat-network operator %v", versionString)
 	ctx := signals.SetupSignalContext()
 	logserver.StartServerWithDefaults(ctx)
 	cfg, err := kubeconfig.GetNonInteractiveClientConfig(kubeConfigFile).ClientConfig()
