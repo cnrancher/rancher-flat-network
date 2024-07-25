@@ -148,13 +148,15 @@ func AddIPToRange(ip net.IP, ipRanges []flv1.IPRange) []flv1.IPRange {
 	if ip == nil {
 		return ipRanges
 	}
-	if len(ipRanges) == 0 {
+	length := len(ipRanges)
+	if length == 0 {
 		ipRanges = []flv1.IPRange{}
 	}
 	if IPInRanges(ip, ipRanges) {
 		// Skip if ip already in ranges.
 		return ipRanges
 	}
+	deleteIndex := -1
 	for i := range ipRanges {
 		var s1 net.IP = bytes.Clone(ipRanges[i].From)
 		var s2 net.IP = bytes.Clone(ipRanges[i].To)
@@ -165,9 +167,24 @@ func AddIPToRange(ip net.IP, ipRanges []flv1.IPRange) []flv1.IPRange {
 			return ipRanges
 		}
 		if ip.Equal(s2) {
+			if i < length-1 {
+				// Connect two ranges
+				next := ipRanges[i+1]
+				var nextFrom net.IP = bytes.Clone(next.From)
+				IPDecrease(nextFrom)
+				if s2.Equal(nextFrom) {
+					ipRanges[i+1].From = ipRanges[i].From
+					deleteIndex = i
+					break
+				}
+			}
 			ipRanges[i].To = s2
 			return ipRanges
 		}
+	}
+	if deleteIndex >= 0 {
+		ipRanges = append(ipRanges[:deleteIndex], ipRanges[deleteIndex+1:]...)
+		return ipRanges
 	}
 	ipRanges = append(ipRanges, flv1.IPRange{
 		From: bytes.Clone(ip),

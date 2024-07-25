@@ -452,6 +452,23 @@ func Test_AddIPToRange(t *testing.T) {
 			To:   net.ParseIP("fd00::2"),
 		},
 	})
+
+	r = AddIPToRange(net.ParseIP("192.168.1.100"), []flv1.IPRange{
+		{
+			From: net.ParseIP("192.168.1.98"),
+			To:   net.ParseIP("192.168.1.99"),
+		},
+		{
+			From: net.ParseIP("192.168.1.101"),
+			To:   net.ParseIP("192.168.1.200"),
+		},
+	})
+	assert.Equal(t, r, []flv1.IPRange{
+		{
+			From: net.ParseIP("192.168.1.98"),
+			To:   net.ParseIP("192.168.1.200"),
+		},
+	})
 }
 
 func Test_RemoveIPFromRange(t *testing.T) {
