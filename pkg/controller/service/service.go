@@ -97,6 +97,9 @@ func (h *handler) handleDefaultService(svc *corev1.Service) (*corev1.Service, er
 					expectedService.Namespace, expectedService.Name)
 			_, err := h.serviceClient.Create(expectedService)
 			if err != nil {
+				if apierrors.IsAlreadyExists(err) {
+					return svc, nil
+				}
 				logrus.WithFields(fieldsService(svc)).
 					Errorf("failed to create flat-network service [%v/%v]: %v",
 						expectedService.Namespace, expectedService.Name, err)

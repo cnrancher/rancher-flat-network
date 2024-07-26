@@ -184,10 +184,10 @@ func (h *handler) onSubnetCreate(subnet *flv1.FlatNetworkSubnet) (*flv1.FlatNetw
 		if result.Labels == nil {
 			result.Labels = make(map[string]string)
 		}
-		result.Labels["master"] = result.Spec.Master
-		result.Labels["vlan"] = fmt.Sprintf("%v", result.Spec.VLAN)
-		result.Labels["mode"] = result.Spec.Mode
-		result.Labels["flatMode"] = result.Spec.FlatMode
+		result.Labels[labelMaster] = result.Spec.Master
+		result.Labels[labelVlan] = fmt.Sprintf("%v", result.Spec.VLAN)
+		result.Labels[labelMode] = result.Spec.Mode
+		result.Labels[labelFlatMode] = result.Spec.FlatMode
 		_, network, err := net.ParseCIDR(result.Spec.CIDR)
 		if err != nil {
 			return fmt.Errorf("failed to parse CIDR %q: %w",
