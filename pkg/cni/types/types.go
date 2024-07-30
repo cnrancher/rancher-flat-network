@@ -46,14 +46,11 @@ type NetConf struct {
 }
 
 type FlatNetworkConfig struct {
-	MTU           int              `json:"mtu,omitempty"`
-	MAC           net.HardwareAddr `json:"mac,omitempty"`
-	RuntimeConfig RuntimeConfig    `json:"runtimeConfig,omitempty"`
-}
-
-type RuntimeConfig struct {
-	ARPPolicy string `json:"arpPolicy,omitempty"`
-	ProxyARP  bool   `json:"proxyARP"`
+	MTU         int    `json:"mtu"`
+	ClusterCIDR string `json:"clusterCIDR"`
+	ServiceCIDR string `json:"serviceCIDR"`
+	ARPPolicy   string `json:"arpPolicy"`
+	ProxyARP    bool   `json:"proxyARP"`
 }
 
 type Address struct {

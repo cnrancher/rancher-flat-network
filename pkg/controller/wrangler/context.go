@@ -16,14 +16,11 @@ import (
 	"github.com/rancher/wrangler/v3/pkg/leader"
 	"github.com/rancher/wrangler/v3/pkg/start"
 	"github.com/sirupsen/logrus"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
-	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/record"
 
 	appsv1 "github.com/cnrancher/rancher-flat-network/pkg/generated/controllers/apps/v1"
 	batchv1 "github.com/cnrancher/rancher-flat-network/pkg/generated/controllers/batch/v1"
@@ -44,7 +41,6 @@ type Context struct {
 	Networking  networkingv1.Interface
 	Batch       batchv1.Interface
 	Discovery   discoveryv1.Interface
-	Recorder    record.EventRecorder
 
 	// ClientSet for NetworkAttachmentDefinitions
 	NDClientSet *ndClientSet.Clientset
@@ -70,21 +66,12 @@ func NewContextOrDie(
 	discovery := discovery.NewFactoryFromConfigOrDie(restCfg)
 	ndClientSet := ndClientSet.NewForConfigOrDie(restCfg)
 
-	clientSet, err := kubernetes.NewForConfig(restCfg)
-	if err != nil {
-		logrus.Fatalf("failed to build clientset: %v", err)
-	}
-
 	controllerFactory, err := controller.NewSharedControllerFactoryFromConfig(restCfg, runtime.NewScheme())
 	if err != nil {
 		logrus.Fatalf("failed to build shared controller factory: %v", err)
 	}
 
 	utilruntime.Must(flscheme.AddToScheme(scheme.Scheme))
-	eventBroadcaster := record.NewBroadcaster()
-	eventBroadcaster.StartLogging(logrus.Warnf)
-	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: clientSet.CoreV1().Events("")})
-	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: "rancher-flat-network-operator"})
 
 	k8s, err := kubernetes.NewForConfig(restCfg)
 	if err != nil {
@@ -109,7 +96,6 @@ func NewContextOrDie(
 		Networking:  networking.Networking().V1(),
 		Batch:       batch.Batch().V1(),
 		Discovery:   discovery.Discovery().V1(),
-		Recorder:    recorder,
 		NDClientSet: ndClientSet,
 
 		supportDiscoveryV1: supportDiscoveryV1,

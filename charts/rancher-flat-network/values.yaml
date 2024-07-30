@@ -5,6 +5,11 @@ proxyARP: false
 # Set to 'K3s' if using K3s cluster.
 clusterType: default
 
+# Kubernetes config Cluster CIDR
+clusterCIDR: "10.42.0.0/16"
+# Kubernetes config Service CIDR
+serviceCIDR: "10.43.0.0/16"
+
 # Configuration for rancher-flat-network-operator
 flatNetworkOperator:
   replicas: 2

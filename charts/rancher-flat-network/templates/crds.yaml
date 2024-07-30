@@ -98,6 +98,9 @@ spec:
               gateway:
                 nullable: true
                 type: string
+              ipvlanMode:
+                nullable: true
+                type: string
               master:
                 nullable: true
                 type: string
@@ -118,9 +121,13 @@ spec:
                 type: array
               routeSettings:
                 properties:
+                  addClusterCIDR:
+                    type: boolean
                   addNodeCIDR:
                     type: boolean
                   addPodIPToHost:
+                    type: boolean
+                  addServiceCIDR:
                     type: boolean
                   flatNetworkDefaultGateway:
                     type: boolean

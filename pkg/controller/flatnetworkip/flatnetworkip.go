@@ -4,18 +4,15 @@ import (
 	"context"
 	"fmt"
 	"slices"
-	"sync"
 	"time"
 
 	"github.com/cnrancher/rancher-flat-network/pkg/controller/wrangler"
 	"github.com/cnrancher/rancher-flat-network/pkg/ipcalc"
 	"github.com/cnrancher/rancher-flat-network/pkg/utils"
 	"github.com/sirupsen/logrus"
-	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/retry"
 
 	flv1 "github.com/cnrancher/rancher-flat-network/pkg/apis/flatnetwork.pandaria.io/v1"
@@ -51,11 +48,6 @@ type handler struct {
 
 	podEnqueueAfter func(string, string, time.Duration)
 	podEnqueue      func(string, string)
-
-	recorder record.EventRecorder
-
-	// Mutex for allocating IP address.
-	allocateIPMutex sync.Mutex
 }
 
 func Register(
@@ -69,7 +61,6 @@ func Register(
 		subnetCache:  wctx.FlatNetwork.FlatNetworkSubnet().Cache(),
 		podClient:    wctx.Core.Pod(),
 		podCache:     wctx.Core.Pod().Cache(),
-		recorder:     wctx.Recorder,
 
 		ipEnqueueAfter: wctx.FlatNetwork.FlatNetworkIP().EnqueueAfter,
 		ipEnqueue:      wctx.FlatNetwork.FlatNetworkSubnet().Enqueue,
@@ -107,7 +98,6 @@ func (h *handler) handleError(
 		if ip.Status.FailureMessage == message {
 			return ip, err
 		}
-		h.eventError(ip, err)
 
 		err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			ip, err := h.ipCache.Get(ip.Namespace, ip.Name)
@@ -334,13 +324,6 @@ func (h *handler) onIPUpdate(ip *flv1.FlatNetworkIP) (*flv1.FlatNetworkIP, error
 		return ip, err
 	}
 	return ip, nil
-}
-
-func (h *handler) eventError(ip *flv1.FlatNetworkIP, err error) {
-	if err == nil {
-		return
-	}
-	h.recorder.Event(ip, corev1.EventTypeWarning, "FlatNetworkIPError", err.Error())
 }
 
 func fieldsIP(ip *flv1.FlatNetworkIP) logrus.Fields {

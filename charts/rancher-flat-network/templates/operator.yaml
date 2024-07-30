@@ -35,6 +35,12 @@ spec:
           value: {{ .Values.flatNetworkOperator.cattleResyncDefault | quote }}
         - name: CATTLE_DEV_MODE
           value: {{ .Values.flatNetworkOperator.cattleDevMode | quote }}
+        - name: FLAT_NETWORK_CNI_ARP_POLICY
+          value: {{ .Values.arpPolicy | quote }}
+        - name: FLAT_NETWORK_CLUSTER_CIDR
+          value: {{ .Values.clusterCIDR | quote }}
+        - name: FLAT_NETWORK_SERVICE_CIDR
+          value: {{ .Values.serviceCIDR | quote }}
         resources:
           limits:
             memory: {{ .Values.flatNetworkOperator.limits.memory | quote }}

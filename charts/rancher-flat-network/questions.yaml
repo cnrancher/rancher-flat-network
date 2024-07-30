@@ -1,4 +1,3 @@
-rancher_min_version: 2.9.0-0
 categories:
 - Networking
 namespace: cattle-flat-network
@@ -8,12 +7,12 @@ questions:
   default: "Default"
   type: enum
   label: "Cluster Type"
-  group: "Basic Setup"
+  group: "CNI Plugin"
   options:
   - "Default"
   - "K3s"
 - variable: multus.cni.version
-  description: "CNI Version (K3s '1.0.0', RKE2 '0.3.1')"
+  description: "CNI Version (K3s is '1.0.0', RKE2 is '0.3.1')"
   default: "1.0.0"
   type: enum
   label: "CNI Version"
@@ -37,6 +36,18 @@ questions:
   type: boolean
   label: "Proxy ARP"
   group: "CNI Plugin"
+- variable: clusterCIDR
+  default: "10.42.0.0/16"
+  description: "Kubernetes config Cluster CIDR"
+  type: string
+  label: "Cluster CIDR"
+  group: "CNI Plugin"
+- variable: serviceCIDR
+  default: "10.43.0.0/16"
+  description: "Kubernetes config Service CIDR"
+  type: string
+  label: "Service CIDR"
+  group: "CNI Plugin"
 - variable: flatNetworkOperator.limits.memory
   default: "512Mi"
   description: "Memory limit for Operator pod"
@@ -44,7 +55,7 @@ questions:
   label: FlatNetwork Operator
   group: "Resource Limits"
 - variable: flatNetworkOperator.limits.cpu
-  default: "100m"
+  default: "200m"
   description: "CPU limit for Operator pod"
   type: string
   label: FlatNetwork Operator

@@ -14,11 +14,9 @@ import (
 	"github.com/cnrancher/rancher-flat-network/pkg/ipcalc"
 	"github.com/cnrancher/rancher-flat-network/pkg/utils"
 	"github.com/sirupsen/logrus"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/retry"
 
 	flv1 "github.com/cnrancher/rancher-flat-network/pkg/apis/flatnetwork.pandaria.io/v1"
@@ -51,8 +49,6 @@ type handler struct {
 	ipCache      flcontroller.FlatNetworkIPCache
 	podClient    corecontroller.PodClient
 
-	recorder record.EventRecorder
-
 	subnetEnqueueAfter func(string, string, time.Duration)
 	subnetEnqueue      func(string, string)
 }
@@ -67,8 +63,6 @@ func Register(
 		ipClient:     wctx.FlatNetwork.FlatNetworkIP(),
 		ipCache:      wctx.FlatNetwork.FlatNetworkIP().Cache(),
 		podClient:    wctx.Core.Pod(),
-
-		recorder: wctx.Recorder,
 
 		subnetEnqueueAfter: wctx.FlatNetwork.FlatNetworkSubnet().EnqueueAfter,
 		subnetEnqueue:      wctx.FlatNetwork.FlatNetworkSubnet().Enqueue,
@@ -102,7 +96,6 @@ func (h *handler) handleError(
 			return subnet, err
 		}
 
-		h.eventError(subnet, err)
 		err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			subnet, err := h.subnetCache.Get(subnet.Namespace, subnet.Name)
 			if err != nil {
@@ -438,13 +431,6 @@ func ip2UsedRanges(ips []*flv1.FlatNetworkIP) []flv1.IPRange {
 		usedIPs = ipcalc.AddIPToRange(ip.Status.Addr, usedIPs)
 	}
 	return usedIPs
-}
-
-func (h *handler) eventError(subnet *flv1.FlatNetworkSubnet, err error) {
-	if err == nil {
-		return
-	}
-	h.recorder.Event(subnet, corev1.EventTypeWarning, "FlatNetworkSubnetError", err.Error())
 }
 
 func fieldsSubnet(subnet *flv1.FlatNetworkSubnet) logrus.Fields {

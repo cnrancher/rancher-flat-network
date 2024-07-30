@@ -23,6 +23,7 @@ const (
 // Setup logrus loglevel and output file.
 // Output logfile to 'logFileFormat' only when 'loggingFlagFile' exists.
 func Setup() error {
+	logrus.SetOutput(io.Discard) // Discard log output by default
 	logrus.SetFormatter(&nested.Formatter{
 		HideKeys:        false,
 		TimestampFormat: time.DateTime,

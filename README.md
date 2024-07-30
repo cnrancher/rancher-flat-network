@@ -69,10 +69,8 @@ Environment variables for operator:
 - `CATTLE_ELECTION_RENEW_DEADLINE`: leader election renew deadline, default `30s`.
 - `CATTLE_ELECTION_RETRY_PERIOD`: leader election retry period, default `2s`.
 - `FLAT_NETWORK_CNI_ARP_POLICY`: CNI ARP Policy, default `arp_notify`, available `arp_notify`, `arping`.
-
-### CNI
-
-> WIP
+- `FLAT_NETWORK_CLUSTER_CIDR`: Kubernetes config Cluster CIDR, default `10.42.0.0/16`.
+- `FLAT_NETWORK_SERVICE_CIDR`: Kubernetes config Service CIDR, default `10.43.0.0/16`.
 
 ## License
 

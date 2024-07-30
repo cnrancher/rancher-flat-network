@@ -106,6 +106,11 @@ type SubnetSpec struct {
 	// ipvlan: 'l2, l3, l3s' (default 'l2');
 	Mode string `json:"mode"`
 
+	// IPvlanMode is the mode of IPvlan.
+	// Only required when Mode is 'ipvlan'.
+	// can be 'bridge, private, vepa' (default 'bridge')
+	IPvlanMode string `json:"ipvlanMode"`
+
 	// Gateway is the gateway of the subnet (optional).
 	Gateway net.IP `json:"gateway"`
 
@@ -116,7 +121,7 @@ type SubnetSpec struct {
 	Routes []Route `json:"routes,omitempty"`
 
 	// RouteSettings provides some advanced options for custom routes.
-	RouteSettings RouteSettings `json:"routeSettings,oitempty"`
+	RouteSettings RouteSettings `json:"routeSettings"`
 }
 
 type SubnetStatus struct {
@@ -144,17 +149,26 @@ type Route struct {
 }
 
 type RouteSettings struct {
-	// AddNodeCIDR adds node CIDR route for flat-network pod if enabled.
+	// AddClusterCIDR adds ClusterCIDR route to eth0 for flat-network pod if enabled.
+	// This option can be used when eth1 (flatNetwork iface) is default gateway.
+	AddClusterCIDR bool `json:"addClusterCIDR"`
+
+	// AddServiceCIDR adds ServiceCIDR route to eth0 for flat-network pod if enabled.
+	// This option can be used when eth1 (flatNetwork iface) is default gateway.
+	AddServiceCIDR bool `json:"addServiceCIDR"`
+
+	// AddNodeCIDR adds node CIDR route to eth0 for flat-network pod if enabled.
+	// This option can be used when eth1 (flatNetwork iface) is default gateway.
 	AddNodeCIDR bool `json:"addNodeCIDR"`
 
-	// AddPodIPToHost adds pod flat-network IP routes on host if enabled.
+	// AddPodIPToHost adds pod flat-network IP routes on node host NS if enabled.
 	// If true, it will allow node to directly access Pods running on the current node by flat-network IP.
 	// If false, node cannot access Pods running on the current node by flat-network IP.
 	AddPodIPToHost bool `json:"addPodIPToHost"`
 
 	// FlatNetworkDefaultGateway lets Pod using the flat-network iface as default gateway.
-	// NOTE: need to add custom routes (serviceCIDR, clusterCIDR, nodeCIDR)
-	// if pod using the flat-network iface as the default gateway.
+	// NOTE: set 'addClusterCIDR', 'addServiceCIDR', 'addNodeCIDR' to true if needed
+	// when pod is using the flat-network iface as the default gateway.
 	//
 	// And the pods’ access to other networks will be restricted.
 	// For example, Pods cannot directly access the public networks.

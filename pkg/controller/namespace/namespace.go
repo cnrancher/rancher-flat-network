@@ -26,6 +26,8 @@ const (
 
 	arpPolicyEnv     = "FLAT_NETWORK_CNI_ARP_POLICY"
 	proxyARPEnv      = "FLAT_CNI_PROXY_ARP"
+	clusterCIDREnv   = "FLAT_NETWORK_CLUSTER_CIDR"
+	serviceCIDREnv   = "FLAT_NETWORK_SERVICE_CIDR"
 	defaultARPPolicy = "arp_notify"
 
 	defaultRequeueTime = time.Minute * 10
@@ -144,13 +146,11 @@ func getNetAttachDefConfig() string {
         "type": "static-ipam"
     },
     "flatNetwork": {
-        "master": "",
-        "mode": "",
         "mtu": 1500,
-        "runtimeConfig": {
-            "arpPolicy": "` + getARPPolicy() + `",
-            "proxyARP": ` + getProxyARP() + `
-        }
+        "clusterCIDR": "` + getClusterCIDR() + `",
+        "serviceCIDR": "` + getServiceCIDR() + `",
+        "arpPolicy": "` + getARPPolicy() + `",
+        "proxyARP": ` + getProxyARP() + `
     }
 }`
 	return netAttachDefConfig
@@ -167,6 +167,16 @@ func getARPPolicy() string {
 func getProxyARP() string {
 	flag, _ := strconv.ParseBool(os.Getenv(proxyARPEnv))
 	return strconv.FormatBool(flag)
+}
+
+func getClusterCIDR() string {
+	cidr := os.Getenv(clusterCIDREnv)
+	return cidr
+}
+
+func getServiceCIDR() string {
+	cidr := os.Getenv(serviceCIDREnv)
+	return cidr
 }
 
 func fieldsNS(ns *corev1.Namespace) logrus.Fields {

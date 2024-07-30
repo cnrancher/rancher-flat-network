@@ -251,12 +251,12 @@ func Add(args *skel.CmdArgs) error {
 		ipc.Interface = types100.Int(0)
 	}
 	err = netns.Do(func(_ ns.NetNS) error {
-		if n.FlatNetworkConfig.RuntimeConfig.ARPPolicy == arpNotifyPolicy {
+		if n.FlatNetworkConfig.ARPPolicy == arpNotifyPolicy {
 			logrus.Debugf("setting up sysctl arp_notify: %s", args.IfName)
 			_, _ = sysctl.Sysctl(fmt.Sprintf("net/ipv4/conf/%s/arp_notify", args.IfName), "1")
 		}
 
-		if n.FlatNetworkConfig.RuntimeConfig.ProxyARP {
+		if n.FlatNetworkConfig.ProxyARP {
 			logrus.Debugf("setting up sysctl proxy_arp: %s", args.IfName)
 			_, _ = sysctl.Sysctl(fmt.Sprintf("net/ipv4/conf/%s/proxy_arp", args.IfName), "1")
 		}
@@ -266,7 +266,7 @@ func Add(args *skel.CmdArgs) error {
 				err, args.IfName, result)
 		}
 
-		if n.FlatNetworkConfig.RuntimeConfig.ARPPolicy == arpingPolicy {
+		if n.FlatNetworkConfig.ARPPolicy == arpingPolicy {
 			logrus.Debugf("sending arping request: %s", args.IfName)
 			contVeth, err := net.InterfaceByName(args.IfName)
 			if err != nil {
@@ -288,6 +288,26 @@ func Add(args *skel.CmdArgs) error {
 	}
 
 	result.DNS = n.DNS
+
+	// Add ClusterCIDR route in Pod NS
+	if subnet.Spec.RouteSettings.AddClusterCIDR {
+		logrus.Debugf("adding kube config clusterCIDR %q route to pod NS",
+			n.FlatNetworkConfig.ClusterCIDR)
+		err = route.AddPodKubeCIDRRoutes(netns, n.FlatNetworkConfig.ClusterCIDR)
+		if err != nil {
+			return fmt.Errorf("failed to add ClusterCIDR route: %w", err)
+		}
+	}
+
+	// Add ServiceCIDR route in Pod NS
+	if subnet.Spec.RouteSettings.AddServiceCIDR {
+		logrus.Debugf("adding kube config serviceCIDR %q route to pod NS",
+			n.FlatNetworkConfig.ServiceCIDR)
+		err = route.AddPodKubeCIDRRoutes(netns, n.FlatNetworkConfig.ServiceCIDR)
+		if err != nil {
+			return fmt.Errorf("failed to add ServiceCIDR route: %w", err)
+		}
+	}
 
 	// Add NodeCIDR route in Pod NS
 	if subnet.Spec.RouteSettings.AddNodeCIDR {

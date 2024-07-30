@@ -10,7 +10,6 @@ import (
 	"github.com/vishvananda/netlink/nl"
 
 	flv1 "github.com/cnrancher/rancher-flat-network/pkg/apis/flatnetwork.pandaria.io/v1"
-	"github.com/cnrancher/rancher-flat-network/pkg/cni/common"
 	"github.com/cnrancher/rancher-flat-network/pkg/utils"
 )
 
@@ -31,6 +30,21 @@ func GetDefaultRoutes() ([]netlink.Route, error) {
 		}
 	}
 	return results, nil
+}
+
+func GetDefaultLinkIDSet() (map[int]bool, error) {
+	defaultRoutes, err := GetDefaultRoutes()
+	if err != nil {
+		return nil, fmt.Errorf("getDefaultLinkIDSet: %w", err)
+	}
+
+	defaultLinkID := map[int]bool{} // map[linkID]true
+	if len(defaultRoutes) != 0 {
+		for _, r := range defaultRoutes {
+			defaultLinkID[r.LinkIndex] = true
+		}
+	}
+	return defaultLinkID, nil
 }
 
 // GetRouteByIP executes 'ip route get <IP>' on host network NS.
@@ -79,7 +93,13 @@ func CheckRouteExists(
 				continue
 			}
 		}
-		logrus.Debugf("route already exists on pod: [%v]", utils.Print(r))
+		if r.Gw != nil && route.Gw != nil {
+			if !r.Gw.Equal(route.Gw) {
+				continue
+			}
+		}
+		logrus.Debugf("route already exists on pod: [%v]",
+			utils.Print(r))
 		return true, nil
 	}
 	return false, nil
@@ -105,92 +125,6 @@ func EnsureRouteExists(
 	logrus.Infof("add route dst %q on link id %v",
 		route.Dst.String(), route.LinkIndex)
 	return nil
-}
-
-// getHostCIDRCustomRoutes for adding host iface IP addr routes to pod
-func getHostCIDRCustomRoutes(linkID int, gwV4, gwV6 net.IP) ([]flv1.Route, error) {
-	link, err := netlink.LinkByIndex(linkID)
-	if err != nil {
-		return nil, fmt.Errorf("getHostCIDRCustomRoutes: %w", err)
-	}
-	addrs, err := netlink.AddrList(link, netlink.FAMILY_ALL)
-	if err != nil {
-		return nil, fmt.Errorf("getHostCIDRCustomRoutes: %w", err)
-	}
-	if len(addrs) == 0 {
-		return nil, nil
-	}
-	routes := []flv1.Route{}
-	for _, a := range addrs {
-		if a.IP.IsLinkLocalUnicast() {
-			continue
-		}
-		r := flv1.Route{
-			Dev: common.PodIfaceEth0,
-			Dst: a.IPNet.String(),
-			Via: nil,
-		}
-		switch nl.GetIPFamily(a.IP) {
-		case netlink.FAMILY_V4:
-			r.Via = gwV4
-		default:
-			r.Via = gwV6
-		}
-		routes = append(routes, r)
-	}
-	logrus.Debugf("getHostCIDRCustomRoutes: %v", utils.Print(routes))
-	return routes, nil
-}
-
-func AddPodNodeCIDRRoutes(podNS ns.NetNS) error {
-	// Add host iface IP addr routes and user custom routes to Pod
-	customRoutes := []flv1.Route{}
-	defaultRoutes, err := GetDefaultRoutes()
-	if err != nil {
-		return fmt.Errorf("addPodNodeCIDRRoutes: %w", err)
-	}
-
-	defaultLinkID := map[int]bool{} // map[linkID]true
-	if len(defaultRoutes) != 0 {
-		for _, r := range defaultRoutes {
-			defaultLinkID[r.LinkIndex] = true
-		}
-	}
-
-	var podDefaultGatewayV4 net.IP
-	var podDefaultGatewayV6 net.IP
-	if err := podNS.Do(func(_ ns.NetNS) error {
-		podDefaultRoutes, err := GetDefaultRoutes()
-		if err != nil {
-			return fmt.Errorf("failed to get pod default routes: %w", err)
-		}
-		if len(podDefaultRoutes) == 0 {
-			return nil
-		}
-		for _, r := range podDefaultRoutes {
-			switch r.Family {
-			case netlink.FAMILY_V4:
-				podDefaultGatewayV4 = r.Gw
-			default:
-				podDefaultGatewayV6 = r.Gw
-			}
-		}
-		return nil
-	}); err != nil {
-		return fmt.Errorf("addPodNodeCIDRRoutes: %w", err)
-	}
-	for id := range defaultLinkID {
-		results, err := getHostCIDRCustomRoutes(id, podDefaultGatewayV4, podDefaultGatewayV6)
-		if err != nil {
-			return fmt.Errorf("addPodNodeCIDRRoutes: %w", err)
-		}
-		if len(results) == 0 {
-			continue
-		}
-		customRoutes = append(customRoutes, results...)
-	}
-
-	return AddPodFlatNetworkCustomRoutes(podNS, customRoutes)
 }
 
 // AddPodFlatNetworkCustomRoutes adds user defined custom routes and
