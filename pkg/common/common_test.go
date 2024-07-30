@@ -59,3 +59,55 @@ func Test_checkSubnetFlatMode(t *testing.T) {
 	subnet.Spec.FlatMode = flv1.FlatModeIPvlan
 	assert.NotNil(t, CheckSubnetFlatMode(subnet, subnets))
 }
+
+func Test_CheckPodAnnotationIPs(t *testing.T) {
+	ips, err := CheckPodAnnotationIPs("")
+	assert.Empty(t, ips)
+	assert.Nil(t, err)
+
+	ips, err = CheckPodAnnotationIPs("auto")
+	assert.Empty(t, ips)
+	assert.Nil(t, err)
+
+	ips, err = CheckPodAnnotationIPs("192.168.1.111")
+	assert.Equal(t, ips, []net.IP{net.ParseIP("192.168.1.111")})
+	assert.Nil(t, err)
+
+	ips, err = CheckPodAnnotationIPs("192.168.1.111,192.168.1.112,192.168.1.113")
+	assert.Equal(t, ips, []net.IP{
+		net.ParseIP("192.168.1.111"),
+		net.ParseIP("192.168.1.112"),
+		net.ParseIP("192.168.1.113"),
+	})
+	assert.Nil(t, err)
+
+	ips, err = CheckPodAnnotationIPs("192.168.1.111,192.168.1.112,192.168.1.1a3")
+	assert.Empty(t, ips)
+	assert.NotNil(t, err)
+}
+
+func Test_CheckPodAnnotationMACs(t *testing.T) {
+	macs, err := CheckPodAnnotationMACs("")
+	assert.Empty(t, macs)
+	assert.Nil(t, err)
+
+	macs, err = CheckPodAnnotationMACs("auto")
+	assert.Empty(t, macs)
+	assert.Nil(t, err)
+
+	macs, err = CheckPodAnnotationMACs("aa:bb:cc:dd:ef:01")
+	assert.Equal(t, macs, []string{"aa:bb:cc:dd:ef:01"})
+	assert.Nil(t, err)
+
+	macs, err = CheckPodAnnotationMACs("aa:bb:cc:dd:ef:01,aa:bb:cc:dd:ef:02,aa:bb:cc:dd:ef:03")
+	assert.Equal(t, macs, []string{
+		"aa:bb:cc:dd:ef:01",
+		"aa:bb:cc:dd:ef:02",
+		"aa:bb:cc:dd:ef:03",
+	})
+	assert.Nil(t, err)
+
+	macs, err = CheckPodAnnotationMACs("aa:bb:cc:dd:ef:01,aa:bb:cc:dd:ef:02,aa:bb:cc:dd:ef:03:aa")
+	assert.Empty(t, macs)
+	assert.NotNil(t, err)
+}

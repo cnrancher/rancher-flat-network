@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"net"
+	"strings"
 
 	flv1 "github.com/cnrancher/rancher-flat-network/pkg/apis/flatnetwork.pandaria.io/v1"
 	"github.com/cnrancher/rancher-flat-network/pkg/ipcalc"
@@ -182,4 +183,46 @@ func CheckSubnetFlatMode(
 		// }
 	}
 	return nil
+}
+
+func CheckPodAnnotationIPs(s string) ([]net.IP, error) {
+	ret := []net.IP{}
+	if s == "" || s == flv1.AllocateModeAuto {
+		return ret, nil
+	}
+	ip := net.ParseIP(s)
+	if ip != nil {
+		return append(ret, ip), nil
+	}
+
+	spec := strings.Split(strings.TrimSpace(s), ",")
+	if len(spec) == 0 {
+		return nil, fmt.Errorf("invalid annotation IP list [%v], should separated by comma", s)
+	}
+	for _, v := range spec {
+		ip := net.ParseIP(v)
+		if len(ip) == 0 {
+			return nil, fmt.Errorf("invalid annotation IP list [%v]: invalid IP format", v)
+		}
+		ret = append(ret, ip)
+	}
+	return ret, nil
+}
+
+func CheckPodAnnotationMACs(s string) ([]string, error) {
+	ret := []string{}
+	if s == "" || s == flv1.AllocateModeAuto {
+		return ret, nil
+	}
+
+	spec := strings.Split(strings.TrimSpace(s), ",")
+	for _, v := range spec {
+		m, err := net.ParseMAC(v)
+		if err != nil {
+			return nil, fmt.Errorf("invalid mac [%v] found in annotation [%v]: %w",
+				v, s, err)
+		}
+		ret = append(ret, m.String())
+	}
+	return ret, nil
 }

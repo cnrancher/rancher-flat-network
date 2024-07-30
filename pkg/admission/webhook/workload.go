@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
-	"strings"
 
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -14,6 +13,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	flv1 "github.com/cnrancher/rancher-flat-network/pkg/apis/flatnetwork.pandaria.io/v1"
+	"github.com/cnrancher/rancher-flat-network/pkg/common"
 	"github.com/cnrancher/rancher-flat-network/pkg/ipcalc"
 )
 
@@ -105,7 +105,7 @@ func (h *Handler) validateWorkload(ar *admissionv1.AdmissionReview) (bool, error
 
 func (h *Handler) validateAnnotationIP(workload *WorkloadReview) error {
 	// Check annotation IP format.
-	ips, err := parseAnnotationIPs(workload.PodTemplateAnnotations(flv1.AnnotationIP))
+	ips, err := common.CheckPodAnnotationIPs(workload.PodTemplateAnnotations(flv1.AnnotationIP))
 	if err != nil {
 		return err
 	}
@@ -128,37 +128,8 @@ func (h *Handler) validateAnnotationIP(workload *WorkloadReview) error {
 	if err != nil {
 		return err
 	}
-	// Check the IP is not used
-	err = checkIPsInUsed(ips, subnet)
-	if err != nil {
-		return err
-	}
 
 	return nil
-}
-
-func parseAnnotationIPs(s string) ([]net.IP, error) {
-	ret := []net.IP{}
-	if s == "" || s == flv1.AllocateModeAuto {
-		return ret, nil
-	}
-	ip := net.ParseIP(s)
-	if ip != nil {
-		return append(ret, ip), nil
-	}
-
-	spec := strings.Split(strings.TrimSpace(s), "-")
-	if len(spec) == 0 {
-		return nil, fmt.Errorf("invalid annotation IP list: %v", s)
-	}
-	for _, v := range spec {
-		ip := net.ParseIP(v)
-		if len(ip) == 0 {
-			return nil, fmt.Errorf("invalid annotation IP list: %s", s)
-		}
-		ret = append(ret, ip)
-	}
-	return nil, fmt.Errorf("invalid annotation IP list: %s", s)
 }
 
 func checkIPDuplicate(ips []net.IP) error {
@@ -203,24 +174,12 @@ func checkIPsInSubnet(ips []net.IP, subnet *flv1.FlatNetworkSubnet) error {
 	return nil
 }
 
-func checkIPsInUsed(ips []net.IP, subnet *flv1.FlatNetworkSubnet) error {
-	if len(ips) == 0 {
-		return nil
-	}
-	for _, ip := range ips {
-		if ipcalc.IPInRanges(ip, subnet.Status.UsedIP) {
-			return fmt.Errorf("ip %v is in use", ip)
-		}
-	}
-	return nil
-}
-
 func (h *Handler) validateAnnotationMac(workload *WorkloadReview) error {
-	ips, err := parseAnnotationIPs(workload.PodTemplateAnnotations(flv1.AnnotationIP))
+	ips, err := common.CheckPodAnnotationIPs(workload.PodTemplateAnnotations(flv1.AnnotationIP))
 	if err != nil {
 		return err
 	}
-	macs, err := parseAnnotationMacs(workload.PodTemplateAnnotations(flv1.AnnotationMac))
+	macs, err := common.CheckPodAnnotationMACs(workload.PodTemplateAnnotations(flv1.AnnotationMac))
 	if err != nil {
 		return err
 	}
@@ -239,56 +198,16 @@ func (h *Handler) validateAnnotationMac(workload *WorkloadReview) error {
 	if err := checkMacDuplicate(macs); err != nil {
 		return err
 	}
-	subnet, err := h.subnetCache.Get(flv1.SubnetNamespace, workload.PodTemplateAnnotations(flv1.AnnotationSubnet))
-	if err != nil {
-		return err
-	}
-	if err = checkMACsIsInUsed(macs, subnet); err != nil {
-		return err
-	}
 	return nil
 }
 
-func parseAnnotationMacs(s string) ([]net.HardwareAddr, error) {
-	ret := []net.HardwareAddr{}
-	if s == "" || s == flv1.AllocateModeAuto {
-		return ret, nil
-	}
-
-	spec := strings.Split(strings.TrimSpace(s), "-")
-	for _, v := range spec {
-		m, err := net.ParseMAC(v)
-		if err != nil {
-			return ret, fmt.Errorf("invalid mac [%v] found in annotation [%v]: %w",
-				v, s, err)
-		}
-		ret = append(ret, m)
-	}
-	return ret, nil
-}
-
-func checkMacDuplicate(macs []net.HardwareAddr) error {
+func checkMacDuplicate(macs []string) error {
 	set := map[string]bool{}
 	for _, m := range macs {
-		if set[m.String()] {
-			return fmt.Errorf("mac %v is duplicated", m.String())
+		if set[m] {
+			return fmt.Errorf("mac %v is duplicated", m)
 		}
-		set[m.String()] = true
-	}
-	return nil
-}
-
-func checkMACsIsInUsed(macs []net.HardwareAddr, subnet *flv1.FlatNetworkSubnet) error {
-	if len(macs) == 0 || len(subnet.Status.UsedMAC) == 0 {
-		return nil
-	}
-	for _, m := range macs {
-		s := m.String()
-		for _, um := range subnet.Status.UsedMAC {
-			if um == s {
-				return fmt.Errorf("mac %v is already in use", s)
-			}
-		}
+		set[m] = true
 	}
 	return nil
 }

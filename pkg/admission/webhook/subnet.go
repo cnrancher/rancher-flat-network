@@ -54,6 +54,6 @@ func (h *Handler) validateFlatNetworkSubnet(ar *admissionv1.AdmissionReview) (bo
 	if err := common.CheckSubnetConflict(subnet, subnets); err != nil {
 		return false, err
 	}
-	logrus.Infof("handle subnet validate request [%v]", subnet.Name)
+	logrus.Infof("handle flatnetwork subnet validate request [%v]", subnet.Name)
 	return true, nil
 }

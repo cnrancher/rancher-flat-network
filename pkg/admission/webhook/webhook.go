@@ -162,12 +162,21 @@ const (
 func (h *Handler) validateAdmissionReview(ar *admissionv1.AdmissionReview) (bool, error) {
 	logrus.Debugf("webhook validateAdmissionReview:  %s %s %#v %#v",
 		ar.Request.Name, ar.Request.Namespace, ar.Request.Kind, ar.Request.Resource)
+	var (
+		ok  bool
+		err error
+	)
 	switch ar.Request.Kind.Kind {
 	case "FlatNetworkSubnet":
-		return h.validateFlatNetworkSubnet(ar)
+		ok, err = h.validateFlatNetworkSubnet(ar)
 	case kindDeployment, kindDaemonSet, kindStatefulSet, kindCronJob, kindJob:
-		return h.validateWorkload(ar)
+		ok, err = h.validateWorkload(ar)
 	default:
+		return true, nil
 	}
-	return true, nil
+	if err != nil {
+		logrus.Errorf("failed to validate %v: [%v/%v]: %v",
+			ar.Request.Kind.Kind, ar.Request.Namespace, ar.Request.Name, err)
+	}
+	return ok, err
 }

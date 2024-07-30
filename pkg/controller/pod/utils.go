@@ -3,9 +3,9 @@ package pod
 import (
 	"fmt"
 	"net"
-	"strings"
 
 	flv1 "github.com/cnrancher/rancher-flat-network/pkg/apis/flatnetwork.pandaria.io/v1"
+	"github.com/cnrancher/rancher-flat-network/pkg/common"
 	"github.com/cnrancher/rancher-flat-network/pkg/utils"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
@@ -24,32 +24,24 @@ func (h *handler) newFlatNetworkIP(pod *corev1.Pod) (*flv1.FlatNetworkIP, error)
 	var (
 		ipAddrs  []net.IP
 		macAddrs []string
+		err      error
 	)
 	switch annotationIP {
 	case flv1.AllocateModeAuto:
 		flatNetworkIPType = annotationIP
 	default:
-		spec := strings.Split(annotationIP, "-")
-		for _, s := range spec {
-			a := net.ParseIP(s)
-			if len(a) == 0 {
-				return nil, fmt.Errorf("newFlatNetworkIP: invalid annotation [%v: %v]",
-					flv1.AnnotationIP, annotationIP)
-			}
-			ipAddrs = append(ipAddrs, a)
+		ipAddrs, err = common.CheckPodAnnotationIPs(annotationIP)
+		if err != nil {
+			return nil, fmt.Errorf("newFlatNetworkIP: invalid annotation [%v: %v]: %w",
+				flv1.AnnotationIP, annotationIP, err)
 		}
 	}
-	if annotationMAC != "" && annotationMAC != "auto" {
-		spec := strings.Split(annotationIP, "-")
-		for _, s := range spec {
-			a, err := net.ParseMAC(s)
-			if len(a) == 0 || err != nil {
-				return nil, fmt.Errorf("newFlatNetworkIP: invalid annotation [%v: %v]",
-					flv1.AnnotationMac, annotationMAC)
-			}
-			macAddrs = append(macAddrs, a.String())
-		}
+	macAddrs, err = common.CheckPodAnnotationMACs(annotationMAC)
+	if err != nil {
+		return nil, fmt.Errorf("newFlatNetworkIP: invalid annotation [%v: %v]: %w",
+			flv1.AnnotationMac, annotationMAC, err)
 	}
+
 	subnet, err := h.subnetCache.Get(flv1.SubnetNamespace, annotationSubnet)
 	if err != nil {
 		return nil, fmt.Errorf("newFlatNetworkIP: failed to get subnet [%v]: %w",
