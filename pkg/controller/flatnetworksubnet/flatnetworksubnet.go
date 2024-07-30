@@ -342,7 +342,7 @@ func (h *handler) onSubnetUpdate(subnet *flv1.FlatNetworkSubnet) (*flv1.FlatNetw
 		usedIPCount++
 		usedIP = ipcalc.AddIPToRange(ip.Status.Addr, usedIP)
 	}
-	usedIP = ipcalc.AddIPToRange(subnet.Spec.Gateway, usedIP)
+	usedIP = ipcalc.AddIPToRange(subnet.Status.Gateway, usedIP)
 	usedIPCount++
 	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		result, err := h.subnetCache.Get(subnet.Namespace, subnet.Name)
