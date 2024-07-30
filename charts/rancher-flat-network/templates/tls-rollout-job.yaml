@@ -10,6 +10,7 @@ spec:
       labels:
         app: rancher-flat-network-tls-rollout
     spec:
+      ttlSecondsAfterFinished: 100
       serviceAccountName: rancher-flat-network-multus
       restartPolicy: OnFailure
       containers:
@@ -36,6 +37,7 @@ spec:
           labels:
             app: rancher-flat-network-webhook-rollout
         spec:
+          ttlSecondsAfterFinished: 100
           serviceAccountName: rancher-flat-network-multus
           restartPolicy: OnFailure
           containers:
