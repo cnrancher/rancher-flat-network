@@ -98,7 +98,7 @@ spec:
               gateway:
                 nullable: true
                 type: string
-              ipvlanMode:
+              ipvlanFlag:
                 nullable: true
                 type: string
               master:

@@ -122,7 +122,7 @@ func Check(args *skel.CmdArgs) error {
 	// Check prevResults for ips, routes and dns against values found in the container
 	if err := netns.Do(func(_ ns.NetNS) error {
 		// Check interface against values found in the container
-		err := validateCniContainerInterface(contMap, subnet.Spec.FlatMode, subnet.Spec.Mode)
+		err := validateCniContainerInterface(contMap, subnet.Spec.FlatMode, subnet.Spec.Mode, subnet.Spec.IPvlanFlag)
 		if err != nil {
 			logrus.Errorf("validateCniContainerInterface failed: %v", err)
 			return err
@@ -147,7 +147,9 @@ func Check(args *skel.CmdArgs) error {
 	return nil
 }
 
-func validateCniContainerInterface(intf types100.Interface, flatMode string, expectedMode string) error {
+func validateCniContainerInterface(
+	intf types100.Interface, flatMode string, expectedMode string, expectedFlag string,
+) error {
 	if intf.Name == "" {
 		return fmt.Errorf("container interface name missing in prevResult: %v", intf.Name)
 	}
@@ -159,7 +161,17 @@ func validateCniContainerInterface(intf types100.Interface, flatMode string, exp
 		return fmt.Errorf("error: Container interface %s should not be in host namespace", link.Attrs().Name)
 	}
 
-	var actualMode string
+	if expectedMode == "" {
+		expectedMode = "bridge"
+	}
+	if expectedFlag == "" {
+		expectedFlag = "bridge"
+	}
+
+	var (
+		actualMode string
+		actualFlag string
+	)
 	switch flatMode {
 	case flv1.FlatModeMacvlan:
 		macv, isMacvlan := link.(*netlink.Macvlan)
@@ -179,10 +191,18 @@ func validateCniContainerInterface(intf types100.Interface, flatMode string, exp
 		if err != nil {
 			return err
 		}
+		actualFlag, err = ipvlan.FlagToString(ipv.Flag)
+		if err != nil {
+			return err
+		}
 	}
 	if expectedMode != actualMode {
 		return fmt.Errorf("container [%v] mode %s does not match expected value: %v",
 			flatMode, actualMode, expectedMode)
+	}
+	if expectedFlag != actualFlag {
+		return fmt.Errorf("container [%v] mode [%v] flag %s does not match expected value: %v",
+			flatMode, actualMode, actualFlag, expectedFlag)
 	}
 
 	if intf.Mac != "" {

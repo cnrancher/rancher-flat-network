@@ -152,6 +152,7 @@ func Add(args *skel.CmdArgs) error {
 	case flv1.FlatModeIPvlan:
 		iface, err = ipvlan.Create(&ipvlan.Options{
 			Mode:   subnet.Spec.Mode,
+			Flag:   subnet.Spec.IPvlanFlag,
 			Master: vlanIface.Name,
 			MTU:    n.FlatNetworkConfig.MTU,
 			IfName: args.IfName,

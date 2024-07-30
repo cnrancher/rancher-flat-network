@@ -8,6 +8,8 @@ import (
 	"strings"
 
 	flv1 "github.com/cnrancher/rancher-flat-network/pkg/apis/flatnetwork.pandaria.io/v1"
+	"github.com/cnrancher/rancher-flat-network/pkg/cni/ipvlan"
+	"github.com/cnrancher/rancher-flat-network/pkg/cni/macvlan"
 	"github.com/cnrancher/rancher-flat-network/pkg/ipcalc"
 	"github.com/cnrancher/rancher-flat-network/pkg/utils"
 )
@@ -147,7 +149,27 @@ func CheckSubnetFlatMode(
 ) error {
 	// Validate subnet FlatMode
 	switch subnet.Spec.FlatMode {
-	case flv1.FlatModeIPvlan, flv1.FlatModeMacvlan:
+	case flv1.FlatModeMacvlan:
+		_, err := macvlan.ModeFromString(subnet.Spec.Mode)
+		if err != nil {
+			return fmt.Errorf("invalid %q mode %q: %w",
+				subnet.Spec.FlatMode, subnet.Spec.Mode, err)
+		}
+		if subnet.Spec.IPvlanFlag != "" {
+			return fmt.Errorf("ipvlanFlag should be empty when flatMode is %q",
+				subnet.Spec.FlatMode)
+		}
+	case flv1.FlatModeIPvlan:
+		_, err := ipvlan.ModeFromString(subnet.Spec.Mode)
+		if err != nil {
+			return fmt.Errorf("invalid %q mode %q: %w",
+				subnet.Spec.FlatMode, subnet.Spec.Mode, err)
+		}
+		_, err = ipvlan.FlagFromString(subnet.Spec.IPvlanFlag)
+		if err != nil {
+			return fmt.Errorf("invalid %q flag %q: %w",
+				subnet.Spec.FlatMode, subnet.Spec.IPvlanFlag, err)
+		}
 	default:
 		return fmt.Errorf("invalid subnet flatMode %q provided, available: [%v, %v]",
 			subnet.Spec.FlatMode, flv1.FlatModeMacvlan, flv1.FlatModeIPvlan)

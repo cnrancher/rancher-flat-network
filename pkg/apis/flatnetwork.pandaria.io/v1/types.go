@@ -106,10 +106,10 @@ type SubnetSpec struct {
 	// ipvlan: 'l2, l3, l3s' (default 'l2');
 	Mode string `json:"mode"`
 
-	// IPvlanMode is the mode of IPvlan.
+	// IPvlanFlag is the flag of IPvlan.
 	// Only required when Mode is 'ipvlan'.
 	// can be 'bridge, private, vepa' (default 'bridge')
-	IPvlanMode string `json:"ipvlanMode"`
+	IPvlanFlag string `json:"ipvlanFlag"`
 
 	// Gateway is the gateway of the subnet (optional).
 	Gateway net.IP `json:"gateway"`

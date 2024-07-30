@@ -14,6 +14,7 @@ import (
 
 type Options struct {
 	Mode   string
+	Flag   string
 	Master string
 	MTU    int
 	IfName string
@@ -23,6 +24,11 @@ type Options struct {
 
 func Create(o *Options) (*types100.Interface, error) {
 	mode, err := ModeFromString(o.Mode)
+	if err != nil {
+		return nil, err
+	}
+
+	flag, err := FlagFromString(o.Flag)
 	if err != nil {
 		return nil, err
 	}
@@ -55,6 +61,7 @@ func Create(o *Options) (*types100.Interface, error) {
 			HardwareAddr: mac,
 		},
 		Mode: mode,
+		Flag: flag,
 	}
 	if err := netlink.LinkAdd(iv); err != nil {
 		return nil, fmt.Errorf("failed to create ipvlan: %v", err)
@@ -111,5 +118,31 @@ func ModeFromString(s string) (netlink.IPVlanMode, error) {
 		return netlink.IPVLAN_MODE_L3S, nil
 	default:
 		return 0, fmt.Errorf("unknown ipvlan mode: %q", s)
+	}
+}
+
+func FlagFromString(s string) (netlink.IPVlanFlag, error) {
+	switch s {
+	case "", "bridge":
+		return netlink.IPVLAN_FLAG_BRIDGE, nil
+	case "private":
+		return netlink.IPVLAN_FLAG_PRIVATE, nil
+	case "vepa":
+		return netlink.IPVLAN_FLAG_VEPA, nil
+	default:
+		return 0, fmt.Errorf("unknow ipvlan flag: %q", s)
+	}
+}
+
+func FlagToString(flag netlink.IPVlanFlag) (string, error) {
+	switch flag {
+	case netlink.IPVLAN_FLAG_BRIDGE:
+		return "bridge", nil
+	case netlink.IPVLAN_FLAG_PRIVATE:
+		return "private", nil
+	case netlink.IPVLAN_FLAG_VEPA:
+		return "vepa", nil
+	default:
+		return "", fmt.Errorf("unknown ipvlan flag: %v", flag)
 	}
 }
