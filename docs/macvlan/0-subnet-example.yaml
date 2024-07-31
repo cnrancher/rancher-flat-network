@@ -14,6 +14,8 @@ spec:
   master: eth0
   mode: "bridge"
   routeSettings:
+    addClusterCIDR: true
+    addServiceCIDR: true
     addNodeCIDR: true
     addPodIPToHost: true
     flatNetworkDefaultGateway: false

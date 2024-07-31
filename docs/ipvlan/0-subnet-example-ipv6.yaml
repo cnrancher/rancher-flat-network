@@ -10,7 +10,10 @@ spec:
   gateway: ""
   master: eth0
   mode: "l2"
+  ipvlanFlag: "bridge"
   routeSettings:
+    addClusterCIDR: true
+    addServiceCIDR: true
     addNodeCIDR: true
     addPodIPToHost: true
     flatNetworkDefaultGateway: false
