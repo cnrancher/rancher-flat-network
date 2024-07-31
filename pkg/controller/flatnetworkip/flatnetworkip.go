@@ -129,6 +129,8 @@ func (h *handler) handleIP(_ string, ip *flv1.FlatNetworkIP) (*flv1.FlatNetworkI
 	switch ip.Status.Phase {
 	case flatNetworkIPActivePhase:
 		return h.onIPUpdate(ip)
+	case flatNetworkIPPendingPhase:
+		return h.onIPPending(ip)
 	default:
 		return h.onIPCreate(ip)
 	}
@@ -224,7 +226,7 @@ func (h *handler) onIPCreate(ip *flv1.FlatNetworkIP) (*flv1.FlatNetworkIP, error
 		result = result.DeepCopy()
 		result.Status.Addr = allocatedIP
 		result.Status.MAC = allocatedMAC
-		result.Status.Phase = flatNetworkIPActivePhase
+		result.Status.Phase = flatNetworkIPPendingPhase
 		result, err = h.ipClient.UpdateStatus(result)
 		if err != nil {
 			return err
@@ -263,6 +265,14 @@ func (h *handler) onIPCreate(ip *flv1.FlatNetworkIP) (*flv1.FlatNetworkIP, error
 		Infof("allocated IP subnet [%v] MAC [%v] address [%v]",
 			ip.Spec.Subnet, macString, ip.Status.Addr.String())
 
+	return ip, nil
+}
+
+func (h *handler) onIPPending(ip *flv1.FlatNetworkIP) (*flv1.FlatNetworkIP, error) {
+	// IP status will be updated to Active by CNI after Pod network setup
+	logrus.WithFields(fieldsIP(ip)).
+		Infof("waiting for Pod network setup by CNI")
+	h.ipEnqueueAfter(ip.Namespace, ip.Name, time.Second*5)
 	return ip, nil
 }
 
@@ -310,7 +320,7 @@ func (h *handler) onIPUpdate(ip *flv1.FlatNetworkIP) (*flv1.FlatNetworkIP, error
 		}
 
 		result = result.DeepCopy()
-		result.Status.Phase = flatNetworkIPPendingPhase
+		result.Status.Phase = flatNetworkIPInitPhase
 		result, err = h.ipClient.UpdateStatus(result)
 		if err != nil {
 			return err

@@ -170,32 +170,6 @@ func Add(args *skel.CmdArgs) error {
 	logrus.Infof("create flat network [%v] iface [%v] for pod [%v:%v]: %v",
 		subnet.Spec.FlatMode, iface.Name, podNamespace, podName, utils.Print(iface))
 
-	// Update flatNetworkIP status addr
-	if err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		flatNetworkIP, err = client.GetIP(context.TODO(), podNamespace, podName)
-		if err != nil {
-			logrus.Warnf("failed to get FlatNetworkIP [%v/%v]: %v",
-				podNamespace, podName, err)
-			return err
-		}
-
-		flatNetworkIP = flatNetworkIP.DeepCopy()
-		flatNetworkIP.Status.MAC = iface.Mac
-		flatNetworkIP, err = client.UpdateIPStatus(context.TODO(), podNamespace, flatNetworkIP)
-		return err
-	}); err != nil {
-		logrus.Errorf("failed to update flatNetworkIP: IPAM [%v]: %v",
-			n.IPAM.Type, err)
-		if err := netns.Do(func(_ ns.NetNS) error {
-			return ip.DelLinkByName(iface.Name)
-		}); err != nil {
-			logrus.Errorf("ip.DelLinkByName failed: %v", err)
-		}
-		return err
-	}
-	logrus.Infof("update flatNetwork IP status MAC [%v]",
-		flatNetworkIP.Status.MAC)
-
 	// Delete link if err to avoid link leak in this ns
 	defer func() {
 		if err == nil {
@@ -339,6 +313,33 @@ func Add(args *skel.CmdArgs) error {
 	if err := route.AddPodFlatNetworkCustomRoutes(netns, subnet.Spec.Routes); err != nil {
 		return fmt.Errorf("failed to add custom routes: %w", err)
 	}
+
+	// Update flatNetworkIP status addr
+	if err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		flatNetworkIP, err = client.GetIP(context.TODO(), podNamespace, podName)
+		if err != nil {
+			logrus.Warnf("failed to get FlatNetworkIP [%v/%v]: %v",
+				podNamespace, podName, err)
+			return err
+		}
+
+		flatNetworkIP = flatNetworkIP.DeepCopy()
+		flatNetworkIP.Status.MAC = iface.Mac
+		flatNetworkIP.Status.Phase = "Active"
+		flatNetworkIP, err = client.UpdateIPStatus(context.TODO(), podNamespace, flatNetworkIP)
+		return err
+	}); err != nil {
+		logrus.Errorf("failed to update flatNetworkIP: IPAM [%v]: %v",
+			n.IPAM.Type, err)
+		if err := netns.Do(func(_ ns.NetNS) error {
+			return ip.DelLinkByName(iface.Name)
+		}); err != nil {
+			logrus.Errorf("ip.DelLinkByName failed: %v", err)
+		}
+		return fmt.Errorf("failed to update flatNetworkIP status: %w", err)
+	}
+	logrus.Infof("update flatNetwork IP status MAC [%v]",
+		flatNetworkIP.Status.MAC)
 
 	if err = cnitypes.PrintResult(result, n.CNIVersion); err != nil {
 		return fmt.Errorf("failed to print result: %w", err)
