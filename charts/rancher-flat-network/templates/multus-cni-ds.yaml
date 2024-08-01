@@ -32,20 +32,20 @@ metadata:
   namespace: cattle-flat-network
   labels:
     tier: node
-    app: multus
-    name: multus
+    app: rancher-flat-network-multus
+    name: rancher-flat-network-multus
 spec:
   updateStrategy:
     type: RollingUpdate
   selector:
     matchLabels:
-      name: multus
+      name: rancher-flat-network-multus
   template:
     metadata:
       labels:
         tier: node
-        app: multus
-        name: multus
+        app: rancher-flat-network-multus
+        name: rancher-flat-network-multus
     spec:
       hostNetwork: true
       tolerations:
@@ -66,7 +66,7 @@ spec:
         - name: IS_MULTUS_INIT_CONTAINER
           value: "true"
       containers:
-      - name: kube-multus
+      - name: rancher-flat-network-multus
         image: {{ template "system_default_registry" . }}{{ .Values.multus.image.repository }}:{{ .Values.multus.image.tag }}
         imagePullPolicy: {{ .Values.multus.image.pullPolicy }}
         command: ["/thin_entrypoint"]

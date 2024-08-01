@@ -22,6 +22,7 @@ if [[ ${IS_OPERATOR_INIT_CONTAINER:-} != "" ]]; then
     echo "Waiting for secret 'cattle-flat-network/${secret}' created..."
     while !kubectl -n cattle-flat-network get secret $secret &> /dev/null
     do
+        echo "Waiting for secret 'cattle-flat-network/${secret}' created..."
         sleep 2
     done
     exit 0
