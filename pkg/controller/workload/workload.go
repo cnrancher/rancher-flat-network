@@ -82,7 +82,7 @@ func syncWorkload[T Workload](_ string, w T) (T, error) {
 }
 
 func getFlatNetworkLabel(w metav1.Object) (isFlatNetworkEnabled bool, labels map[string]string) {
-	m := getTemplateObjectMeta(w)
+	m := GetTemplateObjectMeta(w)
 	if m == nil {
 		return false, nil
 	}
@@ -120,7 +120,7 @@ func (h *handler) updateWorkloadLabel(
 		return w, nil
 	}
 
-	wCopy := deepCopy(w)
+	wCopy := DeepCopy(w)
 	if wCopy == nil {
 		logrus.WithFields(fieldsWorkload(w)).
 			Warnf("updateWorkloadLabel: skip unrecognized workload: %T", w)

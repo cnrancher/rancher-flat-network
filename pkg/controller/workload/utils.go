@@ -6,7 +6,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func deepCopy(w metav1.Object) metav1.Object {
+func DeepCopy(w metav1.Object) metav1.Object {
 	switch w := w.(type) {
 	case *appsv1.Deployment:
 		return w.DeepCopy()
@@ -24,7 +24,7 @@ func deepCopy(w metav1.Object) metav1.Object {
 	return nil
 }
 
-func getTemplateObjectMeta(w any) *metav1.ObjectMeta {
+func GetTemplateObjectMeta(w any) *metav1.ObjectMeta {
 	switch w := w.(type) {
 	case *appsv1.Deployment:
 		return &w.Spec.Template.ObjectMeta
@@ -39,5 +39,5 @@ func getTemplateObjectMeta(w any) *metav1.ObjectMeta {
 	case *batchv1.Job:
 		return &w.Spec.Template.ObjectMeta
 	}
-	return nil
+	return &metav1.ObjectMeta{}
 }
