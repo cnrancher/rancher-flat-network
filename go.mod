@@ -9,7 +9,7 @@ require (
 	github.com/containernetworking/cni v1.2.0
 	github.com/containernetworking/plugins v1.5.1
 	github.com/j-keck/arping v1.0.3
-	github.com/k8snetworkplumbingwg/network-attachment-definition-client v1.7.0
+	github.com/k8snetworkplumbingwg/network-attachment-definition-client v1.7.1
 	github.com/pkg/errors v0.9.1
 	github.com/rancher/lasso v0.0.0-20240710130346-32d96874d344
 	github.com/rancher/wrangler/v3 v3.0.0
