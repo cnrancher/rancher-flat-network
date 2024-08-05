@@ -13,36 +13,51 @@ before:
     - go mod tidy
 
 builds:
-  - env:
-      - CGO_ENABLED=0
-    goos:
-      - linux
-    goarch:
-      - amd64
-      - arm64
-    ldflags:
-      - -extldflags -static
-      - -s -w
-      - -X github.com/cnrancher/rancher-flat-network/pkg/utils.GitCommit={{.Env.COMMIT}}
-      - -X github.com/cnrancher/rancher-flat-network/pkg/utils.Version={{.Env.TAG}}
-    main: ./main.go
-    id: rancher-flat-network-operator
-    binary: rancher-flat-network-operator
-  - env:
-      - CGO_ENABLED=0
-    goos:
-      - linux
-    goarch:
-      - amd64
-      - arm64
-    ldflags:
-      - -extldflags -static
-      - -s -w
-      - -X github.com/cnrancher/rancher-flat-network/pkg/utils.GitCommit={{.Env.COMMIT}}
-      - -X github.com/cnrancher/rancher-flat-network/pkg/utils.Version={{.Env.TAG}}
-    main: ./cni/main.go
-    id: rancher-flat-network-cni
-    binary: rancher-flat-network-cni
+- env:
+    - CGO_ENABLED=0
+  goos:
+    - linux
+  goarch:
+    - amd64
+    - arm64
+  ldflags:
+    - -extldflags -static
+    - -s -w
+    - -X github.com/cnrancher/rancher-flat-network/pkg/utils.GitCommit={{.Env.COMMIT}}
+    - -X github.com/cnrancher/rancher-flat-network/pkg/utils.Version={{.Env.TAG}}
+  main: ./main.go
+  id: rancher-flat-network-operator
+  binary: rancher-flat-network-operator
+- env:
+    - CGO_ENABLED=0
+  goos:
+    - linux
+  goarch:
+    - amd64
+    - arm64
+  ldflags:
+    - -extldflags -static
+    - -s -w
+    - -X github.com/cnrancher/rancher-flat-network/pkg/utils.GitCommit={{.Env.COMMIT}}
+    - -X github.com/cnrancher/rancher-flat-network/pkg/utils.Version={{.Env.TAG}}
+  main: ./cni/main.go
+  id: rancher-flat-network-cni
+  binary: rancher-flat-network-cni
+- env:
+    - CGO_ENABLED=0
+  goos:
+    - linux
+  goarch:
+    - amd64
+    - arm64
+  ldflags:
+    - -extldflags -static
+    - -s -w
+    - -X github.com/cnrancher/rancher-flat-network/pkg/utils.GitCommit={{.Env.COMMIT}}
+    - -X github.com/cnrancher/rancher-flat-network/pkg/utils.Version={{.Env.TAG}}
+  main: ./migrator/main.go
+  id: rancher-flat-network-migrator
+  binary: rancher-flat-network-migrator
 
 release:
   prerelease: auto
