@@ -172,7 +172,7 @@ func (m *migrator) processPodTemplateAnnotation(o metav1.Object) error {
 		return fmt.Errorf("failed to update workload %T [%v/%v]: %w",
 			o, o.GetNamespace(), o.GetName(), err)
 	}
-	time.Sleep(time.Millisecond * 500)
+	time.Sleep(m.interval)
 	return nil
 }
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/cnrancher/rancher-flat-network/pkg/controller/wrangler"
 	"github.com/sirupsen/logrus"
@@ -19,11 +20,14 @@ type migrator struct {
 	wctx             *wrangler.Context
 	dynamicClientSet *dynamic.DynamicClient
 	workloadKinds    []string
+	interval         time.Duration
 }
 
 var _ Migrator = &migrator{}
 
-func NewResourceMigrator(cfg *rest.Config, workloadKinds string) Migrator {
+func NewResourceMigrator(
+	cfg *rest.Config, workloadKinds string, interval time.Duration,
+) Migrator {
 	wctx := wrangler.NewContextOrDie(cfg)
 	dc := dynamic.NewForConfigOrDie(cfg)
 	spec := strings.Split(strings.TrimSpace(workloadKinds), ",")
@@ -38,6 +42,7 @@ func NewResourceMigrator(cfg *rest.Config, workloadKinds string) Migrator {
 		wctx:             wctx,
 		dynamicClientSet: dc,
 		workloadKinds:    kinds,
+		interval:         interval,
 	}
 }
 

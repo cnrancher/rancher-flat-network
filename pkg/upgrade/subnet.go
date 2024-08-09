@@ -41,7 +41,7 @@ func (m *migrator) migrateSubnet(ctx context.Context) error {
 		} else {
 			logrus.Infof("created FlatNetworkSubnet [%v]", fs.Name)
 		}
-		time.Sleep(time.Millisecond * 500)
+		time.Sleep(m.interval)
 	}
 
 	return nil

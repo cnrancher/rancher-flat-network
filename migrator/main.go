@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/cnrancher/rancher-flat-network/pkg/upgrade"
 	"github.com/cnrancher/rancher-flat-network/pkg/utils"
@@ -15,9 +16,11 @@ import (
 var (
 	kubeConfigFile string
 	workloadKinds  string
-	versionString  string
+	interval       time.Duration
 	version        bool
 	debug          bool
+
+	versionString string
 )
 
 func init() {
@@ -32,6 +35,7 @@ func main() {
 	flag.StringVar(&kubeConfigFile, "kubeconfig", "", "Kube-config file (optional)")
 	flag.StringVar(&workloadKinds, "workload",
 		"deployment,daemonset,statefulset,replicaset,cronjob,job", "Workload kinds, separated by comma")
+	flag.DurationVar(&interval, "interval", time.Second, "The interval between Kube API requests")
 	flag.BoolVar(&version, "v", false, "Output version")
 	flag.Parse()
 
@@ -50,7 +54,7 @@ func main() {
 		logrus.Fatalf("Error building kubeconfig: %v", err)
 	}
 
-	m := upgrade.NewResourceMigrator(cfg, workloadKinds)
+	m := upgrade.NewResourceMigrator(cfg, workloadKinds, interval)
 	if err := m.Run(ctx); err != nil {
 		logrus.Fatal(err)
 	}
