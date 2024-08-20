@@ -47,7 +47,7 @@ multus:
     kubeconfig: ""
   image:
     repository: "cnrancher/hardened-multus-cni"
-    tag: "v4.0.2-rancher1"
+    tag: "v4.1.0"
     pullPolicy: IfNotPresent
 
 global:

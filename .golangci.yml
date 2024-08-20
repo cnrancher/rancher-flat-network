@@ -2,7 +2,6 @@ run:
   timeout: 5m
   go: "1.22"
   skip-files:
-    - "zz_generated_*"
   tests: false
   allow-parallel-runners: true
 
@@ -68,18 +67,10 @@ linters-settings:
         alias: utilruntime
       - pkg: sigs.k8s.io/controller-runtime/pkg/client
         alias: runtimeclient
-      # Rancher EKS operator
-      - pkg: github.com/rancher/eks-operator/pkg/apis/eks.cattle.io/v1
-        alias: eksv1
-      - pkg: github.com/rancher/eks-operator/pkg/generated/controllers/eks.cattle.io/v1
-        alias: ekscontrollers
-      - pkg: github.com/rancher/eks-operator/pkg/eks
-        alias: awsservices
-      # Core Rancher
-      - pkg: github.com/rancher/rancher/pkg/apis/management.cattle.io/v3
-        alias: managementv3
 
 issues:
+  exclude-files:
+  - "zz_generated_*"
   exclude-rules:
   - linters:
     - revive
