@@ -1,10 +1,9 @@
 package upgrade
 
 import (
+	"context"
 	"fmt"
-	"maps"
 	"reflect"
-	"strings"
 	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -12,82 +11,106 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/util/retry"
 
-	flv1 "github.com/cnrancher/rancher-flat-network/pkg/apis/flatnetwork.pandaria.io/v1"
 	"github.com/cnrancher/rancher-flat-network/pkg/controller/workload"
+	"github.com/cnrancher/rancher-flat-network/pkg/utils"
 	"github.com/sirupsen/logrus"
 )
 
 const (
-	macvlanV1Prefix            = "macvlan.pandaria.cattle.io/"
-	macvlanV1AnnotationIP      = "macvlan.pandaria.cattle.io/ip"
-	macvlanV1AnnotationSubnet  = "macvlan.pandaria.cattle.io/subnet"
-	macvlanV1NetAttatchDefName = `[{"name":"static-macvlan-cni-attach","interface":"eth1"}]`
-
-	k8sCNINetworksKey     = "k8s.v1.cni.cncf.io/networks"
-	rancherFlatNetworkCNI = `[{"name":"rancher-flat-network","interface":"eth1"}]`
+	macvlanV1Prefix           = "macvlan.pandaria.cattle.io/"
+	macvlanV1AnnotationIP     = "macvlan.pandaria.cattle.io/ip"
+	macvlanV1AnnotationSubnet = "macvlan.pandaria.cattle.io/subnet"
 )
 
-func (m *migrator) migrateWorkload(kind string) error {
+func (m *migrator) migrateWorkload(ctx context.Context, kind string) error {
+	var err error
+	var listOption = metav1.ListOptions{
+		Limit: 100,
+	}
 	switch kind {
 	case "deployment":
-		o, err := m.wctx.Apps.Deployment().List("", metav1.ListOptions{})
-		if err != nil {
-			return err
-		}
-		for _, i := range o.Items {
-			if err := m.processPodTemplateAnnotation(&i); err != nil {
+		var o *appsv1.DeploymentList
+		for o == nil || o.Continue != "" {
+			o, err = m.wctx.Apps.Deployment().List("", listOption)
+			if err != nil {
 				return err
 			}
+			for _, i := range o.Items {
+				if err := m.processPodTemplateAnnotation(ctx, &i); err != nil {
+					return err
+				}
+			}
+			listOption.Continue = o.Continue
 		}
 	case "daemonset":
-		o, err := m.wctx.Apps.DaemonSet().List("", metav1.ListOptions{})
-		if err != nil {
-			return err
-		}
-		for _, i := range o.Items {
-			if err := m.processPodTemplateAnnotation(&i); err != nil {
+		var o *appsv1.DaemonSetList
+		for o == nil || o.Continue != "" {
+			o, err = m.wctx.Apps.DaemonSet().List("", listOption)
+			if err != nil {
 				return err
 			}
+			for _, i := range o.Items {
+				if err := m.processPodTemplateAnnotation(ctx, &i); err != nil {
+					return err
+				}
+			}
+			listOption.Continue = o.Continue
 		}
 	case "statefulset":
-		o, err := m.wctx.Apps.StatefulSet().List("", metav1.ListOptions{})
-		if err != nil {
-			return err
-		}
-		for _, i := range o.Items {
-			if err := m.processPodTemplateAnnotation(&i); err != nil {
+		var o *appsv1.StatefulSetList
+		for o == nil || o.Continue != "" {
+			o, err = m.wctx.Apps.StatefulSet().List("", listOption)
+			if err != nil {
 				return err
 			}
+			for _, i := range o.Items {
+				if err := m.processPodTemplateAnnotation(ctx, &i); err != nil {
+					return err
+				}
+			}
+			listOption.Continue = o.Continue
 		}
 	case "replicaset":
-		o, err := m.wctx.Apps.ReplicaSet().List("", metav1.ListOptions{})
-		if err != nil {
-			return err
-		}
-		for _, i := range o.Items {
-			if err := m.processPodTemplateAnnotation(&i); err != nil {
+		var o *appsv1.ReplicaSetList
+		for o == nil || o.Continue != "" {
+			o, err = m.wctx.Apps.ReplicaSet().List("", listOption)
+			if err != nil {
 				return err
 			}
+			for _, i := range o.Items {
+				if err := m.processPodTemplateAnnotation(ctx, &i); err != nil {
+					return err
+				}
+			}
+			listOption.Continue = o.Continue
 		}
 	case "cronjob":
-		o, err := m.wctx.Batch.CronJob().List("", metav1.ListOptions{})
-		if err != nil {
-			return err
-		}
-		for _, i := range o.Items {
-			if err := m.processPodTemplateAnnotation(&i); err != nil {
+		var o *batchv1.CronJobList
+		for o == nil || o.Continue != "" {
+			o, err = m.wctx.Batch.CronJob().List("", listOption)
+			if err != nil {
 				return err
 			}
+			for _, i := range o.Items {
+				if err := m.processPodTemplateAnnotation(ctx, &i); err != nil {
+					return err
+				}
+			}
+			listOption.Continue = o.Continue
 		}
 	case "job":
-		o, err := m.wctx.Batch.Job().List("", metav1.ListOptions{})
-		if err != nil {
-			return err
-		}
-		for _, i := range o.Items {
-			if err := m.processPodTemplateAnnotation(&i); err != nil {
+		var o *batchv1.JobList
+		for o == nil || o.Continue != "" {
+			o, err = m.wctx.Batch.Job().List("", listOption)
+			if err != nil {
 				return err
 			}
+			for _, i := range o.Items {
+				if err := m.processPodTemplateAnnotation(ctx, &i); err != nil {
+					return err
+				}
+			}
+			listOption.Continue = o.Continue
 		}
 	case "":
 	default:
@@ -124,7 +147,10 @@ func (m *migrator) getWorkload(o metav1.Object) (metav1.Object, error) {
 	return nil, fmt.Errorf("unrecognized workload type %T", o)
 }
 
-func (m *migrator) processPodTemplateAnnotation(o metav1.Object) error {
+func (m *migrator) processPodTemplateAnnotation(
+	ctx context.Context, o metav1.Object,
+) error {
+	var err error
 	metadata := workload.GetTemplateObjectMeta(o)
 	annotation := metadata.Annotations
 	if !isMacvlanV1Enabled(annotation) {
@@ -132,27 +158,21 @@ func (m *migrator) processPodTemplateAnnotation(o metav1.Object) error {
 			o, o.GetNamespace(), o.GetName())
 		return nil
 	}
-	au := maps.Clone(annotation)
-	for k, v := range annotation {
-		if strings.Contains(k, macvlanV1Prefix) {
-			delete(au, k)
-			k := strings.ReplaceAll(k, macvlanV1Prefix, flv1.AnnotationPrefix)
-			au[k] = v
-			logrus.Infof("update %T [%v/%v] podTemplate annotation: [%v: %v]",
-				o, o.GetNamespace(), o.GetName(), k, v)
-		}
-		if k == k8sCNINetworksKey && v == macvlanV1NetAttatchDefName { // TODO:
-			au[k] = rancherFlatNetworkCNI
-			logrus.Infof("update %T [%v/%v] podTemplate annotation: [%v: %v]",
-				o, o.GetNamespace(), o.GetName(), k, rancherFlatNetworkCNI)
-		}
-	}
+	au := updateAnnotation(o)
 	if reflect.DeepEqual(annotation, au) {
 		logrus.Debugf("skip update %T [%v/%v] podTemplate annotation as already updated",
 			o, o.GetNamespace(), o.GetName())
 		return nil
 	}
-	var err error
+	logrus.Infof("%T [%v/%v] Annotation before:",
+		o, o.GetNamespace(), o.GetName())
+	fmt.Println(utils.Print(annotation))
+	logrus.Infof("============== After ==============")
+	fmt.Println(utils.Print(au))
+	if err = utils.PromptUser(ctx, "Is this correct?", m.autoYes); err != nil {
+		return fmt.Errorf("failed to update %T [%v/%v] annotation: %w",
+			o, o.GetNamespace(), o.GetName(), err)
+	}
 	if err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		o, err = m.getWorkload(o)
 		if err != nil {

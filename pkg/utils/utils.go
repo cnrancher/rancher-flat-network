@@ -2,7 +2,9 @@ package utils
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"runtime"
 	"strconv"
@@ -115,4 +117,37 @@ func GID() uint64 {
 // Hostname returns current hostname.
 func Hostname() string {
 	return hostname
+}
+
+func PromptUser(ctx context.Context, text string, autoYes bool) error {
+	var s string
+	fmt.Printf("%v [Y/n] ", text)
+	if autoYes {
+		fmt.Println("y")
+	} else {
+		if _, err := Scanf(ctx, "%s", &s); err != nil {
+			return err
+		}
+		if len(s) == 0 {
+			return nil
+		}
+		if s[0] != 'y' && s[0] != 'Y' {
+			return fmt.Errorf("canceled by user")
+		}
+	}
+	return nil
+}
+
+func Scanf(ctx context.Context, format string, a ...any) (int, error) {
+	nCh := make(chan int)
+	go func() {
+		n, _ := fmt.Scanf(format, a...)
+		nCh <- n
+	}()
+	select {
+	case n := <-nCh:
+		return n, nil
+	case <-ctx.Done():
+		return 0, ctx.Err()
+	}
 }

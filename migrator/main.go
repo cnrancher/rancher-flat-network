@@ -17,6 +17,8 @@ var (
 	kubeConfigFile string
 	workloadKinds  string
 	interval       time.Duration
+	listLimit      int64
+	autoYes        bool
 	version        bool
 	debug          bool
 
@@ -34,9 +36,12 @@ func init() {
 func main() {
 	flag.StringVar(&kubeConfigFile, "kubeconfig", "", "Kube-config file (optional)")
 	flag.StringVar(&workloadKinds, "workload",
-		"deployment,daemonset,statefulset,replicaset,cronjob,job", "Workload kinds, separated by comma")
-	flag.DurationVar(&interval, "interval", time.Second, "The interval between Kube API requests")
+		"deployment,daemonset,statefulset,cronjob,job", "Workload kinds, separated by comma")
+	flag.DurationVar(&interval, "interval", time.Millisecond*500, "The interval between each Kube API requests")
+	flag.Int64Var(&listLimit, "list-limit", 100, "Limit for each Kube API list request")
+	flag.BoolVar(&autoYes, "yes", false, "Auto yes when migrating resources (default false)")
 	flag.BoolVar(&version, "v", false, "Output version")
+	flag.BoolVar(&debug, "debug", false, "Show debug output")
 	flag.Parse()
 
 	if debug || os.Getenv("CATTLE_DEV_MODE") != "" {
@@ -54,7 +59,13 @@ func main() {
 		logrus.Fatalf("Error building kubeconfig: %v", err)
 	}
 
-	m := upgrade.NewResourceMigrator(cfg, workloadKinds, interval)
+	m := upgrade.NewResourceMigrator(&upgrade.MigratorOpts{
+		Config:        cfg,
+		WorkloadKinds: workloadKinds,
+		Interval:      interval,
+		ListLimit:     listLimit,
+		AutoYes:       autoYes,
+	})
 	if err := m.Run(ctx); err != nil {
 		logrus.Fatal(err)
 	}

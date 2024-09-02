@@ -21,28 +21,44 @@ type migrator struct {
 	dynamicClientSet *dynamic.DynamicClient
 	workloadKinds    []string
 	interval         time.Duration
+	listLimit        int64
+	autoYes          bool
 }
 
 var _ Migrator = &migrator{}
 
+type MigratorOpts struct {
+	Config        *rest.Config
+	WorkloadKinds string
+	Interval      time.Duration
+	ListLimit     int64
+	AutoYes       bool
+}
+
 func NewResourceMigrator(
-	cfg *rest.Config, workloadKinds string, interval time.Duration,
+	opts *MigratorOpts,
 ) Migrator {
-	wctx := wrangler.NewContextOrDie(cfg)
-	dc := dynamic.NewForConfigOrDie(cfg)
-	spec := strings.Split(strings.TrimSpace(workloadKinds), ",")
+	wctx := wrangler.NewContextOrDie(opts.Config)
+	dc := dynamic.NewForConfigOrDie(opts.Config)
+	spec := strings.Split(strings.TrimSpace(opts.WorkloadKinds), ",")
 	kinds := []string{}
 	for _, s := range spec {
 		if s != "" {
 			kinds = append(kinds, s)
 		}
 	}
+	limit := opts.ListLimit
+	if limit < 0 {
+		limit = 100
+	}
 
 	return &migrator{
 		wctx:             wctx,
 		dynamicClientSet: dc,
 		workloadKinds:    kinds,
-		interval:         interval,
+		interval:         opts.Interval,
+		listLimit:        limit,
+		autoYes:          opts.AutoYes,
 	}
 }
 
@@ -55,7 +71,7 @@ func (m *migrator) Run(ctx context.Context) error {
 		return nil
 	}
 	for _, v := range m.workloadKinds {
-		if err := m.migrateWorkload(v); err != nil {
+		if err := m.migrateWorkload(ctx, v); err != nil {
 			return fmt.Errorf("failed to migrate %v: %w",
 				v, err)
 		}

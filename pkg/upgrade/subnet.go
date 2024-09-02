@@ -10,6 +10,7 @@ import (
 	"github.com/cnrancher/rancher-flat-network/pkg/upgrade/types"
 	"github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
@@ -17,14 +18,33 @@ import (
 )
 
 func (m *migrator) migrateSubnet(ctx context.Context) error {
-	macvlanSubnets, err := m.dynamicClientSet.Resource(macvlanSubnetResource()).List(ctx, metav1.ListOptions{})
-	if err != nil {
-		return fmt.Errorf("failed to list MacvlanSubnet resource: %w", err)
+	listOptions := metav1.ListOptions{
+		Limit: m.listLimit,
 	}
+	var (
+		macvlanSubnets *unstructured.UnstructuredList
+		err            error
+	)
+	for macvlanSubnets == nil || listOptions.Continue != "" {
+		macvlanSubnets, err = m.dynamicClientSet.Resource(macvlanSubnetResource()).List(ctx, listOptions)
+		if err != nil {
+			return fmt.Errorf("failed to list MacvlanSubnet resource: %w", err)
+		}
+		if err := m.migrateSubnetList(macvlanSubnets); err != nil {
+			return err
+		}
+		listOptions.Continue = macvlanSubnets.GetContinue()
+	}
+
+	return nil
+}
+
+func (m *migrator) migrateSubnetList(macvlanSubnets *unstructured.UnstructuredList) error {
 	if len(macvlanSubnets.Items) == 0 {
-		logrus.Infof("macvlansubnets.macvlan.cluster.cattle.io resources already migrated")
+		logrus.Infof("Done migrating macvlansubnets.macvlan.cluster.cattle.io resources")
 		return nil
 	}
+	var err error
 	for _, item := range macvlanSubnets.Items {
 		subnet := types.MacvlanSubnet{}
 		err = runtime.DefaultUnstructuredConverter.
@@ -39,11 +59,10 @@ func (m *migrator) migrateSubnet(ctx context.Context) error {
 		if err != nil {
 			logrus.Errorf("failed to create FlatNetworkSubnet [%v]: %v", fs.Name, err)
 		} else {
-			logrus.Infof("created FlatNetworkSubnet [%v]", fs.Name)
+			logrus.Infof("created FlatNetworkSubnet [%v], you can delete the old V1 subnet manually", fs.Name)
 		}
 		time.Sleep(m.interval)
 	}
-
 	return nil
 }
 
