@@ -1,18 +1,18 @@
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
-  name: alpine-ipvlan-deployment
+  name: alpine-ipvlan-daemonset
   namespace: default
   labels:
-    app: alpine-ipvlan-deployment
+    app: alpine-ipvlan-daemonset
 spec:
   selector:
     matchLabels:
-      app: alpine-ipvlan-deployment
+      app: alpine-ipvlan-daemonset
   template:
     metadata:
       labels:
-        app: alpine-ipvlan-deployment
+        app: alpine-ipvlan-daemonset
       annotations:
         flatnetwork.pandaria.io/ip: "auto"
         flatnetwork.pandaria.io/subnet: "ipvlan-subnet200"
@@ -20,7 +20,7 @@ spec:
         k8s.v1.cni.cncf.io/networks: '[{"name":"rancher-flat-network","interface":"eth1"}]'
     spec:
       containers:
-      - name: alpine-ipvlan-deployment
+      - name: alpine-ipvlan-daemonset
         image: alpine
         imagePullPolicy: Always
         command: ["sleep"]
@@ -32,18 +32,18 @@ spec:
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
-  name: alpine-ipvlan-deployment-ipv6
+  name: alpine-ipvlan-daemonset-ipv6
   namespace: default
   labels:
-    app: alpine-ipvlan-deployment-ipv6
+    app: alpine-ipvlan-daemonset-ipv6
 spec:
   selector:
     matchLabels:
-      app: alpine-ipvlan-deployment-ipv6
+      app: alpine-ipvlan-daemonset-ipv6
   template:
     metadata:
       labels:
-        app: alpine-ipvlan-deployment-ipv6
+        app: alpine-ipvlan-daemonset-ipv6
       annotations:
         flatnetwork.pandaria.io/ip: "auto"
         flatnetwork.pandaria.io/subnet: "ipvlan-ipv6-subnet201"
@@ -51,7 +51,7 @@ spec:
         k8s.v1.cni.cncf.io/networks: '[{"name":"rancher-flat-network","interface":"eth1"}]'
     spec:
       containers:
-      - name: alpine-ipvlan-deployment-ipv6
+      - name: alpine-ipvlan-daemonset-ipv6
         image: alpine
         imagePullPolicy: IfNotPresent
         command: ["sleep"]
