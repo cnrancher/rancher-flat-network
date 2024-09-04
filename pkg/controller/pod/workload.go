@@ -45,6 +45,7 @@ func (h *handler) findOwnerWorkload(pod *corev1.Pod) (string, string, types.UID,
 	for _, owner := range pod.OwnerReferences {
 		switch owner.Kind {
 		case "ReplicaSet":
+			// The ReplicaSet may managed by Deployment.
 			rs, err := h.replicaSetCache.Get(pod.Namespace, owner.Name)
 			if err != nil {
 				return "", "", "", err

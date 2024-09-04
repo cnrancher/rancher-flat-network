@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"strings"
 	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -27,7 +28,9 @@ func (m *migrator) migrateWorkload(ctx context.Context, kind string) error {
 	var listOption = metav1.ListOptions{
 		Limit: 100,
 	}
-	switch kind {
+	// Workload kind could be deployment, daemonset, statefulset, cronjob, job.
+	// replicaset is managed by deployment and is not a workload.
+	switch strings.ToLower(kind) {
 	case "deployment":
 		var o *appsv1.DeploymentList
 		for o == nil || o.Continue != "" {
@@ -60,20 +63,6 @@ func (m *migrator) migrateWorkload(ctx context.Context, kind string) error {
 		var o *appsv1.StatefulSetList
 		for o == nil || o.Continue != "" {
 			o, err = m.wctx.Apps.StatefulSet().List("", listOption)
-			if err != nil {
-				return err
-			}
-			for _, i := range o.Items {
-				if err := m.processPodTemplateAnnotation(ctx, &i); err != nil {
-					return err
-				}
-			}
-			listOption.Continue = o.Continue
-		}
-	case "replicaset":
-		var o *appsv1.ReplicaSetList
-		for o == nil || o.Continue != "" {
-			o, err = m.wctx.Apps.ReplicaSet().List("", listOption)
 			if err != nil {
 				return err
 			}
@@ -137,8 +126,6 @@ func (m *migrator) getWorkload(o metav1.Object) (metav1.Object, error) {
 		return m.wctx.Apps.DaemonSet().Get(o.GetNamespace(), o.GetName(), metav1.GetOptions{})
 	case *appsv1.StatefulSet:
 		return m.wctx.Apps.StatefulSet().Get(o.GetNamespace(), o.GetName(), metav1.GetOptions{})
-	case *appsv1.ReplicaSet:
-		return m.wctx.Apps.ReplicaSet().Get(o.GetNamespace(), o.GetName(), metav1.GetOptions{})
 	case *batchv1.CronJob:
 		return m.wctx.Batch.CronJob().Get(o.GetNamespace(), o.GetName(), metav1.GetOptions{})
 	case *batchv1.Job:
@@ -208,8 +195,6 @@ func setTemplateObjectMetaAnnotations(w metav1.Object, a map[string]string) {
 		w.Spec.Template.ObjectMeta.Annotations = a
 	case *appsv1.StatefulSet:
 		w.Spec.Template.ObjectMeta.Annotations = a
-	case *appsv1.ReplicaSet:
-		w.Spec.Template.ObjectMeta.Annotations = a
 	case *batchv1.CronJob:
 		w.Spec.JobTemplate.ObjectMeta.Annotations = a
 	case *batchv1.Job:
@@ -225,8 +210,6 @@ func (m *migrator) updateWorkload(o metav1.Object) (metav1.Object, error) {
 		return m.wctx.Apps.DaemonSet().Update(o)
 	case *appsv1.StatefulSet:
 		return m.wctx.Apps.StatefulSet().Update(o)
-	case *appsv1.ReplicaSet:
-		return m.wctx.Apps.ReplicaSet().Update(o)
 	case *batchv1.CronJob:
 		return m.wctx.Batch.CronJob().Update(o)
 	case *batchv1.Job:

@@ -16,9 +16,12 @@ import (
 	"github.com/cnrancher/rancher-flat-network/pkg/utils"
 )
 
+// The workload is an apps/v1 Deployment, DaemonSet, StatefulSet
+// and batch/v1 Job, CronJob resource.
+// NOTE: ReplicaSet is managed by Deployment and is not a Workload
 type Workload interface {
-	*appsv1.Deployment | *appsv1.DaemonSet | *appsv1.ReplicaSet |
-		*appsv1.StatefulSet | *batchv1.Job | *batchv1.CronJob
+	*appsv1.Deployment | *appsv1.DaemonSet | *appsv1.StatefulSet |
+		*batchv1.Job | *batchv1.CronJob
 
 	// Workload implements metav1.Object interface
 	metav1.Object
@@ -31,7 +34,6 @@ const (
 type handler struct {
 	deploymentClient  appscontroller.DeploymentClient
 	daemonsetClient   appscontroller.DaemonSetClient
-	replicasetClient  appscontroller.ReplicaSetClient
 	statefulsetClient appscontroller.StatefulSetClient
 	cronjobClient     batchcontroller.CronJobClient
 	jobClient         batchcontroller.JobClient
@@ -46,15 +48,17 @@ func Register(
 	h := &handler{
 		deploymentClient:  wctx.Apps.Deployment(),
 		daemonsetClient:   wctx.Apps.DaemonSet(),
-		replicasetClient:  wctx.Apps.ReplicaSet(),
 		statefulsetClient: wctx.Apps.StatefulSet(),
+		cronjobClient:     wctx.Batch.CronJob(),
+		jobClient:         wctx.Batch.Job(),
 	}
 	workloadHandler = h
 
 	wctx.Apps.Deployment().OnChange(ctx, handlerName, syncWorkload)
 	wctx.Apps.DaemonSet().OnChange(ctx, handlerName, syncWorkload)
-	wctx.Apps.ReplicaSet().OnChange(ctx, handlerName, syncWorkload)
 	wctx.Apps.StatefulSet().OnChange(ctx, handlerName, syncWorkload)
+	wctx.Batch.CronJob().OnChange(ctx, handlerName, syncWorkload)
+	wctx.Batch.Job().OnChange(ctx, handlerName, syncWorkload)
 }
 
 func syncWorkload[T Workload](_ string, w T) (T, error) {
@@ -152,8 +156,6 @@ func (h *handler) updateWorkloadLabel(
 		return h.daemonsetClient.Update(o)
 	case *appsv1.StatefulSet:
 		return h.statefulsetClient.Update(o)
-	case *appsv1.ReplicaSet:
-		return h.replicasetClient.Update(o)
 	case *batchv1.CronJob:
 		return h.cronjobClient.Update(o)
 	case *batchv1.Job:
@@ -177,8 +179,6 @@ func fieldsWorkload(obj metav1.Object) logrus.Fields {
 		fields["DaemonSet"] = s
 	case *appsv1.StatefulSet:
 		fields["StatefulSet"] = s
-	case *appsv1.ReplicaSet:
-		fields["ReplicaSet"] = s
 	case *batchv1.Job:
 		fields["Job"] = s
 	}
