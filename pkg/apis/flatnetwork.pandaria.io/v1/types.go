@@ -27,9 +27,11 @@ const (
 	LabelWorkloadSelector = "workload.user.cattle.io/workloadselector"
 	LabelProjectID        = "field.cattle.io/projectId"
 
+	// Specification for IP/MAC Allocation modes
 	AllocateModeAuto     = "auto"
 	AllocateModeSpecific = "specific"
 
+	// Specification for flatModes
 	FlatModeIPvlan  = "ipvlan"
 	FlatModeMacvlan = "macvlan"
 )

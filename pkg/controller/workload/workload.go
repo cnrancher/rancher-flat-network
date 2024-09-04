@@ -71,8 +71,10 @@ func syncWorkload[T Workload](_ string, w T) (T, error) {
 		return w, nil
 	}
 
-	isFlatNetworkEnabled, labels := getFlatNetworkLabel(w)
+	isFlatNetworkEnabled, labels := getTemplateFlatNetworkLabel(w)
 	if !isFlatNetworkEnabled {
+		logrus.WithFields(fieldsWorkload(w)).
+			Debugf("skip update workload label as flatnetwork not enabled")
 		return w, nil
 	}
 	o, err := workloadHandler.updateWorkloadLabel(w, labels)
@@ -85,7 +87,9 @@ func syncWorkload[T Workload](_ string, w T) (T, error) {
 	return w, err
 }
 
-func getFlatNetworkLabel(w metav1.Object) (isFlatNetworkEnabled bool, labels map[string]string) {
+func getTemplateFlatNetworkLabel(
+	w metav1.Object,
+) (isFlatNetworkEnabled bool, labels map[string]string) {
 	m := GetTemplateObjectMeta(w)
 	if m == nil {
 		return false, nil
@@ -99,16 +103,15 @@ func getFlatNetworkLabel(w metav1.Object) (isFlatNetworkEnabled bool, labels map
 		ipType string
 		subnet string
 	)
-	switch a[flv1.LabelFlatNetworkIPType] {
+	switch a[flv1.AnnotationIP] {
 	case flv1.AllocateModeAuto:
 		ipType = flv1.AllocateModeAuto
-		isFlatNetworkEnabled = true
 	case "":
 	default:
 		ipType = flv1.AllocateModeSpecific
-		isFlatNetworkEnabled = true
 	}
 	subnet = a[flv1.AnnotationSubnet]
+	isFlatNetworkEnabled = (ipType != "" && subnet != "")
 
 	labels = map[string]string{
 		flv1.LabelFlatNetworkIPType: ipType,

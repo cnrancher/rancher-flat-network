@@ -82,7 +82,8 @@ func (h *Handler) validateWorkload(ar *admissionv1.AdmissionReview) (bool, error
 	if err != nil {
 		return false, fmt.Errorf("deserializeWorkloadReview: %w", err)
 	}
-	if workload.PodTemplateAnnotations("k8s.v1.cni.cncf.io/networks") == "" {
+	if workload.PodTemplateAnnotations("k8s.v1.cni.cncf.io/networks") == "" &&
+		workload.PodTemplateAnnotations("v1.multus-cni.io/default-network") == "" {
 		return true, nil
 	}
 	if workload.PodTemplateAnnotations(flv1.AnnotationSubnet) == "" {
