@@ -92,7 +92,7 @@ func getTemplateFlatNetworkLabel(
 ) (isFlatNetworkEnabled bool, labels map[string]string) {
 	m := GetTemplateObjectMeta(w)
 	if m == nil {
-		return false, nil
+		return isFlatNetworkEnabled, labels
 	}
 	if m.Annotations == nil {
 		m.Annotations = map[string]string{}
@@ -117,7 +117,7 @@ func getTemplateFlatNetworkLabel(
 		flv1.LabelFlatNetworkIPType: ipType,
 		flv1.LabelSubnet:            subnet,
 	}
-	return
+	return isFlatNetworkEnabled, labels
 }
 
 func (h *handler) updateWorkloadLabel(
