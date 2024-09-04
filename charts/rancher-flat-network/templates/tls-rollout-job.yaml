@@ -5,12 +5,12 @@ metadata:
   name: rancher-flat-network-tls-rollout
   namespace: cattle-flat-network
 spec:
+  ttlSecondsAfterFinished: 100
   template:
     metadata:
       labels:
         app: rancher-flat-network-tls-rollout
     spec:
-      ttlSecondsAfterFinished: 100
       serviceAccountName: rancher-flat-network-multus
       restartPolicy: OnFailure
       containers:
@@ -32,12 +32,12 @@ spec:
   schedule: "{{ .Values.deploy.rolloutSchedule }}"
   jobTemplate:
     spec:
+      ttlSecondsAfterFinished: 100
       template:
         metadata:
           labels:
             app: rancher-flat-network-webhook-rollout
         spec:
-          ttlSecondsAfterFinished: 100
           serviceAccountName: rancher-flat-network-multus
           restartPolicy: OnFailure
           containers:

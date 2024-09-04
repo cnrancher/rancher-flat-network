@@ -15,8 +15,16 @@ KUBECTL_VERSION=${KUBECTL_VERSION:-'v1.30.2'}
 
 BUILDX_OPTIONS=${BUILDX_OPTIONS:-''} # Set to '--push' to upload images
 
+if [[ ! -e "/etc/buildkitd.toml" ]]; then
+    touch /etc/buildkitd.toml
+fi
+
 docker buildx ls | grep ${BUILDER} || \
-    docker buildx create --name=${BUILDER} --platform=${TARGET_PLATFORMS}
+    docker buildx create \
+        --config /etc/buildkitd.toml \
+        --driver-opt network=host \
+        --name=${BUILDER} \
+        --platform=${TARGET_PLATFORMS}
 
 echo "Start build images"
 set -x
