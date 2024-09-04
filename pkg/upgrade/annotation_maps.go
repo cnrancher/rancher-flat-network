@@ -23,11 +23,15 @@ const (
 	k8sCNINetworksMultiKey     = "k8s.v1.cni.cncf.io/networks"
 	rancherFlatNetworkCNIMulti = `[{"name":"rancher-flat-network","interface":"eth1"}]`
 
-	k8sCNINetworksSingleKey     = "k8s.v1.cni.cncf.io/networks"
+	k8sCNINetworksSingleKey     = "v1.multus-cni.io/default-network"
 	rancherFlatNetworkCNISingle = `[{"name":"rancher-flat-network","interface":"eth0"}]`
 
 	macvlanV1NetAttatchDefNameMulti  = `[{"name":"static-macvlan-cni-attach","interface":"eth1"}]`
 	macvlanV1NetAttatchDefNameSingle = `[{"name":"static-macvlan-cni-attach","interface":"eth0"}]`
+
+	macvlanV1AnnotationIP     = "macvlan.pandaria.cattle.io/ip"
+	macvlanV1AnnotationSubnet = "macvlan.pandaria.cattle.io/subnet"
+	macvlanV1SubnetNamespace  = "kube-system"
 )
 
 func updateAnnotation(o metav1.Object) map[string]string {
@@ -46,7 +50,7 @@ func updateAnnotation(o metav1.Object) map[string]string {
 			u[k] = rancherFlatNetworkCNISingle
 			continue
 		}
-		if !strings.Contains(k, macvlanV1Prefix) {
+		if !(strings.Contains(k, "macvlan.panda.io") && strings.Contains(k, "macvlan.pandaria.cattle.io")) {
 			continue
 		}
 
@@ -57,4 +61,18 @@ func updateAnnotation(o metav1.Object) map[string]string {
 		}
 	}
 	return u
+}
+
+func removeV1Labels(o metav1.Object) map[string]string {
+	m := o.GetLabels()
+	if m == nil {
+		return map[string]string{}
+	}
+	mu := maps.Clone(m)
+	for k := range m {
+		if strings.HasPrefix(k, "macvlan.panda.io/") || strings.HasPrefix(k, "macvlan.pandaria.cattle.io/") {
+			delete(mu, k)
+		}
+	}
+	return mu
 }

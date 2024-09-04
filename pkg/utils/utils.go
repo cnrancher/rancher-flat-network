@@ -132,7 +132,7 @@ func PromptUser(ctx context.Context, text string, autoYes bool) error {
 			return nil
 		}
 		if s[0] != 'y' && s[0] != 'Y' {
-			return fmt.Errorf("canceled by user")
+			return fmt.Errorf("process canceled by user")
 		}
 	}
 	return nil

@@ -37,7 +37,7 @@ func main() {
 	flag.StringVar(&kubeConfigFile, "kubeconfig", "", "Kube-config file (optional)")
 	flag.StringVar(&workloadKinds, "workload",
 		"deployment,daemonset,statefulset,cronjob,job", "Workload kinds, separated by comma")
-	flag.DurationVar(&interval, "interval", time.Millisecond*500, "The interval between each Kube API requests")
+	flag.DurationVar(&interval, "interval", time.Second, "The interval between each Kube API requests")
 	flag.Int64Var(&listLimit, "list-limit", 100, "Limit for each Kube API list request")
 	flag.BoolVar(&autoYes, "yes", false, "Auto yes when migrating resources (default false)")
 	flag.BoolVar(&version, "v", false, "Output version")

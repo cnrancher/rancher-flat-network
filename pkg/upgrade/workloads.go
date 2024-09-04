@@ -17,12 +17,6 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-const (
-	macvlanV1Prefix           = "macvlan.pandaria.cattle.io/"
-	macvlanV1AnnotationIP     = "macvlan.pandaria.cattle.io/ip"
-	macvlanV1AnnotationSubnet = "macvlan.pandaria.cattle.io/subnet"
-)
-
 func (m *migrator) migrateWorkload(ctx context.Context, kind string) error {
 	var err error
 	var listOption = metav1.ListOptions{
@@ -30,7 +24,7 @@ func (m *migrator) migrateWorkload(ctx context.Context, kind string) error {
 	}
 	// Workload kind could be deployment, daemonset, statefulset, cronjob, job.
 	// replicaset is managed by deployment and is not a workload.
-	switch strings.ToLower(kind) {
+	switch strings.TrimSuffix(strings.ToLower(kind), "s") {
 	case "deployment":
 		var o *appsv1.DeploymentList
 		for o == nil || o.Continue != "" {
@@ -156,7 +150,7 @@ func (m *migrator) processPodTemplateAnnotation(
 	fmt.Println(utils.Print(annotation))
 	logrus.Infof("============== After ==============")
 	fmt.Println(utils.Print(au))
-	if err = utils.PromptUser(ctx, "Is this correct?", m.autoYes); err != nil {
+	if err = utils.PromptUser(ctx, "Continue?", m.autoYes); err != nil {
 		return fmt.Errorf("failed to update %T [%v/%v] annotation: %w",
 			o, o.GetNamespace(), o.GetName(), err)
 	}
@@ -168,6 +162,9 @@ func (m *migrator) processPodTemplateAnnotation(
 		}
 		o = workload.DeepCopy(o)
 		setTemplateObjectMetaAnnotations(o, au)
+		l := removeV1Labels(o)
+		logrus.Debugf("update workload labels to %v", utils.Print(l))
+		o.SetLabels(l)
 		logrus.Infof("applying workload %T [%v/%v] annotations...",
 			o, o.GetNamespace(), o.GetName())
 		_, err := m.updateWorkload(o)

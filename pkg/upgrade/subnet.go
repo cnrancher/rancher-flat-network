@@ -9,6 +9,7 @@ import (
 
 	"github.com/cnrancher/rancher-flat-network/pkg/upgrade/types"
 	"github.com/sirupsen/logrus"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -30,45 +31,58 @@ func (m *migrator) migrateSubnet(ctx context.Context) error {
 		if err != nil {
 			return fmt.Errorf("failed to list MacvlanSubnet resource: %w", err)
 		}
-		if err := m.migrateSubnetList(macvlanSubnets); err != nil {
+		if err := m.migrateSubnetList(ctx, macvlanSubnets); err != nil {
 			return err
 		}
 		listOptions.Continue = macvlanSubnets.GetContinue()
 	}
+	logrus.Infof("done creating V2 FlatNetwork Subnet resources")
+	logrus.Infof("you need to delete old V1 MacvlanSubnets manually")
+	logrus.Infof("====================================================")
 
 	return nil
 }
 
-func (m *migrator) migrateSubnetList(macvlanSubnets *unstructured.UnstructuredList) error {
+func (m *migrator) migrateSubnetList(
+	_ context.Context, macvlanSubnets *unstructured.UnstructuredList,
+) error {
 	if len(macvlanSubnets.Items) == 0 {
 		logrus.Infof("Done migrating macvlansubnets.macvlan.cluster.cattle.io resources")
 		return nil
 	}
+	logrus.Debugf("start migrating %d subnets", len(macvlanSubnets.Items))
 	var err error
 	for _, item := range macvlanSubnets.Items {
 		subnet := types.MacvlanSubnet{}
 		err = runtime.DefaultUnstructuredConverter.
 			FromUnstructured(item.Object, &subnet)
 		if err != nil {
-			logrus.Errorf("failed to convert unstruct object to macvlan.cluster.cattle.io/v1 MacvlanSubnet: %v", err)
-			continue
+			return fmt.Errorf("failed to convert unstruct object to macvlan.cluster.cattle.io/v1 MacvlanSubnet: %w", err)
 		}
 
-		fs := convertSubnet(&subnet)
-		_, err := m.wctx.FlatNetwork.FlatNetworkSubnet().Create(fs)
+		// Create new flatNetwork Subnet
+		fs, err := newFlatNetworkSubnet(&subnet)
 		if err != nil {
-			logrus.Errorf("failed to create FlatNetworkSubnet [%v]: %v", fs.Name, err)
-		} else {
-			logrus.Infof("created FlatNetworkSubnet [%v], you can delete the old V1 subnet manually", fs.Name)
+			return err
 		}
+		_, err = m.wctx.FlatNetwork.FlatNetworkSubnet().Create(fs)
+		if err != nil {
+			if apierrors.IsAlreadyExists(err) {
+				logrus.Warnf("skip create V2 FlatNetwork Subnet [%v]: already exists", fs.Name)
+				time.Sleep(m.interval)
+				continue
+			}
+			return fmt.Errorf("failed to create V2 FlatNetwork Subnet [%v]: %w", fs.Name, err)
+		}
+		logrus.Infof("successfully create V2 FlatNetworkSubnet [%v]", fs.Name)
 		time.Sleep(m.interval)
 	}
 	return nil
 }
 
-func convertSubnet(ms *types.MacvlanSubnet) *flv1.FlatNetworkSubnet {
+func newFlatNetworkSubnet(ms *types.MacvlanSubnet) (*flv1.FlatNetworkSubnet, error) {
 	if ms == nil {
-		return nil
+		return nil, nil
 	}
 
 	fs := &flv1.FlatNetworkSubnet{
@@ -116,9 +130,8 @@ func convertSubnet(ms *types.MacvlanSubnet) *flv1.FlatNetworkSubnet {
 				To:   net.ParseIP(mr.RangeEnd),
 			}
 			if len(r.From) == 0 || len(r.To) == 0 {
-				logrus.Warnf("failed to parse MacvlanSubnet [%v] custom range [%v - %v]: invalid IP address",
+				return nil, fmt.Errorf("failed to parse MacvlanSubnet [%v] custom range [%v - %v]: invalid IP address",
 					ms.Name, mr.RangeStart, mr.RangeEnd)
-				continue
 			}
 			fs.Spec.Ranges = append(fs.Spec.Ranges, r)
 		}
@@ -134,14 +147,13 @@ func convertSubnet(ms *types.MacvlanSubnet) *flv1.FlatNetworkSubnet {
 				Priority: 0,
 			}
 			if len(r.Via) == 0 && mr.GW != "" {
-				logrus.Warnf("failed to parse MacvlanSubnet [%v] custom route gateway [%v]: invalid IP address",
+				return nil, fmt.Errorf("failed to parse MacvlanSubnet [%v] custom route gateway [%v]: invalid IP address",
 					ms.Name, mr.GW)
-				continue
 			}
 			fs.Spec.Routes = append(fs.Spec.Routes, r)
 		}
 	}
-	return fs
+	return fs, nil
 }
 
 func macvlanSubnetResource() schema.GroupVersionResource {
