@@ -50,7 +50,7 @@ func updateAnnotation(o metav1.Object) map[string]string {
 			u[k] = rancherFlatNetworkCNISingle
 			continue
 		}
-		if !(strings.Contains(k, "macvlan.panda.io") && strings.Contains(k, "macvlan.pandaria.cattle.io")) {
+		if !(strings.Contains(k, "macvlan.panda.io") || strings.Contains(k, "macvlan.pandaria.cattle.io")) {
 			continue
 		}
 
