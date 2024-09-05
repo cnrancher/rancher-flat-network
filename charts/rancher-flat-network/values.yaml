@@ -3,7 +3,7 @@ arpPolicy: "arp_notify"
 # Enable or disable Proxy ARP on Pod nic
 proxyARP: false
 # Set to 'K3s' if using K3s cluster.
-clusterType: default
+clusterType: Default
 
 # Kubernetes config Cluster CIDR
 clusterCIDR: "10.42.0.0/16"

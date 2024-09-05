@@ -48,12 +48,19 @@ spec:
         volumeMounts:
         - name: webhook-certs
           mountPath: /etc/webhook/certs
+        startupProbe:
+          httpGet:
+            path: /ping
+            port: 443
+            scheme: HTTPS
+          failureThreshold: 10
+          periodSeconds: 3
         livenessProbe:
           httpGet:
             path: /ping
             port: 443
             scheme: HTTPS
-          initialDelaySeconds: 3
+          failureThreshold: 10
           periodSeconds: 5
       volumes:
       - name: webhook-certs
