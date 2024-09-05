@@ -144,6 +144,7 @@ func (h *handler) ensureFlatNetworkIP(pod *corev1.Pod) (*flv1.FlatNetworkIP, err
 	h.setIfStatefulSetOwnerRef(expectedIP, pod)
 	h.setWorkloadAndProjectLabel(expectedIP, pod)
 	if flatNetworkIPUpdated(existFlatNetworkIP, expectedIP) {
+		// FlatNetworkIP created and no need to update, return
 		return existFlatNetworkIP, nil
 	}
 

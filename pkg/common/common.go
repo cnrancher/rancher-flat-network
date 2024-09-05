@@ -217,7 +217,7 @@ func CheckPodAnnotationIPs(s string) ([]net.IP, error) {
 		return append(ret, ip), nil
 	}
 
-	spec := strings.Split(strings.TrimSpace(s), ",")
+	spec := strings.Split(strings.TrimSpace(s), "-")
 	if len(spec) == 0 {
 		return nil, fmt.Errorf("invalid annotation IP list [%v], should separated by comma", s)
 	}
@@ -237,7 +237,7 @@ func CheckPodAnnotationMACs(s string) ([]string, error) {
 		return ret, nil
 	}
 
-	spec := strings.Split(strings.TrimSpace(s), ",")
+	spec := strings.Split(strings.TrimSpace(s), "-")
 	for _, v := range spec {
 		m, err := net.ParseMAC(v)
 		if err != nil {
