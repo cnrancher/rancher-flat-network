@@ -147,6 +147,34 @@ func (h *handler) ensureFlatNetworkIP(pod *corev1.Pod) (*flv1.FlatNetworkIP, err
 		return existFlatNetworkIP, nil
 	}
 
+	if existFlatNetworkIP != nil {
+		// FlatNetworkIP already exists, update specs
+		err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+			existFlatNetworkIP, err = h.ipCache.Get(pod.Namespace, pod.Name)
+			if err != nil {
+				return err
+			}
+			existFlatNetworkIP = existFlatNetworkIP.DeepCopy()
+			existFlatNetworkIP.OwnerReferences = expectedIP.OwnerReferences
+			existFlatNetworkIP.Labels = expectedIP.Labels
+			existFlatNetworkIP.Annotations = expectedIP.Annotations
+			existFlatNetworkIP.Spec = expectedIP.Spec
+			result, err := h.ipClient.Update(existFlatNetworkIP)
+			if err != nil {
+				return err
+			}
+			existFlatNetworkIP = result
+			return nil
+		})
+		if err != nil {
+			return existFlatNetworkIP, err
+		}
+		logrus.WithFields(fieldsPod(pod)).
+			Infof("request to update flat-network IP [%v/%v]",
+				pod.Namespace, pod.Name)
+	}
+
+	// FlatNetworkIP not exists, create
 	createdFlatNetworkIP, err := h.ipClient.Create(expectedIP)
 	if err != nil {
 		if apierrors.IsAlreadyExists(err) {
