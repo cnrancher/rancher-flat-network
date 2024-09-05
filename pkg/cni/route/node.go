@@ -64,6 +64,7 @@ func AddPodNodeCIDRRoutes(podNS ns.NetNS) error {
 			return fmt.Errorf("failed to get pod default routes: %w", err)
 		}
 		if len(podDefaultRoutes) == 0 {
+			logrus.Warnf("AddPodNodeCIDRRoutes: pod default route not found, skip")
 			return nil
 		}
 		for _, r := range podDefaultRoutes {
@@ -77,6 +78,9 @@ func AddPodNodeCIDRRoutes(podNS ns.NetNS) error {
 		return nil
 	}); err != nil {
 		return fmt.Errorf("addPodNodeCIDRRoutes: %w", err)
+	}
+	if len(defaultLinkSet) == 0 {
+		logrus.Warnf("AddPodNodeCIDRRoutes: pod default link not found, skip")
 	}
 	for id := range defaultLinkSet {
 		results, err := getHostCIDRCustomRoutes(id, podDefaultGatewayV4, podDefaultGatewayV6)

@@ -21,13 +21,19 @@ func GetDefaultRoutes() ([]netlink.Route, error) {
 		return nil, fmt.Errorf("getDefaultRoute: failed to list route: %w", err)
 	}
 	if len(rs) == 0 {
+		logrus.Warnf("GetDefaultRoutes: no routes found in pod")
 		return nil, nil
 	}
 	var results []netlink.Route
 	for _, r := range rs {
-		if r.Dst == nil {
+		if isDefaultRoute(&r) {
 			results = append(results, r)
 		}
+	}
+	logrus.Debugf("found pod default routes: %v", utils.Print(results))
+	if len(results) == 0 {
+		logrus.Warnf("GetDefaultRoutes: no default routes found in pod")
+		logrus.Debugf("pod route list: %v", utils.Print(rs))
 	}
 	return results, nil
 }
@@ -44,6 +50,8 @@ func GetDefaultLinkIDSet() (map[int]bool, error) {
 			defaultLinkID[r.LinkIndex] = true
 		}
 	}
+	logrus.Debugf("GetDefaultLinkIDSet: pod default link sets: %v",
+		utils.Print(defaultLinkID))
 	return defaultLinkID, nil
 }
 
@@ -182,18 +190,20 @@ func AddPodFlatNetworkCustomRoutes(podNS ns.NetNS, customRoutes []flv1.Route) er
 func UpdatePodDefaultGateway(
 	podNS ns.NetNS, ifName string, flatNetworkIP net.IP, gateway net.IP,
 ) error {
+	var defaultRouteReplaced bool
+	var routes []netlink.Route
 	err := podNS.Do(func(_ ns.NetNS) error {
 		link, err := netlink.LinkByName(ifName)
 		if err != nil {
 			return fmt.Errorf("failed to get iface %q: %w", ifName, err)
 		}
 
-		routes, err := netlink.RouteList(nil, netlink.FAMILY_ALL)
+		routes, err = netlink.RouteList(nil, netlink.FAMILY_ALL)
 		if err != nil {
 			return fmt.Errorf("failed to list route: %w", err)
 		}
 		for _, r := range routes {
-			if r.Dst != nil {
+			if !isDefaultRoute(&r) {
 				// Only replace default routes...
 				continue
 			}
@@ -209,6 +219,7 @@ func UpdatePodDefaultGateway(
 			if err := netlink.RouteReplace(&replaced); err != nil {
 				return fmt.Errorf("failed to replace default route: %w", err)
 			}
+			defaultRouteReplaced = true
 		}
 		return nil
 	})
@@ -216,5 +227,24 @@ func UpdatePodDefaultGateway(
 		logrus.Error(err)
 		return fmt.Errorf("updatePodDefaultGateway: %w", err)
 	}
+	if !defaultRouteReplaced {
+		logrus.Warnf("unable to update pod default GW: pod default route not found")
+		logrus.Debugf("pod route list: %v", utils.Print(routes))
+	}
 	return nil
+}
+
+func isDefaultRoute(r *netlink.Route) bool {
+	if r == nil {
+		return false
+	}
+	// If the route destination is not specified, the route is a default route
+	if r.Dst == nil {
+		return true
+	}
+	// If the route destination is 0.0.0.0 or ::, the route is a default route
+	if r.Dst.IP.Equal(net.ParseIP("0.0.0.0")) || r.Dst.IP.Equal(net.ParseIP("::")) {
+		return true
+	}
+	return false
 }

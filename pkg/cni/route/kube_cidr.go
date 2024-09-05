@@ -5,6 +5,7 @@ import (
 	"net"
 
 	"github.com/containernetworking/plugins/pkg/ns"
+	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 )
 
@@ -24,6 +25,7 @@ func AddPodKubeCIDRRoutes(podNS ns.NetNS, cidr string) error {
 			return fmt.Errorf("failed to get pod default routes: %w", err)
 		}
 		if len(podDefaultRoutes) == 0 {
+			logrus.Warnf("AddPodKubeCIDRRoutes: pod default routes not found, skip")
 			return nil
 		}
 		var podDefaultGatewayV4 net.IP
@@ -50,6 +52,7 @@ func AddPodKubeCIDRRoutes(podNS ns.NetNS, cidr string) error {
 			}
 			return EnsureRouteExists(&r)
 		}
+		logrus.Warnf("AddPodKubeCIDRRoutes: pod default link not found, skip")
 		return nil
 	})
 	if err != nil {
