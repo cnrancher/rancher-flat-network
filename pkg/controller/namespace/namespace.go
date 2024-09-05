@@ -24,11 +24,13 @@ const (
 	k8sCNINetworksKey = "k8s.v1.cni.cncf.io/networks"
 	netAttatchDefName = "rancher-flat-network"
 
-	arpPolicyEnv     = "FLAT_NETWORK_CNI_ARP_POLICY"
-	proxyARPEnv      = "FLAT_CNI_PROXY_ARP"
-	clusterCIDREnv   = "FLAT_NETWORK_CLUSTER_CIDR"
-	serviceCIDREnv   = "FLAT_NETWORK_SERVICE_CIDR"
-	defaultARPPolicy = "arp_notify"
+	arpPolicyEnv       = "FLAT_NETWORK_CNI_ARP_POLICY"
+	proxyARPEnv        = "FLAT_CNI_PROXY_ARP"
+	clusterCIDREnv     = "FLAT_NETWORK_CLUSTER_CIDR"
+	serviceCIDREnv     = "FLAT_NETWORK_SERVICE_CIDR"
+	defaultClusterCIDR = "10.42.0.0/16"
+	defaultServiceCIDR = "10.43.0.0/16"
+	defaultARPPolicy   = "arp_notify"
 
 	defaultRequeueTime = time.Minute * 10
 )
@@ -171,11 +173,17 @@ func getProxyARP() string {
 
 func getClusterCIDR() string {
 	cidr := os.Getenv(clusterCIDREnv)
+	if cidr == "" {
+		return defaultClusterCIDR
+	}
 	return cidr
 }
 
 func getServiceCIDR() string {
 	cidr := os.Getenv(serviceCIDREnv)
+	if cidr == "" {
+		return defaultServiceCIDR
+	}
 	return cidr
 }
 
