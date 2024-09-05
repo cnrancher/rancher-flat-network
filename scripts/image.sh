@@ -13,15 +13,19 @@ LOGLEVEL_VERSION=${LOGLEVEL_VERSION:-'v0.1.6'}
 STATIC_IPAM_VERSION=${STATIC_IPAM_VERSION:-'v1.5.1'}
 KUBECTL_VERSION=${KUBECTL_VERSION:-'v1.30.2'}
 
+# FYI: https://docs.docker.com/build/buildkit/toml-configuration/#buildkitdtoml
+BUILDX_CONFIG_DIR=${BUILDX_CONFIG_DIR:-"$HOME/.config/buildkit/"}
+BUILDX_CONFIG=${BUILDX_CONFIG:-"$HOME/.config/buildkit/buildkitd.toml"}
 BUILDX_OPTIONS=${BUILDX_OPTIONS:-''} # Set to '--push' to upload images
 
-if [[ ! -e "/etc/buildkitd.toml" ]]; then
-    touch /etc/buildkitd.toml
+if [[ ! -e "${BUILDX_CONFIG}" ]]; then
+    mkdir -p ${BUILDX_CONFIG_DIR}
+    touch ${BUILDX_CONFIG}
 fi
 
 docker buildx ls | grep ${BUILDER} || \
     docker buildx create \
-        --config /etc/buildkitd.toml \
+        --config ${BUILDX_CONFIG} \
         --driver-opt network=host \
         --name=${BUILDER} \
         --platform=${TARGET_PLATFORMS}
