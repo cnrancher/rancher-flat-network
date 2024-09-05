@@ -60,6 +60,10 @@ func Register(
 func (h *handler) syncNamespace(
 	_ string, ns *corev1.Namespace,
 ) (*corev1.Namespace, error) {
+	if ns.DeletionTimestamp != nil {
+		return ns, nil
+	}
+
 	expectedNetworkAttachDef := newNetworkAttachmentDefinition(netAttatchDefName, ns)
 	existNetworkAttachDef, err := h.ndClientSet.K8sCniCncfIoV1().NetworkAttachmentDefinitions(ns.Name).
 		Get(context.TODO(), netAttatchDefName, metav1.GetOptions{})
