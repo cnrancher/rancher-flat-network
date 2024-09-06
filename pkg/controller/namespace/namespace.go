@@ -60,7 +60,7 @@ func Register(
 func (h *handler) syncNamespace(
 	_ string, ns *corev1.Namespace,
 ) (*corev1.Namespace, error) {
-	if ns.DeletionTimestamp != nil {
+	if ns == nil || ns.Name == "" || ns.DeletionTimestamp != nil {
 		return ns, nil
 	}
 
