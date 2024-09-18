@@ -38,7 +38,7 @@ func main() {
 	flag.StringVar(&workloadKinds, "workload",
 		"deployment,daemonset,statefulset,cronjob,job", "Workload kinds, separated by comma")
 	flag.DurationVar(&interval, "interval", time.Second, "The interval between each Kube API requests")
-	flag.Int64Var(&listLimit, "list-limit", 100, "Limit for each Kube API list request")
+	flag.Int64Var(&listLimit, "list-limit", 20, "Limit for each Kube API list request")
 	flag.BoolVar(&autoYes, "yes", false, "Auto yes when migrating resources (default false)")
 	flag.BoolVar(&version, "v", false, "Output version")
 	flag.BoolVar(&debug, "debug", false, "Show debug output")
@@ -46,7 +46,7 @@ func main() {
 
 	if debug || os.Getenv("CATTLE_DEV_MODE") != "" {
 		logrus.SetLevel(logrus.DebugLevel)
-		logrus.Debugf("debug output enabled")
+		logrus.Debugf("Debug output enabled")
 	}
 	if version {
 		logrus.Infof("rancher-flat-network resource migrator %v", versionString)
@@ -69,5 +69,5 @@ func main() {
 	if err := m.Run(ctx); err != nil {
 		logrus.Fatal(err)
 	}
-	logrus.Infof("finished migrating resources from 'macvlan.cluster.cattle.io' to 'flatnetwork.pandaria.io'")
+	logrus.Infof("Finished migrating resources from 'macvlan.cluster.cattle.io' to 'flatnetwork.pandaria.io'")
 }

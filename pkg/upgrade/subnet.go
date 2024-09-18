@@ -36,9 +36,10 @@ func (m *migrator) migrateSubnet(ctx context.Context) error {
 		}
 		listOptions.Continue = macvlanSubnets.GetContinue()
 	}
-	logrus.Infof("done creating V2 FlatNetwork Subnet resources")
-	logrus.Infof("you need to delete old V1 MacvlanSubnets manually")
+	logrus.Infof("Done creating V2 FlatNetwork Subnet resources")
+	logrus.Infof("You need to delete old V1 MacvlanSubnets manually")
 	logrus.Infof("====================================================")
+	time.Sleep(time.Second)
 
 	return nil
 }
@@ -47,10 +48,10 @@ func (m *migrator) migrateSubnetList(
 	_ context.Context, macvlanSubnets *unstructured.UnstructuredList,
 ) error {
 	if len(macvlanSubnets.Items) == 0 {
-		logrus.Infof("Done migrating macvlansubnets.macvlan.cluster.cattle.io resources")
+		logrus.Infof("macvlansubnets.macvlan.cluster.cattle.io resources already migrated")
 		return nil
 	}
-	logrus.Debugf("start migrating %d subnets", len(macvlanSubnets.Items))
+	logrus.Debugf("Start migrating %d subnets", len(macvlanSubnets.Items))
 	var err error
 	for _, item := range macvlanSubnets.Items {
 		subnet := types.MacvlanSubnet{}
@@ -68,13 +69,13 @@ func (m *migrator) migrateSubnetList(
 		_, err = m.wctx.FlatNetwork.FlatNetworkSubnet().Create(fs)
 		if err != nil {
 			if apierrors.IsAlreadyExists(err) {
-				logrus.Warnf("skip create V2 FlatNetwork Subnet [%v]: already exists", fs.Name)
+				logrus.Warnf("Skip create V2 FlatNetwork Subnet [%v]: already exists", fs.Name)
 				time.Sleep(m.interval)
 				continue
 			}
 			return fmt.Errorf("failed to create V2 FlatNetwork Subnet [%v]: %w", fs.Name, err)
 		}
-		logrus.Infof("successfully create V2 FlatNetworkSubnet [%v]", fs.Name)
+		logrus.Infof("Create V2 FlatNetworkSubnet [%v]", fs.Name)
 		time.Sleep(m.interval)
 	}
 	return nil

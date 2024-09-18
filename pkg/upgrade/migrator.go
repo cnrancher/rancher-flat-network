@@ -67,7 +67,7 @@ func (m *migrator) Run(ctx context.Context) error {
 		return fmt.Errorf("failed to migrate subnet resource: %w", err)
 	}
 	if len(m.workloadKinds) == 0 {
-		logrus.Infof("skip migrate workloads as no workload kinds specified")
+		logrus.Infof("Skip migrate workloads as no workload kinds specified")
 		return nil
 	}
 	for _, v := range m.workloadKinds {
