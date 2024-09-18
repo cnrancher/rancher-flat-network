@@ -121,7 +121,8 @@ func (h *Handler) validateAnnotationIP(workload *WorkloadReview) error {
 		return err
 	}
 	// Check the ip is available in subnet CIDR and not gateway
-	subnet, err := h.subnetCache.Get(flv1.SubnetNamespace, workload.PodTemplateAnnotations(flv1.AnnotationSubnet))
+	subnet, err := h.subnetClient.Get(
+		flv1.SubnetNamespace, workload.PodTemplateAnnotations(flv1.AnnotationSubnet), metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
@@ -217,7 +218,7 @@ func (h *Handler) isUpdatingWorkloadSubnetLabel(workload *WorkloadReview) bool {
 	name, namespace := workload.ObjectMeta.Name, workload.ObjectMeta.Namespace
 	switch workload.AdmissionReview.Request.Kind.Kind {
 	case kindDeployment:
-		old, err := h.deploymentCache.Get(namespace, name)
+		old, err := h.deploymentClient.Get(namespace, name, metav1.GetOptions{})
 		if err != nil {
 			return false
 		}
@@ -226,7 +227,7 @@ func (h *Handler) isUpdatingWorkloadSubnetLabel(workload *WorkloadReview) bool {
 			return true
 		}
 	case kindDaemonSet:
-		old, err := h.daemonSetCache.Get(namespace, name)
+		old, err := h.daemonSetClient.Get(namespace, name, metav1.GetOptions{})
 		if err != nil {
 			return false
 		}
@@ -235,7 +236,7 @@ func (h *Handler) isUpdatingWorkloadSubnetLabel(workload *WorkloadReview) bool {
 			return true
 		}
 	case kindStatefulSet:
-		old, err := h.statefulSetCache.Get(namespace, name)
+		old, err := h.statefulSetClient.Get(namespace, name, metav1.GetOptions{})
 		if err != nil {
 			return false
 		}
@@ -244,7 +245,7 @@ func (h *Handler) isUpdatingWorkloadSubnetLabel(workload *WorkloadReview) bool {
 			return true
 		}
 	case kindCronJob:
-		old, err := h.cronJobCache.Get(namespace, name)
+		old, err := h.cronJobClient.Get(namespace, name, metav1.GetOptions{})
 		if err != nil {
 			return false
 		}
@@ -253,7 +254,7 @@ func (h *Handler) isUpdatingWorkloadSubnetLabel(workload *WorkloadReview) bool {
 			return true
 		}
 	case kindJob:
-		old, err := h.jobCache.Get(namespace, name)
+		old, err := h.jobClient.Get(namespace, name, metav1.GetOptions{})
 		if err != nil {
 			return false
 		}

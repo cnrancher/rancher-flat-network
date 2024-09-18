@@ -21,28 +21,26 @@ import (
 )
 
 type Handler struct {
-	ipCache          flcontroller.FlatNetworkIPCache
-	subnetCache      flcontroller.FlatNetworkSubnetCache
-	podCache         corecontroller.PodCache
-	deploymentCache  appscontroller.DeploymentCache
-	daemonSetCache   appscontroller.DaemonSetCache
-	replicaSetCache  appscontroller.ReplicaSetCache
-	statefulSetCache appscontroller.StatefulSetCache
-	cronJobCache     batchcontroller.CronJobCache
-	jobCache         batchcontroller.JobCache
+	ipClient          flcontroller.FlatNetworkIPClient
+	subnetClient      flcontroller.FlatNetworkSubnetClient
+	podClient         corecontroller.PodClient
+	deploymentClient  appscontroller.DeploymentClient
+	daemonSetClient   appscontroller.DaemonSetClient
+	statefulSetClient appscontroller.StatefulSetClient
+	cronJobClient     batchcontroller.CronJobClient
+	jobClient         batchcontroller.JobClient
 }
 
 func NewWebhookHandler(wctx *wrangler.Context) *Handler {
 	return &Handler{
-		ipCache:          wctx.FlatNetwork.FlatNetworkIP().Cache(),
-		subnetCache:      wctx.FlatNetwork.FlatNetworkSubnet().Cache(),
-		podCache:         wctx.Core.Pod().Cache(),
-		deploymentCache:  wctx.Apps.Deployment().Cache(),
-		daemonSetCache:   wctx.Apps.DaemonSet().Cache(),
-		replicaSetCache:  wctx.Apps.ReplicaSet().Cache(),
-		statefulSetCache: wctx.Apps.StatefulSet().Cache(),
-		cronJobCache:     wctx.Batch.CronJob().Cache(),
-		jobCache:         wctx.Batch.Job().Cache(),
+		ipClient:          wctx.FlatNetwork.FlatNetworkIP(),
+		subnetClient:      wctx.FlatNetwork.FlatNetworkSubnet(),
+		podClient:         wctx.Core.Pod(),
+		deploymentClient:  wctx.Apps.Deployment(),
+		daemonSetClient:   wctx.Apps.DaemonSet(),
+		statefulSetClient: wctx.Apps.StatefulSet(),
+		cronJobClient:     wctx.Batch.CronJob(),
+		jobClient:         wctx.Batch.Job(),
 	}
 }
 

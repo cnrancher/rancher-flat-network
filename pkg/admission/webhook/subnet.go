@@ -3,14 +3,14 @@ package webhook
 import (
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/sirupsen/logrus"
 	admissionv1 "k8s.io/api/admission/v1"
-	"k8s.io/apimachinery/pkg/labels"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	flv1 "github.com/cnrancher/rancher-flat-network/pkg/apis/flatnetwork.pandaria.io/v1"
 	"github.com/cnrancher/rancher-flat-network/pkg/common"
-	"github.com/cnrancher/rancher-flat-network/pkg/utils"
 )
 
 const (
@@ -18,6 +18,9 @@ const (
 	labelVlan     = "vlan"
 	labelMode     = "mode"
 	labelFlatMode = "flatMode"
+
+	listInterval = time.Microsecond * 100
+	listLimit    = 100
 )
 
 func deserializeFlatNetworkSubnet(ar *admissionv1.AdmissionReview) (*flv1.FlatNetworkSubnet, error) {
@@ -33,15 +36,29 @@ func (h *Handler) validateFlatNetworkSubnet(ar *admissionv1.AdmissionReview) (bo
 		return false, err
 	}
 
-	set := map[string]string{
-		labelMaster: subnet.Spec.Master,
-		labelVlan:   fmt.Sprintf("%v", subnet.Spec.VLAN),
+	var subnets = make([]*flv1.FlatNetworkSubnet, 0)
+	options := v1.ListOptions{
+		LabelSelector: fmt.Sprintf("%v=%v,%v=%v",
+			labelMaster, subnet.Spec.Master, labelVlan, subnet.Spec.VLAN),
+		Limit:    listLimit,
+		Continue: "",
 	}
-	subnets, err := h.subnetCache.List(flv1.SubnetNamespace, labels.SelectorFromSet(set))
-	if err != nil {
-		return false, fmt.Errorf("failed to list subnet by selector %q: %w",
-			utils.Print(set), err)
+	for {
+		subnetList, err := h.subnetClient.List(flv1.SubnetNamespace, options)
+		if err != nil {
+			return false, fmt.Errorf("failed to list subnet by selector %q: %w",
+				options.LabelSelector, err)
+		}
+		for i := range subnetList.Items {
+			subnets = append(subnets, subnetList.Items[i].DeepCopy())
+		}
+		if subnetList.Continue == "" {
+			break
+		}
+		options.Continue = subnetList.Continue
+		time.Sleep(listInterval)
 	}
+
 	// Validate subnet spec (CIDR, gw, ranges, routes)
 	if err := common.ValidateSubnet(subnet); err != nil {
 		return false, err
