@@ -32,8 +32,6 @@ func GetTemplateObjectMeta(w any) *metav1.ObjectMeta {
 		return &w.Spec.Template.ObjectMeta
 	case *appsv1.StatefulSet:
 		return &w.Spec.Template.ObjectMeta
-	case *appsv1.ReplicaSet:
-		return &w.Spec.Template.ObjectMeta
 	case *batchv1.CronJob:
 		return &w.Spec.JobTemplate.ObjectMeta
 	case *batchv1.Job:

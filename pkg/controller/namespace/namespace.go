@@ -21,7 +21,6 @@ import (
 const (
 	handlerName = "rancher-flat-network-namespace"
 
-	k8sCNINetworksKey = "k8s.v1.cni.cncf.io/networks"
 	netAttatchDefName = "rancher-flat-network"
 
 	arpPolicyEnv       = "FLAT_NETWORK_CNI_ARP_POLICY"

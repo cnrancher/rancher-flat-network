@@ -1,25 +1,18 @@
 package service
 
 import (
-	"encoding/json"
 	"fmt"
 	"maps"
-	"net"
-	"regexp"
 	"strings"
+	"time"
 
 	"github.com/cnrancher/rancher-flat-network/pkg/utils"
-	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
-	"gopkg.in/k8snetworkplumbingwg/multus-cni.v4/pkg/types"
 	corev1 "k8s.io/api/core/v1"
-	discoveryv1 "k8s.io/api/discovery/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/kubernetes/pkg/api/v1/endpoints"
-	podutil "k8s.io/kubernetes/pkg/api/v1/pod"
 
 	flv1 "github.com/cnrancher/rancher-flat-network/pkg/apis/flatnetwork.pandaria.io/v1"
 	nettypes "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
@@ -55,6 +48,13 @@ func (h *handler) isWorkloadDisabledFlatNetwork(svc *corev1.Service) (bool, erro
 			svc.Spec.Selector, svc.Namespace, svc.Name, err)
 	}
 	if len(pods) == 0 {
+		if time.Since(svc.CreationTimestamp.Time) < time.Second*10 {
+			// The workload service may just created and pods of this workload
+			// were not created yet. Wait 10 seconds to ensure no pods were
+			// selected by this service.
+			// TODO: need better logic to optimize if needed.
+			h.serviceEnqueueAfter(svc.Namespace, svc.Name, defaultFlatNetworkServiceEnqueue)
+		}
 		return true, nil
 	}
 
@@ -115,7 +115,7 @@ func newFlatNetworkService(svc *corev1.Service) *corev1.Service {
 			Namespace:       svc.Namespace,
 			OwnerReferences: ownerReference,
 			Annotations: map[string]string{
-				utils.K8sCNINetworksKey: utils.NetAttatchDefName,
+				nettypes.NetworkAttachmentAnnot: utils.NetAttatchDefName,
 			},
 		},
 		Spec: corev1.ServiceSpec{
@@ -193,327 +193,4 @@ func flatNetworkServiceUpdated(a, b *corev1.Service) bool {
 		return false
 	}
 	return true
-}
-
-// Convert pod 'k8s.v1.cni.cncf.io/networks' annotation value to
-// []*types.NetworkSelectionElement
-func parseServiceNetworkSelections(
-	podNetwork, defaultNamespace string,
-) ([]*types.NetworkSelectionElement, error) {
-	networkSelections := []*types.NetworkSelectionElement{}
-	if len(podNetwork) == 0 {
-		err := errors.New("empty string passed as network selection elements list")
-		logrus.Error(err)
-		return nil, err
-	}
-
-	err := json.Unmarshal([]byte(podNetwork), &networkSelections)
-	if err != nil {
-		for _, networkSelection := range strings.Split(podNetwork, ",") {
-			networkSelection = strings.TrimSpace(networkSelection)
-			networkSelectionElement, err := parsePodNetworkSelectionElement(networkSelection, defaultNamespace)
-			if err != nil {
-				return nil, fmt.Errorf("failed to parse network selection: %w", err)
-			}
-			networkSelections = append(networkSelections, networkSelectionElement)
-		}
-	}
-
-	for _, networkSelection := range networkSelections {
-		if networkSelection.Namespace == "" {
-			networkSelection.Namespace = defaultNamespace
-		}
-	}
-	return networkSelections, nil
-}
-
-var (
-	validNameRegex = regexp.MustCompile(`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`)
-)
-
-func parsePodNetworkSelectionElement(
-	selection, defaultNamespace string,
-) (*types.NetworkSelectionElement, error) {
-	var namespace, name, netInterface string
-	var networkSelectionElement *types.NetworkSelectionElement
-
-	units := strings.Split(selection, "/")
-	switch len(units) {
-	case 1:
-		namespace = defaultNamespace
-		name = units[0]
-	case 2:
-		namespace = units[0]
-		name = units[1]
-	default:
-		return networkSelectionElement, fmt.Errorf(
-			"invalid network selection element - more than one '/' rune in: '%s'", selection)
-	}
-
-	units = strings.Split(name, "@")
-	switch len(units) {
-	case 1:
-		name = units[0]
-		netInterface = ""
-	case 2:
-		name = units[0]
-		netInterface = units[1]
-	default:
-		err := fmt.Errorf(
-			"invalid network selection element - more than one '@' rune in: '%s'", selection)
-		logrus.Error(err)
-		return networkSelectionElement, err
-	}
-
-	for _, unit := range []string{namespace, name, netInterface} {
-		ok := validNameRegex.MatchString(unit)
-		if !ok && len(unit) > 0 {
-			err := fmt.Errorf(
-				"at least one of the network selection units is invalid: error found at '%s'", unit)
-			logrus.Error(err)
-			return networkSelectionElement, err
-		}
-	}
-
-	networkSelectionElement = &types.NetworkSelectionElement{
-		Namespace:        namespace,
-		Name:             name,
-		InterfaceRequest: netInterface,
-	}
-
-	return networkSelectionElement, nil
-}
-
-func isInNetworkSelectionElementsArray(
-	statusName, namespace string, networks []*types.NetworkSelectionElement,
-) bool {
-	// https://github.com/k8snetworkplumbingwg/multus-cni/blob/v4.0.2/pkg/types/conf.go#L117
-	var netName, netNamespace string
-	units := strings.SplitN(statusName, "/", 2)
-	switch len(units) {
-	case 1:
-		netName = units[0]
-		netNamespace = namespace
-	case 2:
-		netNamespace = units[0]
-		netName = units[1]
-	default:
-		logrus.Debugf("skip invalid network status: %v", statusName)
-		return false
-	}
-	for i := range networks {
-		if netName == networks[i].Name && netNamespace == networks[i].Namespace {
-			return true
-		}
-	}
-	return false
-}
-
-// addressToEndpoint converts an address from an corev1.Endpoints resource to an
-// discovertv1.EndpointSlice endpoint.
-func addressToEndpoint(address corev1.EndpointAddress) discoveryv1.Endpoint {
-	endpoint := discoveryv1.Endpoint{
-		Addresses: []string{address.IP},
-		Conditions: discoveryv1.EndpointConditions{
-			Ready: utils.Ptr(true),
-		},
-		TargetRef: address.TargetRef,
-	}
-
-	if address.NodeName != nil {
-		endpoint.NodeName = address.NodeName
-	}
-	if address.Hostname != "" {
-		endpoint.Hostname = &address.Hostname
-	}
-
-	return endpoint
-}
-
-// epPortsToEpsPorts converts ports from an Endpoints resource to ports for an
-// EndpointSlice resource.
-func epPortsToEpsPorts(epPorts []corev1.EndpointPort) []discoveryv1.EndpointPort {
-	epsPorts := []discoveryv1.EndpointPort{}
-	for _, epPort := range epPorts {
-		epp := epPort.DeepCopy() // TODO:
-		epsPorts = append(epsPorts, discoveryv1.EndpointPort{
-			Name:        &epp.Name,
-			Port:        &epp.Port,
-			Protocol:    &epp.Protocol,
-			AppProtocol: epp.AppProtocol,
-		})
-	}
-	return epsPorts
-}
-
-// Get IPv4 & IPv6 endpoint slices
-func getAvailableEndpointSlices(
-	s []*discoveryv1.EndpointSlice,
-) []*discoveryv1.EndpointSlice {
-	if len(s) == 0 {
-		return s
-	}
-	result := []*discoveryv1.EndpointSlice{}
-	for _, e := range s {
-		switch {
-		case e.DeletionTimestamp != nil,
-			e.AddressType != discoveryv1.AddressTypeIPv4 &&
-				e.AddressType != discoveryv1.AddressTypeIPv6:
-			continue
-		}
-		result = append(result, e)
-	}
-	return result
-}
-
-type endpointReource struct {
-	subsets       []corev1.EndpointSubset
-	endpoints     []discoveryv1.Endpoint
-	endpointPorts []discoveryv1.EndpointPort
-}
-
-func (r *endpointReource) getEndpointSliceAddressType() (discoveryv1.AddressType, error) {
-	var t discoveryv1.AddressType
-	for _, e := range r.endpoints {
-		if len(e.Addresses) == 0 {
-			continue
-		}
-		for _, a := range e.Addresses {
-			addr := net.ParseIP(a)
-			if len(addr) == 0 {
-				continue
-			}
-			if addr.To16() == nil {
-				continue
-			}
-			if addr.To4() != nil {
-				// Address type is IPv4
-				if t == discoveryv1.AddressTypeIPv6 {
-					return "", fmt.Errorf(
-						"both IPv4 and IPv6 address types found in endpoint")
-				}
-				t = discoveryv1.AddressTypeIPv4
-				continue
-			}
-
-			// Address type is IPv6
-			if t == discoveryv1.AddressTypeIPv4 {
-				return "", fmt.Errorf(
-					"both IPv4 and IPv6 address types found in endpoint")
-			}
-			t = discoveryv1.AddressTypeIPv6
-		}
-	}
-
-	if t == "" {
-		return discoveryv1.AddressTypeIPv4, nil
-	}
-	return t, nil
-}
-
-// getEndpointResources gets CoreV1 Endpoint Subsets and DiscoveryV1
-// EndpointSlice resources by pods.
-func (h *handler) getEndpointResources(
-	svc *corev1.Service, pods []*corev1.Pod,
-) (*endpointReource, error) {
-	svcNetworkValue := svc.Annotations[utils.K8sCNINetworksKey]
-	if svcNetworkValue == "" {
-		return nil, nil
-	}
-	svcNetworkSelections, err := parseServiceNetworkSelections(svcNetworkValue, svc.Namespace)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse service network annotation [%v: %v]: %w",
-			utils.K8sCNINetworksKey, svcNetworkValue, err)
-	}
-	resource := &endpointReource{
-		subsets:       make([]corev1.EndpointSubset, 0),
-		endpoints:     make([]discoveryv1.Endpoint, 0),
-		endpointPorts: make([]discoveryv1.EndpointPort, 0),
-	}
-	for _, pod := range pods {
-		// Skip deleted pods
-		if pod.DeletionTimestamp != nil {
-			continue
-		}
-		subset := getPodEndpointSubset(svc, svcNetworkSelections, pod)
-		if subset == nil || subset.Addresses == nil {
-			continue
-		}
-		resource.subsets = append(resource.subsets, *subset)
-	}
-	resource.subsets = endpoints.RepackSubsets(resource.subsets)
-	for _, subset := range resource.subsets {
-		for _, address := range subset.Addresses {
-			endpoint := addressToEndpoint(address)
-			resource.endpoints = append(resource.endpoints, endpoint)
-		}
-		ports := epPortsToEpsPorts(subset.Ports)
-		resource.endpointPorts = append(resource.endpointPorts, ports...)
-	}
-	return resource, nil
-}
-
-func getPodEndpointSubset(
-	svc *corev1.Service, svcNetworks []*types.NetworkSelectionElement, pod *corev1.Pod,
-) *corev1.EndpointSubset {
-	addresses := make([]corev1.EndpointAddress, 0)
-	ports := make([]corev1.EndpointPort, 0)
-	networksStatus := make([]nettypes.NetworkStatus, 0)
-	status := pod.Annotations[utils.K8sCNINetworksStatusKey]
-	if status == "" {
-		logrus.WithFields(fieldsService(svc)).
-			Debugf("skip update pod [%v/%v] corev1.Endpoints: pod network status not updated by multus",
-				pod.Namespace, pod.Name)
-		return nil
-	}
-	err := json.Unmarshal([]byte(status), &networksStatus)
-	if err != nil {
-		logrus.WithFields(fieldsService(svc)).
-			Warningf("skip to update pod [%v/%v] endpoints: unmarshal json [%v]: %v",
-				pod.Namespace, pod.Name, pod.Annotations[utils.K8sCNINetworksStatusKey], err)
-		return nil
-	}
-
-	// Find networks used by pod and match network annotation of this service
-	for _, status := range networksStatus {
-		if !isInNetworkSelectionElementsArray(status.Name, pod.Namespace, svcNetworks) {
-			continue
-		}
-		// All IPs of matching network are added as endpoints
-		for _, ip := range status.IPs {
-			epAddress := corev1.EndpointAddress{
-				IP:       ip,
-				NodeName: &pod.Spec.NodeName,
-				TargetRef: &corev1.ObjectReference{
-					Kind:            "Pod",
-					Name:            pod.GetName(),
-					Namespace:       pod.GetNamespace(),
-					ResourceVersion: pod.GetResourceVersion(),
-					UID:             pod.GetUID(),
-				},
-			}
-			addresses = append(addresses, epAddress)
-		}
-	}
-	for i := range svc.Spec.Ports {
-		// Check whether pod has the ports needed by service and add them to endpoints
-		portNumber, err := podutil.FindPort(pod, &svc.Spec.Ports[i])
-		if err != nil {
-			logrus.WithFields(fieldsService(svc)).
-				Warnf("update endpoint: failed to find pod port: %v, skip...", err)
-			continue
-		}
-
-		port := corev1.EndpointPort{
-			Port:     int32(portNumber),
-			Protocol: svc.Spec.Ports[i].Protocol,
-			Name:     svc.Spec.Ports[i].Name,
-		}
-		ports = append(ports, port)
-	}
-	subset := &corev1.EndpointSubset{
-		Addresses: addresses,
-		Ports:     ports,
-	}
-	return subset
 }

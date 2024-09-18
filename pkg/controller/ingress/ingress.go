@@ -14,12 +14,12 @@ import (
 	"github.com/cnrancher/rancher-flat-network/pkg/controller/wrangler"
 	corecontroller "github.com/cnrancher/rancher-flat-network/pkg/generated/controllers/core/v1"
 	"github.com/cnrancher/rancher-flat-network/pkg/utils"
+	nettypes "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 )
 
 const (
 	handlerName = "rancher-flat-network-ingress"
 
-	k8sCNINetworksKey     = "k8s.v1.cni.cncf.io/networks"
 	rancherFlatNetworkCNI = "rancher-flat-network-cni"
 )
 
@@ -111,18 +111,18 @@ func (h *handler) handleIngressService(
 	}
 	// Skip if the service annotation already updated.
 	if flatNetworkEnabled {
-		if service.Annotations[k8sCNINetworksKey] == rancherFlatNetworkCNI {
+		if service.Annotations[nettypes.NetworkAttachmentAnnot] == rancherFlatNetworkCNI {
 			return nil
 		}
-	} else if service.Annotations[k8sCNINetworksKey] == "" {
+	} else if service.Annotations[nettypes.NetworkAttachmentAnnot] == "" {
 		return nil
 	}
 
 	service = service.DeepCopy()
 	if flatNetworkEnabled {
-		service.Annotations[k8sCNINetworksKey] = rancherFlatNetworkCNI
+		service.Annotations[nettypes.NetworkAttachmentAnnot] = rancherFlatNetworkCNI
 	} else {
-		delete(service.Annotations, k8sCNINetworksKey)
+		delete(service.Annotations, nettypes.NetworkAttachmentAnnot)
 	}
 	_, err := h.serviceClient.Update(service)
 	if err != nil {

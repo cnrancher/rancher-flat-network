@@ -13,6 +13,8 @@ import (
 
 	nested "github.com/antonfisher/nested-logrus-formatter"
 	"github.com/cnrancher/rancher-flat-network/pkg/admission"
+	"github.com/cnrancher/rancher-flat-network/pkg/controller/endpoints"
+	"github.com/cnrancher/rancher-flat-network/pkg/controller/endpointslice"
 	"github.com/cnrancher/rancher-flat-network/pkg/controller/flatnetworkip"
 	"github.com/cnrancher/rancher-flat-network/pkg/controller/flatnetworksubnet"
 	"github.com/cnrancher/rancher-flat-network/pkg/controller/ingress"
@@ -122,6 +124,8 @@ func main() {
 	pod.Register(ctx, wctx)
 	ingress.Register(ctx, wctx)
 	workload.Register(ctx, wctx)
+	endpoints.Register(ctx, wctx)
+	endpointslice.Register(ctx, wctx)
 	namespace.Register(ctx, wctx)
 
 	wctx.OnLeader(func(ctx context.Context) error {

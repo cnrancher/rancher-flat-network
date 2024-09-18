@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	flv1 "github.com/cnrancher/rancher-flat-network/pkg/apis/flatnetwork.pandaria.io/v1"
+	nettypes "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 )
@@ -70,9 +71,7 @@ const (
 	// Operator auto-created flat-network service name suffix
 	FlatNetworkServiceNameSuffix = "-flat-network"
 
-	K8sCNINetworksKey       = "k8s.v1.cni.cncf.io/networks"
-	K8sCNINetworksStatusKey = "k8s.v1.cni.cncf.io/network-status"
-	NetAttatchDefName       = "rancher-flat-network"
+	NetAttatchDefName = "rancher-flat-network"
 )
 
 // Check if this service is a flat-network service.
@@ -98,7 +97,7 @@ func IsFlatNetworkService(svc *corev1.Service) bool {
 	if svc.Annotations == nil {
 		return false
 	}
-	if svc.Annotations[K8sCNINetworksKey] != NetAttatchDefName {
+	if svc.Annotations[nettypes.NetworkAttachmentAnnot] != NetAttatchDefName {
 		return false
 	}
 	return true

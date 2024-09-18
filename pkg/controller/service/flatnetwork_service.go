@@ -14,6 +14,11 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 )
 
+const (
+	// Requeue in a short intervals for flat-network services
+	defaultFlatNetworkServiceEnqueue = time.Millisecond * 100
+)
+
 func (h *handler) handleFlatNetworkService(
 	svc *corev1.Service,
 ) (*corev1.Service, error) {
@@ -44,32 +49,6 @@ func (h *handler) handleFlatNetworkService(
 		return svc, nil
 	}
 
-	resource, err := h.getEndpointResources(svc, pods)
-	if err != nil {
-		logrus.WithFields(fieldsService(svc)).
-			Errorf("failed to get endpoint resources of service: %v", err)
-		return svc, fmt.Errorf("failed to get endpoint resources: %w", err)
-	}
-
-	// Update corev1.Endpoints of this service.
-	if err = h.syncCoreV1Endpoints(svc, resource); err != nil {
-		if apierrors.IsNotFound(err) {
-			// svc is just created, retry
-			h.serviceEnqueueAfter(svc.Namespace, svc.Name, time.Second)
-			return svc, nil
-		}
-		return svc, err
-	}
-	// Update discoveryv1.EndpointSlice of this service.
-	if err = h.syncDiscoveryV1EndpointSlice(svc, resource); err != nil {
-		if apierrors.IsNotFound(err) {
-			// svc is just created, retry
-			h.serviceEnqueueAfter(svc.Namespace, svc.Name, time.Second)
-			return svc, nil
-		}
-		return svc, err
-	}
-
 	// Resync flat-network service in every 5min.
 	h.serviceEnqueueAfter(svc.Namespace, svc.Name, defaultRequeueTime)
 	return svc, nil
@@ -86,11 +65,9 @@ func (h *handler) shouldDeleteFlatNetworkService(
 	originalService, err := h.serviceCache.Get(svc.Namespace, originalServiceName)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			// Delete if no original service.
-			logrus.WithFields(fieldsService(svc)).
-				Infof("original service of flat-network service [%v/%v] not found",
-					svc.Namespace, originalServiceName)
-			return true, nil
+			// This flat-network service is created by user manually and does
+			// not have original service, do-not-delete.
+			return false, nil
 		}
 		return false, fmt.Errorf("failed to get service [%v/%v] from cache: %w",
 			svc.Namespace, originalService.Name, err)
@@ -98,12 +75,12 @@ func (h *handler) shouldDeleteFlatNetworkService(
 
 	if len(pods) == 0 {
 		logrus.WithFields(fieldsService(svc)).
-			Infof("no pods on flat-network service [%v/%v]",
+			Debugf("no pods on flat-network service [%v/%v]",
 				svc.Namespace, svc.Name)
-		return true, nil
+		return false, nil
 	}
 
-	// Workload of this svc disabled flat-network service by annotation.
+	// Workload of this service disabled flat-network service by annotation.
 	for _, pod := range pods {
 		if pod == nil {
 			continue
@@ -116,22 +93,5 @@ func (h *handler) shouldDeleteFlatNetworkService(
 			return true, nil
 		}
 	}
-
-	// Workload does not enabled flat-network.
-	var podUseFlatNetwork bool
-	for _, pod := range pods {
-		if pod == nil {
-			continue
-		}
-		if utils.IsPodEnabledFlatNetwork(pod) {
-			podUseFlatNetwork = true
-			break
-		}
-	}
-	if !podUseFlatNetwork {
-		logrus.WithFields(fieldsService(svc)).
-			Infof("workload does not use flat-network")
-	}
-
-	return !podUseFlatNetwork, nil
+	return false, nil
 }
