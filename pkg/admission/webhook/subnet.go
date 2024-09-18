@@ -7,7 +7,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 	admissionv1 "k8s.io/api/admission/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	flv1 "github.com/cnrancher/rancher-flat-network/pkg/apis/flatnetwork.pandaria.io/v1"
 	"github.com/cnrancher/rancher-flat-network/pkg/common"
@@ -37,7 +37,7 @@ func (h *Handler) validateFlatNetworkSubnet(ar *admissionv1.AdmissionReview) (bo
 	}
 
 	var subnets = make([]*flv1.FlatNetworkSubnet, 0)
-	options := v1.ListOptions{
+	options := metav1.ListOptions{
 		LabelSelector: fmt.Sprintf("%v=%v,%v=%v",
 			labelMaster, subnet.Spec.Master, labelVlan, subnet.Spec.VLAN),
 		Limit:    listLimit,
