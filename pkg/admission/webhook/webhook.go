@@ -158,8 +158,6 @@ const (
 )
 
 func (h *Handler) validateAdmissionReview(ar *admissionv1.AdmissionReview) (bool, error) {
-	logrus.Debugf("webhook validateAdmissionReview:  %s %s %#v %#v",
-		ar.Request.Name, ar.Request.Namespace, ar.Request.Kind, ar.Request.Resource)
 	var (
 		ok  bool
 		err error

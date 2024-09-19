@@ -25,8 +25,7 @@ import (
 const (
 	handlerName = "rancher-flat-network-endpoints"
 
-	defaultRequeueTime = time.Minute
-	labelServiceName   = "kubernetes.io/service-name"
+	labelServiceName = "kubernetes.io/service-name"
 )
 
 type handler struct {

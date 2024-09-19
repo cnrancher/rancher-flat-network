@@ -62,7 +62,7 @@ func (h *handler) shouldDeleteFlatNetworkService(
 	}
 
 	originalServiceName := strings.TrimSuffix(svc.Name, utils.FlatNetworkServiceNameSuffix)
-	originalService, err := h.serviceCache.Get(svc.Namespace, originalServiceName)
+	_, err := h.serviceCache.Get(svc.Namespace, originalServiceName)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			// This flat-network service is created by user manually and does
@@ -70,7 +70,7 @@ func (h *handler) shouldDeleteFlatNetworkService(
 			return false, nil
 		}
 		return false, fmt.Errorf("failed to get service [%v/%v] from cache: %w",
-			svc.Namespace, originalService.Name, err)
+			svc.Namespace, originalServiceName, err)
 	}
 
 	if len(pods) == 0 {

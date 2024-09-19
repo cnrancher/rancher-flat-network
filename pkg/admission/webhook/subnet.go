@@ -35,6 +35,9 @@ func (h *Handler) validateFlatNetworkSubnet(ar *admissionv1.AdmissionReview) (bo
 	if err != nil {
 		return false, err
 	}
+	if subnet == nil || subnet.Name == "" || subnet.DeletionTimestamp != nil {
+		return true, nil
+	}
 
 	var subnets = make([]*flv1.FlatNetworkSubnet, 0)
 	options := metav1.ListOptions{

@@ -23,8 +23,7 @@ import (
 )
 
 const (
-	handlerName        = "rancher-flat-network-endpointslice"
-	defaultRequeueTime = time.Minute
+	handlerName = "rancher-flat-network-endpointslice"
 
 	labelServiceName = "kubernetes.io/service-name"
 )
@@ -69,6 +68,9 @@ func (h *handler) sync(
 		return epslice, nil
 	}
 	if epslice == nil || epslice.Name == "" || epslice.DeletionTimestamp != nil {
+		return epslice, nil
+	}
+	if len(epslice.Labels) == 0 {
 		return epslice, nil
 	}
 

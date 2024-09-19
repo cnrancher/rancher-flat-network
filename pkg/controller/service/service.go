@@ -67,7 +67,7 @@ func (h *handler) syncService(_ string, svc *corev1.Service) (*corev1.Service, e
 		// ignore rancher managed ingress service (manager UI only).
 		return svc, nil
 	case utils.IsFlatNetworkService(svc):
-		// sync flat-network service created by this operator.
+		// sync flat-network service created by operator or user manually.
 		return h.handleFlatNetworkService(svc)
 	default:
 		// sync other non-flat-network services.

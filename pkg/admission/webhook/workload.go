@@ -15,6 +15,7 @@ import (
 	flv1 "github.com/cnrancher/rancher-flat-network/pkg/apis/flatnetwork.pandaria.io/v1"
 	"github.com/cnrancher/rancher-flat-network/pkg/common"
 	"github.com/cnrancher/rancher-flat-network/pkg/ipcalc"
+	nettypes "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 )
 
 type WorkloadReview struct {
@@ -82,7 +83,10 @@ func (h *Handler) validateWorkload(ar *admissionv1.AdmissionReview) (bool, error
 	if err != nil {
 		return false, fmt.Errorf("deserializeWorkloadReview: %w", err)
 	}
-	if workload.PodTemplateAnnotations("k8s.v1.cni.cncf.io/networks") == "" &&
+	if workload == nil || workload.ObjectMeta.Name == "" || workload.ObjectMeta.DeletionTimestamp != nil {
+		return true, nil
+	}
+	if workload.PodTemplateAnnotations(nettypes.NetworkAttachmentAnnot) == "" &&
 		workload.PodTemplateAnnotations("v1.multus-cni.io/default-network") == "" {
 		return true, nil
 	}
