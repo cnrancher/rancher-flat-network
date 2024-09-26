@@ -156,16 +156,13 @@ func AddPodFlatNetworkCustomRoutes(podNS ns.NetNS, customRoutes []flv1.Route) er
 			route := &netlink.Route{
 				LinkIndex: link.Attrs().Index,
 				Src:       r.Src,
-				Via:       nil,
+				Gw:        nil,
 				Dst:       network,
 				Priority:  r.Priority,
 				Family:    nl.GetIPFamily(ip),
 			}
 			if r.Via != nil {
-				route.Via = &netlink.Via{
-					AddrFamily: nl.GetIPFamily(ip),
-					Addr:       r.Via,
-				}
+				route.Gw = r.Via
 			}
 
 			switch network.IP.String() {
@@ -212,12 +209,21 @@ func UpdatePodDefaultGateway(
 			// change dev to flatNetwork interface
 			replaced.LinkIndex = link.Attrs().Index
 			replaced.Src = flatNetworkIP
-			replaced.Gw = nil
-			// FIXME: gateway may encounter error if not reachable
-			_ = gateway
+			if len(gateway) != 0 {
+				// User specified gateway may not reachable
+				replaced.Gw = gateway
+			}
 			logrus.Debugf("request to replace default route %v", utils.Print(replaced))
 			if err := netlink.RouteReplace(&replaced); err != nil {
-				return fmt.Errorf("failed to replace default route: %w", err)
+				var s string
+				if len(gateway) != 0 {
+					s = fmt.Sprintf("default via %v dev %v src %v",
+						gateway.String(), ifName, flatNetworkIP)
+				} else {
+					s = fmt.Sprintf("default dev %v src %v",
+						ifName, flatNetworkIP)
+				}
+				return fmt.Errorf("failed to replace default route to [%v]: %w", s, err)
 			}
 			defaultRouteReplaced = true
 		}

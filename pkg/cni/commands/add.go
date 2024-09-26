@@ -303,7 +303,7 @@ func Add(args *skel.CmdArgs) error {
 	// Skip change gw if using single NIC
 	if subnet.Spec.RouteSettings.FlatNetworkDefaultGateway && args.IfName != common.PodIfaceEth0 {
 		err = route.UpdatePodDefaultGateway(
-			netns, args.IfName, flatNetworkIP.Status.Addr, subnet.Spec.Gateway)
+			netns, args.IfName, flatNetworkIP.Status.Addr, subnet.Status.Gateway)
 		if err != nil {
 			return fmt.Errorf("route.UpdatePodDefaultGateway: %w", err)
 		}

@@ -88,14 +88,14 @@ func get6to4CIDR(ip net.IP, size int) string {
 		return ""
 	}
 	sixtofourSize := 48 - (32 - size)
-	tmp := []byte{}
+	tmp := []string{}
 	for _, v := range ip.To4() {
-		tmp = append(tmp, v)
+		tmp = append(tmp, fmt.Sprintf("%02x", v))
 	}
 	if len(tmp) != 4 {
 		return ""
 	}
-	return fmt.Sprintf("2002:%02x:%02x:0:0:0:0:0/%d",
+	return fmt.Sprintf("2002:%s:%s:0:0:0:0:0/%d",
 		tmp[0]+tmp[1], tmp[2]+tmp[3], sixtofourSize)
 }
 
