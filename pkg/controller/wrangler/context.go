@@ -16,11 +16,13 @@ import (
 	"github.com/rancher/wrangler/v3/pkg/leader"
 	"github.com/rancher/wrangler/v3/pkg/start"
 	"github.com/sirupsen/logrus"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/record"
 
 	appsv1 "github.com/cnrancher/rancher-flat-network/pkg/generated/controllers/apps/v1"
 	batchv1 "github.com/cnrancher/rancher-flat-network/pkg/generated/controllers/batch/v1"
@@ -28,7 +30,10 @@ import (
 	flv1 "github.com/cnrancher/rancher-flat-network/pkg/generated/controllers/flatnetwork.pandaria.io/v1"
 	networkingv1 "github.com/cnrancher/rancher-flat-network/pkg/generated/controllers/networking.k8s.io/v1"
 	ndClientSet "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/client/clientset/versioned"
+	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
+
+const controllerName = "rancher-flat-network-operator"
 
 type Context struct {
 	RESTConfig        *rest.Config
@@ -44,6 +49,8 @@ type Context struct {
 
 	// ClientSet for NetworkAttachmentDefinitions
 	NDClientSet *ndClientSet.Clientset
+
+	Recorder record.EventRecorder
 
 	supportDiscoveryV1 bool
 	supportIngressV1   bool
@@ -77,13 +84,18 @@ func NewContextOrDie(
 	if err != nil {
 		logrus.Fatalf("kubernetes.NewForConfig: %v", err)
 	}
-	leadership := leader.NewManager("cattle-flat-network", "rancher-flat-network-operator", k8s)
+	leadership := leader.NewManager("cattle-flat-network", controllerName, k8s)
 
 	supportDiscoveryV1, err := serverSupportDiscoveryV1(restCfg)
 	if err != nil {
 		logrus.Fatal(err)
 	}
 	supportIngressV1 := serverSupportsIngressV1(k8s)
+
+	eventBroadcaster := record.NewBroadcaster()
+	eventBroadcaster.StartLogging(logrus.Infof)
+	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: k8s.CoreV1().Events("")})
+	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: controllerName})
 
 	c := &Context{
 		RESTConfig:        restCfg,
@@ -97,6 +109,8 @@ func NewContextOrDie(
 		Batch:       batch.Batch().V1(),
 		Discovery:   discovery.Discovery().V1(),
 		NDClientSet: ndClientSet,
+
+		Recorder: recorder,
 
 		supportDiscoveryV1: supportDiscoveryV1,
 		supportIngressV1:   supportIngressV1,

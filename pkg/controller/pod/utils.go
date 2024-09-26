@@ -13,6 +13,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const (
+	eventFlatNetworkIPError = "FlatNetworkIPError"
+)
+
 // newFlatNetworkIP returns a new flat-network IP struct object by Pod.
 func (h *handler) newFlatNetworkIP(pod *corev1.Pod) (*flv1.FlatNetworkIP, error) {
 	// Valid pod annotation
@@ -78,6 +82,10 @@ func (h *handler) newFlatNetworkIP(pod *corev1.Pod) (*flv1.FlatNetworkIP, error)
 		flatNetworkIP.Annotations[flv1.AnnotationsIPv6to4] = "true"
 	}
 	return flatNetworkIP, nil
+}
+
+func (h *handler) eventFlatNetworkIPError(pod *corev1.Pod, err error) {
+	h.recorder.Event(pod, corev1.EventTypeWarning, eventFlatNetworkIPError, err.Error())
 }
 
 func flatNetworkIPUpdated(a, b *flv1.FlatNetworkIP) bool {

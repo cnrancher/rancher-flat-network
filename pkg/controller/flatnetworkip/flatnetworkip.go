@@ -10,9 +10,11 @@ import (
 	"github.com/cnrancher/rancher-flat-network/pkg/ipcalc"
 	"github.com/cnrancher/rancher-flat-network/pkg/utils"
 	"github.com/sirupsen/logrus"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/retry"
 
 	flv1 "github.com/cnrancher/rancher-flat-network/pkg/apis/flatnetwork.pandaria.io/v1"
@@ -23,6 +25,8 @@ import (
 const (
 	handlerName       = "rancher-flat-network-ip"
 	handlerRemoveName = "rancher-flat-network-ip-remove"
+
+	eventFlatNetworkIPError = "FlatNetworkIPError"
 )
 
 const (
@@ -39,6 +43,8 @@ type handler struct {
 	subnetCache  flcontroller.FlatNetworkSubnetCache
 	podClient    corecontroller.PodClient
 	podCache     corecontroller.PodCache
+
+	recorder record.EventRecorder
 
 	ipEnqueueAfter func(string, string, time.Duration)
 	ipEnqueue      func(string, string)
@@ -61,6 +67,8 @@ func Register(
 		subnetCache:  wctx.FlatNetwork.FlatNetworkSubnet().Cache(),
 		podClient:    wctx.Core.Pod(),
 		podCache:     wctx.Core.Pod().Cache(),
+
+		recorder: wctx.Recorder,
 
 		ipEnqueueAfter: wctx.FlatNetwork.FlatNetworkIP().EnqueueAfter,
 		ipEnqueue:      wctx.FlatNetwork.FlatNetworkSubnet().Enqueue,
@@ -158,8 +166,10 @@ func (h *handler) onIPCreate(ip *flv1.FlatNetworkIP) (*flv1.FlatNetworkIP, error
 	// Ensure the flat-network subnet resource exists.
 	subnet, err := h.subnetCache.Get(flv1.SubnetNamespace, ip.Spec.Subnet)
 	if err != nil {
-		return ip, fmt.Errorf("onIPCreate: failed to get subnet [%v] of ip [%v/%v]: %w",
+		err = fmt.Errorf("onIPCreate: failed to get subnet [%v] of ip [%v/%v]: %w",
 			ip.Spec.Subnet, ip.Namespace, ip.Name, err)
+		h.eventFlatNetworkIPError(pod, err)
+		return ip, err
 	}
 	switch subnet.Status.Phase {
 	case "Active":
@@ -175,12 +185,14 @@ func (h *handler) onIPCreate(ip *flv1.FlatNetworkIP) (*flv1.FlatNetworkIP, error
 	if err != nil {
 		logrus.WithFields(fieldsIP(ip)).
 			Errorf("failed to allocate IP address: %v", err)
+		h.eventFlatNetworkIPError(pod, err)
 		return ip, err
 	}
 	allocatedMAC, err := allocateMAC(ip, subnet)
 	if err != nil {
 		logrus.WithFields(fieldsIP(ip)).
 			Errorf("failed to allocate MAC address: %v", err)
+		h.eventFlatNetworkIPError(pod, err)
 		return ip, err
 	}
 
@@ -212,6 +224,7 @@ func (h *handler) onIPCreate(ip *flv1.FlatNetworkIP) (*flv1.FlatNetworkIP, error
 		err = fmt.Errorf("failed to update subnet [%v] usedIP status: %w",
 			subnet.Name, err)
 		logrus.Errorf("%v", err)
+		h.eventFlatNetworkIPError(pod, err)
 		return ip, err
 	}
 
@@ -253,6 +266,7 @@ func (h *handler) onIPCreate(ip *flv1.FlatNetworkIP) (*flv1.FlatNetworkIP, error
 				Warnf("failed to update (fallback) subnet [%v] status: %v",
 					subnet.Name, err)
 		}
+		h.eventFlatNetworkIPError(pod, err)
 		return ip, fmt.Errorf("failed to update IP [%v/%v] addr status: %w",
 			ip.Namespace, ip.Name, err)
 	}
@@ -334,6 +348,10 @@ func (h *handler) onIPUpdate(ip *flv1.FlatNetworkIP) (*flv1.FlatNetworkIP, error
 		return ip, err
 	}
 	return ip, nil
+}
+
+func (h *handler) eventFlatNetworkIPError(pod *corev1.Pod, err error) {
+	h.recorder.Event(pod, corev1.EventTypeWarning, eventFlatNetworkIPError, err.Error())
 }
 
 func fieldsIP(ip *flv1.FlatNetworkIP) logrus.Fields {
