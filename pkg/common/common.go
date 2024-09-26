@@ -37,7 +37,7 @@ func ValidateSubnet(subnet *flv1.FlatNetworkSubnet) error {
 		return fmt.Errorf("invalid subnet ranges %v: %w",
 			utils.Print(r), err)
 	}
-	if r, err := isValidRoutes(subnet.Spec.Routes); err != nil {
+	if r, err := isValidRoutes(network, subnet.Spec.Routes); err != nil {
 		return fmt.Errorf("invalid subnet routes %v: %w",
 			utils.Print(r), err)
 	}
@@ -74,7 +74,7 @@ func isValidRanges(ranges []flv1.IPRange, network *net.IPNet) (*flv1.IPRange, er
 	return nil, nil
 }
 
-func isValidRoutes(routes []flv1.Route) (*flv1.Route, error) {
+func isValidRoutes(network *net.IPNet, routes []flv1.Route) (*flv1.Route, error) {
 	if len(routes) == 0 {
 		return nil, nil
 	}
@@ -89,6 +89,11 @@ func isValidRoutes(routes []flv1.Route) (*flv1.Route, error) {
 		_, _, err := net.ParseCIDR(r.Dst)
 		if err != nil {
 			return &r, fmt.Errorf("route dst %q invalid: %w", r.Dst, err)
+		}
+		if len(r.Via) != 0 {
+			if !network.Contains(r.Via) {
+				return &r, fmt.Errorf("invalid gateway ip %q: not in subnet CIDR", r.Via)
+			}
 		}
 		if r.Priority < 0 || r.Priority > math.MaxInt32 {
 			return &r, fmt.Errorf("invalid route priority (metrics)")

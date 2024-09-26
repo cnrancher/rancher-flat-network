@@ -102,6 +102,9 @@ func (h *Handler) validateWorkload(ar *admissionv1.AdmissionReview) (bool, error
 	if err := h.validateAnnotationMac(workload); err != nil {
 		return false, fmt.Errorf("validateAnnotationMac: %w", err)
 	}
+	if err := h.validateIPsInReserved(workload, []string{}, nil); err != nil {
+		return false, fmt.Errorf("validateAnnotationMac: %w", err)
+	}
 
 	logrus.Infof("handle workload [%v] validate request [%v/%v]",
 		workload.AdmissionReview.Request.Kind.Kind, workload.ObjectMeta.Namespace, workload.ObjectMeta.Name)
@@ -217,6 +220,67 @@ func checkMacDuplicate(macs []string) error {
 	}
 	return nil
 }
+
+func (h *Handler) validateIPsInReserved(
+	workload *WorkloadReview, ips []string, subnet *flv1.FlatNetworkSubnet,
+) error {
+	if subnet == nil || len(ips) == 0 {
+		return nil
+	}
+	if workload.AdmissionReview.Request.Kind.Kind == "Job" {
+		if len(workload.Job.OwnerReferences) != 0 {
+			return nil
+		}
+	}
+
+	used := map[string][]string{}
+
+	netIPs := h.listReservedFixedIPsExcept(
+		subnet.Name,
+		workload.AdmissionReview.Request.Kind.Kind,
+		workload.AdmissionReview.Request.Namespace,
+		workload.AdmissionReview.Request.Name)
+
+	for _, ip := range ips {
+		if v, ok := netIPs[ip]; ok {
+			used[ip] = v
+		}
+	}
+
+	if len(used) > 0 {
+		return fmt.Errorf("ip has been reseved:[%+v]", used)
+	}
+	return nil
+}
+
+func (h *Handler) listReservedFixedIPsExcept(
+	subnet string, kind string, namespace string, name string,
+) map[string][]string {
+	listOpts := metav1.ListOptions{
+		LabelSelector: fmt.Sprintf("%s=%s,%s=%s",
+			flv1.LabelSubnet, subnet,
+			flv1.LabelFlatNetworkIPType, "specific"),
+	}
+
+	// TODO: Refactor logic of this parts
+	_ = listOpts
+	_ = kind
+	_ = namespace
+	_ = name
+	// result, err := getWorkloadFixedIPListExcept(listOpts, kind, namespace, name)
+	// if err != nil {
+	// 	log.Errorf("%v", err)
+	// 	return result
+	// }
+
+	return map[string][]string{}
+}
+
+// func (h *Handler) getWorkloadFixedIPListExcept(
+// 	opts metav1.ListOptions, kind string, namespace string, name string,
+// ) (map[string][]string, error) {
+// 	return map[string][]string{}, nil
+// }
 
 func (h *Handler) isUpdatingWorkloadSubnetLabel(workload *WorkloadReview) bool {
 	name, namespace := workload.ObjectMeta.Name, workload.ObjectMeta.Namespace
