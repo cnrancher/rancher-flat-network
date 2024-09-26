@@ -201,21 +201,22 @@ func (h *handler) onSubnetCreate(subnet *flv1.FlatNetworkSubnet) (*flv1.FlatNetw
 		return subnet, fmt.Errorf("failed to update label and gateway of subnet: %w", err)
 	}
 
-	var gatewayIP net.IP
-	if subnet.Spec.Gateway == nil {
-		gatewayIP, err = ipcalc.GetDefaultGateway(subnet.Spec.CIDR)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get subnet default gateway IP: %w", err)
-		}
-	} else {
-		gatewayIP = subnet.Spec.Gateway
-	}
+	// NOTE: Do not auto calc subnet default gateway, leave it to blank.
+	// var gatewayIP net.IP
+	// if subnet.Spec.Gateway == nil {
+	// 	gatewayIP, err = ipcalc.GetDefaultGateway(subnet.Spec.CIDR)
+	// 	if err != nil {
+	// 		return nil, fmt.Errorf("failed to get subnet default gateway IP: %w", err)
+	// 	}
+	// } else {
+	// 	gatewayIP = subnet.Spec.Gateway
+	// }
 
 	// Update the flat-network subnet status.
 	subnet = subnet.DeepCopy()
 	subnet.Status.Phase = subnetActivePhase
 	subnet.Status.UsedIP = ipcalc.AddIPToRange(subnet.Spec.Gateway, subnet.Status.UsedIP)
-	subnet.Status.Gateway = gatewayIP
+	subnet.Status.Gateway = subnet.Spec.Gateway
 	subnetUpdate, err := h.subnetClient.UpdateStatus(subnet)
 	if err != nil {
 		return subnet, fmt.Errorf("failed to update status of subnet: %w", err)
@@ -335,8 +336,10 @@ func (h *handler) onSubnetUpdate(subnet *flv1.FlatNetworkSubnet) (*flv1.FlatNetw
 		usedIPCount++
 		usedIP = ipcalc.AddIPToRange(ip.Status.Addr, usedIP)
 	}
-	usedIP = ipcalc.AddIPToRange(subnet.Status.Gateway, usedIP)
-	usedIPCount++
+	if len(subnet.Spec.Gateway) != 0 {
+		usedIP = ipcalc.AddIPToRange(subnet.Spec.Gateway, usedIP)
+		usedIPCount++
+	}
 	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		result, err := h.subnetCache.Get(subnet.Namespace, subnet.Name)
 		if err != nil {
@@ -344,13 +347,21 @@ func (h *handler) onSubnetUpdate(subnet *flv1.FlatNetworkSubnet) (*flv1.FlatNetw
 				Errorf("failed to get subnet from cache: %v", err)
 			return err
 		}
+		skipUpdate := false
 		if result.Status.UsedIPCount == usedIPCount && reflect.DeepEqual(usedIP, result.Status.UsedIP) {
+			skipUpdate = true
+		}
+		if result.Spec.Gateway.String() == result.Status.Gateway.String() {
+			skipUpdate = true
+		}
+		if skipUpdate {
 			subnet = result
 			return nil
 		}
 		result = result.DeepCopy()
 		result.Status.UsedIPCount = usedIPCount
 		result.Status.UsedIP = usedIP
+		result.Status.Gateway = result.Spec.Gateway
 		result, err = h.subnetClient.UpdateStatus(result)
 		if err != nil {
 			return err
