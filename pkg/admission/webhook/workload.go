@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"slices"
+	"strings"
 
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -15,6 +17,7 @@ import (
 	flv1 "github.com/cnrancher/rancher-flat-network/pkg/apis/flatnetwork.pandaria.io/v1"
 	"github.com/cnrancher/rancher-flat-network/pkg/common"
 	"github.com/cnrancher/rancher-flat-network/pkg/ipcalc"
+	"github.com/cnrancher/rancher-flat-network/pkg/utils"
 	nettypes "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 )
 
@@ -110,7 +113,18 @@ func (h *Handler) validateWorkload(ar *admissionv1.AdmissionReview) (bool, error
 		return false, fmt.Errorf("validate annotation mac failed: %w", err)
 	}
 	if err := h.validateIPsInReserved(workload, subnet); err != nil {
-		return false, fmt.Errorf("validate IP is reserved failed: %w", err)
+		return false, fmt.Errorf("validate IP reserved failed: %w", err)
+	}
+
+	flatNetworkIPs, err := h.getWorkloadPodFlatNetworkIPs(workload)
+	if err != nil {
+		return false, err
+	}
+	if err := h.validateIPsInUsed(workload, subnet, flatNetworkIPs); err != nil {
+		return false, fmt.Errorf("validate IP used failed: %w", err)
+	}
+	if err := h.validateMACsInUsed(workload, subnet, flatNetworkIPs); err != nil {
+		return false, fmt.Errorf("validate MAC used failed: %w", err)
 	}
 
 	logrus.Infof("handle workload [%v] validate request [%v/%v]",
@@ -271,6 +285,120 @@ func (h *Handler) validateIPsInReserved(
 		}
 	}
 
+	return nil
+}
+
+func (h *Handler) getWorkloadPodFlatNetworkIPs(
+	workload *WorkloadReview,
+) ([]flv1.FlatNetworkIP, error) {
+	var selector string
+	switch workload.AdmissionReview.Request.Kind.Kind {
+	case kindDeployment, kindDaemonSet, kindStatefulSet:
+		// apps.<kind>-<namespace>-<name>
+		selector = fmt.Sprintf("%s=apps.%s-%s-%s",
+			flv1.LabelWorkloadSelector,
+			strings.ToLower(workload.AdmissionReview.Request.Kind.Kind),
+			workload.ObjectMeta.Namespace,
+			workload.ObjectMeta.Name)
+	case kindCronJob, kindJob:
+		// <kind>-<namespace>-<name>
+		selector = fmt.Sprintf("%s=%s-%s-%s",
+			flv1.LabelWorkloadSelector,
+			strings.ToLower(workload.AdmissionReview.Request.Kind.Kind),
+			workload.ObjectMeta.Namespace,
+			workload.ObjectMeta.Name)
+	}
+
+	var ipList *flv1.FlatNetworkIPList
+	var err error
+	var result = []flv1.FlatNetworkIP{}
+	opts := metav1.ListOptions{
+		LabelSelector: selector,
+		Limit:         50,
+		Continue:      "",
+	}
+	for ipList == nil || opts.Continue != "" {
+		ipList, err = h.ipClient.List(workload.ObjectMeta.Namespace, opts)
+		if err != nil {
+			return nil, fmt.Errorf("failed to list FlatNetworkIPs by %q: %w",
+				selector, err)
+		}
+		opts.Continue = ipList.Continue
+		if len(ipList.Items) == 0 {
+			continue
+		}
+		result = append(result, ipList.Items...)
+	}
+	return result, nil
+}
+
+func (h *Handler) validateIPsInUsed(
+	workload *WorkloadReview,
+	subnet *flv1.FlatNetworkSubnet,
+	flatnetworkIPs []flv1.FlatNetworkIP,
+) error {
+	ips, err := common.CheckPodAnnotationIPs(workload.PodTemplateAnnotations(flv1.AnnotationIP))
+	if err != nil {
+		return err
+	}
+	if subnet == nil {
+		return nil
+	}
+	if flatnetworkIPs == nil {
+		flatnetworkIPs = []flv1.FlatNetworkIP{}
+	}
+	usedIP := subnet.Status.DeepCopy().UsedIP
+	for _, ip := range flatnetworkIPs {
+		if len(ip.Status.Addr) == 0 {
+			continue
+		}
+		usedIP = ipcalc.RemoveIPFromRange(ip.Status.Addr, usedIP)
+	}
+	for _, ip := range ips {
+		if ipcalc.IPInRanges(ip, usedIP) {
+			return fmt.Errorf("IP %q already uesd by other pods", ip.String())
+		}
+	}
+
+	return nil
+}
+
+func (h *Handler) validateMACsInUsed(
+	workload *WorkloadReview,
+	subnet *flv1.FlatNetworkSubnet,
+	flatnetworkIPs []flv1.FlatNetworkIP,
+) error {
+	macs, err := common.CheckPodAnnotationMACs(workload.PodTemplateAnnotations(flv1.AnnotationMac))
+	if err != nil {
+		return err
+	}
+	if subnet == nil {
+		return nil
+	}
+	usedMAC := subnet.Status.DeepCopy().UsedMAC
+	logrus.Infof("XXXX anno macs %v", utils.Print(macs))
+	logrus.Infof("XXXX usedMac %v", utils.Print(usedMAC))
+	slices.Sort(usedMAC)
+	if flatnetworkIPs == nil {
+		flatnetworkIPs = []flv1.FlatNetworkIP{}
+	}
+	for _, ip := range flatnetworkIPs {
+		if len(ip.Status.MAC) == 0 {
+			continue
+		}
+		index, ok := slices.BinarySearch(usedMAC, ip.Status.MAC)
+		if !ok {
+			continue
+		}
+		logrus.Infof("XXXX index %v", index)
+		usedMAC = append(usedMAC[:index], usedMAC[index+1:]...)
+	}
+	logrus.Infof("XXXX filted usedMac %v", utils.Print(usedMAC))
+	for _, mac := range macs {
+		if _, ok := slices.BinarySearch(usedMAC, mac); ok {
+			return fmt.Errorf("MAC %q already used by other pods", mac)
+		}
+	}
 	return nil
 }
 
