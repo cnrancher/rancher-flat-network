@@ -166,6 +166,21 @@ spec:
               phase:
                 nullable: true
                 type: string
+              reservedIP:
+                additionalProperties:
+                  items:
+                    properties:
+                      from:
+                        nullable: true
+                        type: string
+                      to:
+                        nullable: true
+                        type: string
+                    type: object
+                  nullable: true
+                  type: array
+                nullable: true
+                type: object
               usedIP:
                 items:
                   properties:

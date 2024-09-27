@@ -133,6 +133,9 @@ type SubnetStatus struct {
 	// Gateway is the gateway of the subnet.
 	Gateway net.IP `json:"gateway"`
 
+	// ReservedIP is the reserved IPRange of this subnet by workloads.
+	ReservedIP map[string][]IPRange `json:"reservedIP"`
+
 	// UsedIP is the used IPRange of this subnet.
 	UsedIP      []IPRange `json:"usedIP"`
 	UsedIPCount int       `json:"usedIPCount"`

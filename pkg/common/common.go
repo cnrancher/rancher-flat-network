@@ -7,11 +7,23 @@ import (
 	"net"
 	"strings"
 
+	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	flv1 "github.com/cnrancher/rancher-flat-network/pkg/apis/flatnetwork.pandaria.io/v1"
 	"github.com/cnrancher/rancher-flat-network/pkg/cni/ipvlan"
 	"github.com/cnrancher/rancher-flat-network/pkg/cni/macvlan"
 	"github.com/cnrancher/rancher-flat-network/pkg/ipcalc"
 	"github.com/cnrancher/rancher-flat-network/pkg/utils"
+)
+
+const (
+	KindDeployment  = "Deployment"
+	KindDaemonSet   = "DaemonSet"
+	KindStatefulSet = "StatefulSet"
+	KindCronJob     = "CronJob"
+	KindJob         = "Job"
 )
 
 func ValidateSubnet(subnet *flv1.FlatNetworkSubnet) error {
@@ -252,4 +264,31 @@ func CheckPodAnnotationMACs(s string) ([]string, error) {
 		ret = append(ret, m.String())
 	}
 	return ret, nil
+}
+
+func GetWorkloadKind(w metav1.Object) string {
+	switch w.(type) {
+	case *appsv1.Deployment:
+		return KindDeployment
+	case *appsv1.DaemonSet:
+		return KindDaemonSet
+	case *appsv1.StatefulSet:
+		return KindStatefulSet
+	case *batchv1.CronJob:
+		return KindCronJob
+	case *batchv1.Job:
+		return KindJob
+	}
+	return ""
+}
+
+func GetWorkloadReservdIPKey(w metav1.Object) string {
+	k := GetWorkloadKind(w)
+	if k == "" {
+		// Not a workload
+		return ""
+	}
+	// <Kind>/<Namespace>/<Name>
+	return fmt.Sprintf("%s/%s/%s",
+		k, w.GetNamespace(), w.GetName())
 }

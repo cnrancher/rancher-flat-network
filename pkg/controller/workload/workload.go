@@ -3,16 +3,22 @@ package workload
 import (
 	"context"
 	"fmt"
+	"maps"
+	"reflect"
 
 	"github.com/sirupsen/logrus"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/util/retry"
 
 	flv1 "github.com/cnrancher/rancher-flat-network/pkg/apis/flatnetwork.pandaria.io/v1"
+	"github.com/cnrancher/rancher-flat-network/pkg/common"
 	"github.com/cnrancher/rancher-flat-network/pkg/controller/wrangler"
 	appscontroller "github.com/cnrancher/rancher-flat-network/pkg/generated/controllers/apps/v1"
 	batchcontroller "github.com/cnrancher/rancher-flat-network/pkg/generated/controllers/batch/v1"
+	flcontroller "github.com/cnrancher/rancher-flat-network/pkg/generated/controllers/flatnetwork.pandaria.io/v1"
+	"github.com/cnrancher/rancher-flat-network/pkg/ipcalc"
 	"github.com/cnrancher/rancher-flat-network/pkg/utils"
 )
 
@@ -37,6 +43,9 @@ type handler struct {
 	statefulsetClient appscontroller.StatefulSetClient
 	cronjobClient     batchcontroller.CronJobClient
 	jobClient         batchcontroller.JobClient
+
+	subnetClient flcontroller.FlatNetworkSubnetClient
+	subnetCache  flcontroller.FlatNetworkSubnetCache
 }
 
 var workloadHandler *handler
@@ -51,6 +60,8 @@ func Register(
 		statefulsetClient: wctx.Apps.StatefulSet(),
 		cronjobClient:     wctx.Batch.CronJob(),
 		jobClient:         wctx.Batch.Job(),
+		subnetClient:      wctx.FlatNetwork.FlatNetworkSubnet(),
+		subnetCache:       wctx.FlatNetwork.FlatNetworkSubnet().Cache(),
 	}
 	workloadHandler = h
 
@@ -67,20 +78,31 @@ func syncWorkload[T Workload](_ string, w T) (T, error) {
 		logrus.WithFields(fieldsWorkload(w)).Error(err)
 		return w, err
 	}
-	if w == nil || w.GetName() == "" || w.GetDeletionTimestamp() != nil {
+	if w == nil || w.GetName() == "" {
+		return w, nil
+	}
+	if w.GetDeletionTimestamp() != nil {
+		if err := workloadHandler.removeWorkloadReservedIP(w); err != nil {
+			return w, err
+		}
 		return w, nil
 	}
 
 	isFlatNetworkEnabled, labels := getTemplateFlatNetworkLabel(w)
 	if !isFlatNetworkEnabled {
 		logrus.WithFields(fieldsWorkload(w)).
-			Debugf("skip update workload label as flatnetwork not enabled")
+			Debugf("skip update workload as flat-network not enabled")
 		return w, nil
 	}
 	o, err := workloadHandler.updateWorkloadLabel(w, labels)
 	if err != nil {
 		logrus.WithFields(fieldsWorkload(w)).
 			Errorf("failed to update workload label: %v", err)
+		return w, err
+	}
+	if err := workloadHandler.syncWorkloadReservedIP(w); err != nil {
+		err = fmt.Errorf("failed to update subnet reservedIP: %w", err)
+		logrus.WithFields(fieldsWorkload(w)).Errorf("%v", err)
 		return w, err
 	}
 	w, _ = o.(T)
@@ -165,6 +187,113 @@ func (h *handler) updateWorkloadLabel(
 		return h.jobClient.Update(o)
 	}
 	return w, nil
+}
+
+func (h *handler) removeWorkloadReservedIP(w metav1.Object) error {
+	m := GetTemplateObjectMeta(w)
+	if m == nil {
+		return nil
+	}
+	annotationIP := m.Annotations[flv1.AnnotationIP]
+	subnetName := m.Annotations[flv1.AnnotationSubnet]
+	ips, err := common.CheckPodAnnotationIPs(annotationIP)
+	if err != nil {
+		return err
+	}
+	if len(ips) == 0 || subnetName == "" {
+		return nil
+	}
+	err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		subnet, err := h.subnetCache.Get(flv1.SubnetNamespace, subnetName)
+		if err != nil {
+			return fmt.Errorf("failed to get subnet %v from cache: %w",
+				subnetName, err)
+		}
+		key := common.GetWorkloadReservdIPKey(w)
+		if key == "" {
+			return nil
+		}
+		reservedIP := maps.Clone(subnet.Status.ReservedIP)
+		if len(reservedIP) == 0 {
+			return nil
+		}
+		delete(reservedIP, key)
+		if reflect.DeepEqual(subnet.Status.ReservedIP, reservedIP) {
+			// already updated, skip
+			return nil
+		}
+		subnet = subnet.DeepCopy()
+		subnet.Status.ReservedIP = reservedIP
+		_, err = h.subnetClient.UpdateStatus(subnet)
+		if err != nil {
+			return err
+		}
+		logrus.WithFields(fieldsWorkload(w)).
+			Infof("remove subnet workload reservd IP as workload deleted")
+		return nil
+	})
+	if err != nil {
+		logrus.WithFields(fieldsWorkload(w)).
+			Errorf("failed to remove subnet workload reserved IP: %v", err)
+		return err
+	}
+	return nil
+}
+
+func (h *handler) syncWorkloadReservedIP(w metav1.Object) error {
+	m := GetTemplateObjectMeta(w)
+	if m == nil {
+		return nil
+	}
+	annotationIP := m.Annotations[flv1.AnnotationIP]
+	subnetName := m.Annotations[flv1.AnnotationSubnet]
+	ips, err := common.CheckPodAnnotationIPs(annotationIP)
+	if err != nil {
+		return err
+	}
+	if len(ips) == 0 || subnetName == "" {
+		return nil
+	}
+	err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		subnet, err := h.subnetCache.Get(flv1.SubnetNamespace, subnetName)
+		if err != nil {
+			return fmt.Errorf("failed to get subnet %v from cache: %w",
+				subnetName, err)
+		}
+		key := common.GetWorkloadReservdIPKey(w)
+		if key == "" {
+			return nil
+		}
+		reservedIP := maps.Clone(subnet.Status.ReservedIP)
+		if reservedIP == nil {
+			reservedIP = make(map[string][]flv1.IPRange)
+		}
+		ipRange := []flv1.IPRange{}
+		for _, ip := range ips {
+			ipRange = ipcalc.AddIPToRange(ip, ipRange)
+		}
+		reservedIP[key] = ipRange
+		if reflect.DeepEqual(subnet.Status.ReservedIP, reservedIP) {
+			// already updated, skip
+			return nil
+		}
+		subnet = subnet.DeepCopy()
+		subnet.Status.ReservedIP = reservedIP
+		_, err = h.subnetClient.UpdateStatus(subnet)
+		if err != nil {
+			return err
+		}
+		logrus.WithFields(fieldsWorkload(w)).
+			Infof("update subnet workload reservd IP to %v",
+				utils.Print(ipRange))
+		return nil
+	})
+	if err != nil {
+		logrus.WithFields(fieldsWorkload(w)).
+			Errorf("failed to update subnet workload reserved IP: %v", err)
+		return err
+	}
+	return nil
 }
 
 func fieldsWorkload(obj metav1.Object) logrus.Fields {

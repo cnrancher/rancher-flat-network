@@ -314,6 +314,23 @@ func (in *SubnetStatus) DeepCopyInto(out *SubnetStatus) {
 		*out = make(net.IP, len(*in))
 		copy(*out, *in)
 	}
+	if in.ReservedIP != nil {
+		in, out := &in.ReservedIP, &out.ReservedIP
+		*out = make(map[string][]IPRange, len(*in))
+		for key, val := range *in {
+			var outVal []IPRange
+			if val == nil {
+				(*out)[key] = nil
+			} else {
+				in, out := &val, &outVal
+				*out = make([]IPRange, len(*in))
+				for i := range *in {
+					(*in)[i].DeepCopyInto(&(*out)[i])
+				}
+			}
+			(*out)[key] = outVal
+		}
+	}
 	if in.UsedIP != nil {
 		in, out := &in.UsedIP, &out.UsedIP
 		*out = make([]IPRange, len(*in))

@@ -90,20 +90,27 @@ func (h *Handler) validateWorkload(ar *admissionv1.AdmissionReview) (bool, error
 		workload.PodTemplateAnnotations("v1.multus-cni.io/default-network") == "" {
 		return true, nil
 	}
-	if workload.PodTemplateAnnotations(flv1.AnnotationSubnet) == "" {
+	subnetName := workload.PodTemplateAnnotations(flv1.AnnotationSubnet)
+	if subnetName == "" {
 		return true, nil
 	}
 	if h.isUpdatingWorkloadSubnetLabel(workload) {
 		return true, nil
 	}
-	if err := h.validateAnnotationIP(workload); err != nil {
-		return false, fmt.Errorf("validateAnnotationIP: %w", err)
+	// Check the ip is available in subnet CIDR and not gateway
+	subnet, err := h.subnetClient.Get(
+		flv1.SubnetNamespace, subnetName, metav1.GetOptions{})
+	if err != nil {
+		return false, fmt.Errorf("failed to get subnet %v: %w", subnetName, err)
+	}
+	if err := h.validateAnnotationIP(workload, subnet); err != nil {
+		return false, fmt.Errorf("validate annotation IP failed: %w", err)
 	}
 	if err := h.validateAnnotationMac(workload); err != nil {
-		return false, fmt.Errorf("validateAnnotationMac: %w", err)
+		return false, fmt.Errorf("validate annotation mac failed: %w", err)
 	}
-	if err := h.validateIPsInReserved(workload, []string{}, nil); err != nil {
-		return false, fmt.Errorf("validateAnnotationMac: %w", err)
+	if err := h.validateIPsInReserved(workload, subnet); err != nil {
+		return false, fmt.Errorf("validate IP is reserved failed: %w", err)
 	}
 
 	logrus.Infof("handle workload [%v] validate request [%v/%v]",
@@ -111,7 +118,9 @@ func (h *Handler) validateWorkload(ar *admissionv1.AdmissionReview) (bool, error
 	return true, nil
 }
 
-func (h *Handler) validateAnnotationIP(workload *WorkloadReview) error {
+func (h *Handler) validateAnnotationIP(
+	workload *WorkloadReview, subnet *flv1.FlatNetworkSubnet,
+) error {
 	// Check annotation IP format.
 	ips, err := common.CheckPodAnnotationIPs(workload.PodTemplateAnnotations(flv1.AnnotationIP))
 	if err != nil {
@@ -127,12 +136,7 @@ func (h *Handler) validateAnnotationIP(workload *WorkloadReview) error {
 	if err != nil {
 		return err
 	}
-	// Check the ip is available in subnet CIDR and not gateway
-	subnet, err := h.subnetClient.Get(
-		flv1.SubnetNamespace, workload.PodTemplateAnnotations(flv1.AnnotationSubnet), metav1.GetOptions{})
-	if err != nil {
-		return err
-	}
+
 	err = checkIPsInSubnet(ips, subnet)
 	if err != nil {
 		return err
@@ -222,65 +226,53 @@ func checkMacDuplicate(macs []string) error {
 }
 
 func (h *Handler) validateIPsInReserved(
-	workload *WorkloadReview, ips []string, subnet *flv1.FlatNetworkSubnet,
+	workload *WorkloadReview, subnet *flv1.FlatNetworkSubnet,
 ) error {
+	ips, err := common.CheckPodAnnotationIPs(workload.PodTemplateAnnotations(flv1.AnnotationIP))
+	if err != nil {
+		return err
+	}
 	if subnet == nil || len(ips) == 0 {
 		return nil
 	}
 	if workload.AdmissionReview.Request.Kind.Kind == "Job" {
 		if len(workload.Job.OwnerReferences) != 0 {
+			// Skip validate CronJob created Jobs
 			return nil
 		}
 	}
-
-	used := map[string][]string{}
-
-	netIPs := h.listReservedFixedIPsExcept(
-		subnet.Name,
-		workload.AdmissionReview.Request.Kind.Kind,
-		workload.AdmissionReview.Request.Namespace,
-		workload.AdmissionReview.Request.Name)
-
+	if len(subnet.Status.ReservedIP) == 0 {
+		// Subnet does not have reserved IPs used by workloads.
+		return nil
+	}
+	var w metav1.Object
+	switch workload.AdmissionReview.Request.Kind.Kind {
+	case kindDeployment:
+		w = &workload.Deployment
+	case kindDaemonSet:
+		w = &workload.DaemonSet
+	case kindStatefulSet:
+		w = &workload.StatefulSet
+	case kindCronJob:
+		w = &workload.CronJob
+	case kindJob:
+		w = &workload.Job
+	}
+	key := common.GetWorkloadReservdIPKey(w)
 	for _, ip := range ips {
-		if v, ok := netIPs[ip]; ok {
-			used[ip] = v
+		for k, ipRange := range subnet.Status.ReservedIP {
+			if k == key {
+				continue
+			}
+			if ipcalc.IPInRanges(ip, ipRange) {
+				return fmt.Errorf("IP [%v] already reserved by workload [%v]",
+					ip.String(), k)
+			}
 		}
 	}
 
-	if len(used) > 0 {
-		return fmt.Errorf("ip has been reseved:[%+v]", used)
-	}
 	return nil
 }
-
-func (h *Handler) listReservedFixedIPsExcept(
-	subnet string, kind string, namespace string, name string,
-) map[string][]string {
-	listOpts := metav1.ListOptions{
-		LabelSelector: fmt.Sprintf("%s=%s,%s=%s",
-			flv1.LabelSubnet, subnet,
-			flv1.LabelFlatNetworkIPType, "specific"),
-	}
-
-	// TODO: Refactor logic of this parts
-	_ = listOpts
-	_ = kind
-	_ = namespace
-	_ = name
-	// result, err := getWorkloadFixedIPListExcept(listOpts, kind, namespace, name)
-	// if err != nil {
-	// 	log.Errorf("%v", err)
-	// 	return result
-	// }
-
-	return map[string][]string{}
-}
-
-// func (h *Handler) getWorkloadFixedIPListExcept(
-// 	opts metav1.ListOptions, kind string, namespace string, name string,
-// ) (map[string][]string, error) {
-// 	return map[string][]string{}, nil
-// }
 
 func (h *Handler) isUpdatingWorkloadSubnetLabel(workload *WorkloadReview) bool {
 	name, namespace := workload.ObjectMeta.Name, workload.ObjectMeta.Namespace
