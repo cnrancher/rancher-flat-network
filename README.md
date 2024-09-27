@@ -32,7 +32,7 @@ pods using the flat-networks (Macvlan/IPvlan).
 
 ### Migrator
 
-- [ ] Upgrade resource migrator from `macvlan.cluster.cattle.io` to `flatnetwork.pandaria.io`.
+- [x] Upgrade resource migrator from `macvlan.cluster.cattle.io` to `flatnetwork.pandaria.io`.
 
 ## Usage
 
