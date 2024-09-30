@@ -48,6 +48,9 @@ spec:
               addr:
                 nullable: true
                 type: string
+              allocatedTimeStamp:
+                nullable: true
+                type: string
               failureMessage:
                 nullable: true
                 type: string

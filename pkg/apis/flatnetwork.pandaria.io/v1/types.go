@@ -67,6 +67,9 @@ type IPStatus struct {
 	Phase          string `json:"phase"`
 	FailureMessage string `json:"failureMessage"`
 
+	// AllocatedTime is the time (UTC) when this IP was allocated by operator.
+	AllocatedTimeStamp metav1.Time `json:"allocatedTimeStamp,omitempty"`
+
 	// Addr is the allocated IP address.
 	Addr net.IP `json:"addr"`
 

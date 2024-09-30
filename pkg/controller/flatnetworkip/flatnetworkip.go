@@ -228,7 +228,7 @@ func (h *handler) onIPCreate(ip *flv1.FlatNetworkIP) (*flv1.FlatNetworkIP, error
 		return ip, err
 	}
 
-	// Update IP status to active.
+	// Update IP status to pending and wait for CNI.
 	err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		result, err := h.ipCache.Get(ip.Namespace, ip.Name)
 		if err != nil {
@@ -240,6 +240,7 @@ func (h *handler) onIPCreate(ip *flv1.FlatNetworkIP) (*flv1.FlatNetworkIP, error
 		result.Status.Addr = allocatedIP
 		result.Status.MAC = allocatedMAC
 		result.Status.Phase = flatNetworkIPPendingPhase
+		result.Status.AllocatedTimeStamp = metav1.NewTime(time.Now().UTC())
 		result, err = h.ipClient.UpdateStatus(result)
 		if err != nil {
 			return err
@@ -283,6 +284,16 @@ func (h *handler) onIPCreate(ip *flv1.FlatNetworkIP) (*flv1.FlatNetworkIP, error
 }
 
 func (h *handler) onIPPending(ip *flv1.FlatNetworkIP) (*flv1.FlatNetworkIP, error) {
+	if ip.Status.AllocatedTimeStamp.Add(time.Minute*5).Compare(time.Now().UTC()) < 0 {
+		err := h.podClient.Delete(ip.Namespace, ip.Name, &metav1.DeleteOptions{})
+		if err != nil {
+			return ip, fmt.Errorf("failed to delete pod [%v/%v]: %w",
+				ip.Namespace, ip.Name, err)
+		}
+		logrus.WithFields(fieldsIP(ip)).
+			Warnf("timeout wait for pod network setup by CNI, delete pod %v/%v",
+				ip.Namespace, ip.Name)
+	}
 	// IP status will be updated to Active by CNI after Pod network setup
 	logrus.WithFields(fieldsIP(ip)).
 		Infof("waiting for Pod network setup by CNI")
