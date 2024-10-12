@@ -45,7 +45,7 @@ func (cc *migrateCmd) getCommand() *cobra.Command {
 }
 
 func (cc *migrateCmd) run() error {
-	cfg, err := kubeconfig.GetNonInteractiveClientConfig(cc.configFile).ClientConfig()
+	cfg, err := kubeconfig.GetNonInteractiveClientConfigWithContext(cc.configFile, cc.context).ClientConfig()
 	if err != nil {
 		logrus.Fatalf("Error building kubeconfig: %v", err)
 	}

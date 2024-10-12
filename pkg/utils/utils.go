@@ -166,18 +166,17 @@ func CheckFileExistsPrompt(
 		return nil
 	}
 	var s string
-	fmt.Printf("File %q already exists! Overwrite? [y/N] ", name)
+	fmt.Printf("File %q already exists! Overwrite? [Y/n] ", name)
 	if autoYes {
 		fmt.Println("y")
-	} else {
-		if _, err := Scanf(ctx, "%s", &s); err != nil {
-			return err
-		}
-		if len(s) == 0 || s[0] != 'y' && s[0] != 'Y' {
-			return fmt.Errorf("file %q already exists", name)
-		}
+		return nil
 	}
-
+	if _, err := Scanf(ctx, "%s", &s); err != nil {
+		return err
+	}
+	if len(s) != 0 && s[0] != 'y' && s[0] != 'Y' {
+		return fmt.Errorf("file %q already exists", name)
+	}
 	return nil
 }
 

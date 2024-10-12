@@ -1,7 +1,9 @@
 package commands
 
 import (
+	"github.com/cnrancher/rancher-flat-network/pkg/migrate"
 	"github.com/cnrancher/rancher-flat-network/pkg/utils"
+	"github.com/rancher/wrangler/v3/pkg/kubeconfig"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -13,10 +15,10 @@ type cleanCmd struct {
 func newCleanCmd() *cleanCmd {
 	cc := &cleanCmd{}
 	cc.baseCmd = newBaseCmd(&cobra.Command{
-		Use:     "backup",
-		Short:   "Backup Macvlan (V1) & FlatNetwork (V2) subnet CRD resources",
+		Use:     "clean",
+		Short:   "Cleanup Macvlan (V1) CRD resources",
 		Long:    "",
-		Example: "rancher-flat-network-migrator backup",
+		Example: "rancher-flat-network-migrator clean",
 		PreRun: func(cmd *cobra.Command, args []string) {
 			utils.SetupLogrus(cc.debug)
 		},
@@ -39,7 +41,21 @@ func (cc *cleanCmd) getCommand() *cobra.Command {
 }
 
 func (cc *cleanCmd) run() error {
+	cfg, err := kubeconfig.GetNonInteractiveClientConfigWithContext(cc.configFile, cc.context).ClientConfig()
+	if err != nil {
+		logrus.Fatalf("Error building kubeconfig: %v", err)
+	}
 
+	m := migrate.NewResourceMigrator(&migrate.MigratorOpts{
+		Config:    cfg,
+		Interval:  cc.baseCmd.interval,
+		ListLimit: cc.baseCmd.listLimit,
+		AutoYes:   cc.autoYes,
+	})
+
+	if err := m.Clean(signalContext); err != nil {
+		return err
+	}
 	logrus.Infof("Done")
 	return nil
 }

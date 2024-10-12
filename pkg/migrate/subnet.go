@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/cnrancher/rancher-flat-network/pkg/migrate/types"
+	"github.com/cnrancher/rancher-flat-network/pkg/utils"
 	"github.com/sirupsen/logrus"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -18,8 +19,8 @@ import (
 	flv1 "github.com/cnrancher/rancher-flat-network/pkg/apis/flatnetwork.pandaria.io/v1"
 )
 
-// listV1Subnet list all Macvlan (V1) subnet resources
-func (m *migrator) listV1Subnet(ctx context.Context) ([]metav1.Object, error) {
+// listV1Subnets list all Macvlan (V1) subnet resources
+func (m *migrator) listV1Subnets(ctx context.Context) ([]metav1.Object, error) {
 	listOptions := metav1.ListOptions{
 		Limit: m.listLimit,
 	}
@@ -32,7 +33,7 @@ func (m *migrator) listV1Subnet(ctx context.Context) ([]metav1.Object, error) {
 		listResult, err = m.dynamicClientSet.Resource(macvlanSubnetResource()).List(ctx, listOptions)
 		if err != nil {
 			if apierrors.IsNotFound(err) {
-				logrus.Warnf("skip backup MacvlanSubnet resource: macvlan.cluster.cattle.io CRD not found")
+				logrus.Warnf("skip MacvlanSubnet resource: %q CRD not found", v1SubnetCRD)
 				return nil, nil
 			}
 			return nil, fmt.Errorf("failed to list MacvlanSubnet resource: %w", err)
@@ -53,8 +54,59 @@ func (m *migrator) listV1Subnet(ctx context.Context) ([]metav1.Object, error) {
 	return macvlanSubnets, nil
 }
 
-// listV1Subnet list all FlatNetwork (V2) subnet resources
-func (m *migrator) listV2Subnet(_ context.Context) ([]metav1.Object, error) {
+func (m *migrator) deleteV1Subnet(ctx context.Context, ns, name string) error {
+	fmt.Printf("%q: %v will be deleted, continue? [Y/n]", v1SubnetCRD, name)
+	var s string
+	if m.autoYes {
+		fmt.Println("y")
+	} else {
+		if _, err := utils.Scanf(ctx, "%s", &s); err != nil {
+			return err
+		}
+		if len(s) != 0 && s[0] != 'y' && s[0] != 'Y' {
+			return fmt.Errorf("abort by user")
+		}
+	}
+
+	err := m.dynamicClientSet.Resource(macvlanSubnetResource()).
+		Namespace(ns).Delete(ctx, name, metav1.DeleteOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to delete %v %v: %w", v1SubnetCRD, name, err)
+	}
+	time.Sleep(m.interval)
+	logrus.Infof("delete %v %v", v1SubnetCRD, name)
+	return nil
+}
+
+func (m *migrator) deleteV1CRD(ctx context.Context) error {
+	fmt.Printf("%q CRD will be deleted, continue? [Y/n]", v1SubnetCRD)
+	var s string
+	if m.autoYes {
+		fmt.Println("y")
+	} else {
+		if _, err := utils.Scanf(ctx, "%s", &s); err != nil {
+			return err
+		}
+		if len(s) != 0 && s[0] != 'y' && s[0] != 'Y' {
+			return fmt.Errorf("abort by user")
+		}
+	}
+
+	err := m.dynamicClientSet.Resource(crdResource()).
+		Delete(ctx, v1SubnetCRD, metav1.DeleteOptions{})
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			logrus.Infof("%v already deleted", v1SubnetCRD)
+			return nil
+		}
+		return fmt.Errorf("failed to delete CRD %v: %w", v1SubnetCRD, err)
+	}
+	logrus.Infof("delete %v", v1SubnetCRD)
+	return nil
+}
+
+// listV1Subnets list all FlatNetwork (V2) subnet resources
+func (m *migrator) listV2Subnets(_ context.Context) ([]metav1.Object, error) {
 	listOptions := metav1.ListOptions{
 		Limit: m.listLimit,
 	}
@@ -67,7 +119,7 @@ func (m *migrator) listV2Subnet(_ context.Context) ([]metav1.Object, error) {
 		listResult, err = m.wctx.FlatNetwork.FlatNetworkSubnet().List(flv1.SubnetNamespace, listOptions)
 		if err != nil {
 			if apierrors.IsNotFound(err) {
-				logrus.Warnf("skip backup FlatNetworkSubnet resource: flatnetwork.pandaria.io CRD not found")
+				logrus.Warnf("skip FlatNetworkSubnet resource: %q CRD not found", v2SubnetCRD)
 				return nil, nil
 			}
 			return nil, fmt.Errorf("failed to list FlatNetworkSubnet resource: %w", err)
@@ -226,5 +278,13 @@ func macvlanSubnetResource() schema.GroupVersionResource {
 		Group:    "macvlan.cluster.cattle.io",
 		Version:  "v1",
 		Resource: "macvlansubnets",
+	}
+}
+
+func flatnetworkSubnetResource() schema.GroupVersionResource {
+	return schema.GroupVersionResource{
+		Group:    "flatnetwork.pandaria.io",
+		Version:  "v1",
+		Resource: "FlatNetworkSubnets",
 	}
 }

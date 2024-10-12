@@ -3,7 +3,9 @@ package commands
 import (
 	"fmt"
 
+	"github.com/cnrancher/rancher-flat-network/pkg/migrate"
 	"github.com/cnrancher/rancher-flat-network/pkg/utils"
+	"github.com/rancher/wrangler/v3/pkg/kubeconfig"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -44,6 +46,20 @@ func (cc *restoreCmd) getCommand() *cobra.Command {
 func (cc *restoreCmd) run() error {
 	if cc.filePath == "" {
 		return fmt.Errorf("restore YAML file not specified")
+	}
+	cfg, err := kubeconfig.GetNonInteractiveClientConfigWithContext(cc.configFile, cc.context).ClientConfig()
+	if err != nil {
+		logrus.Fatalf("Error building kubeconfig: %v", err)
+	}
+
+	m := migrate.NewResourceMigrator(&migrate.MigratorOpts{
+		Config:    cfg,
+		Interval:  cc.baseCmd.interval,
+		ListLimit: cc.baseCmd.listLimit,
+		AutoYes:   cc.baseCmd.autoYes,
+	})
+	if err := m.Restore(signalContext, cc.filePath); err != nil {
+		return err
 	}
 
 	logrus.Infof("Done")

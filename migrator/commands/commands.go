@@ -26,6 +26,7 @@ func newBaseCmd(cmd *cobra.Command) *baseCmd {
 
 type baseOpts struct {
 	configFile string
+	context    string
 	interval   time.Duration
 	listLimit  int64
 	autoYes    bool

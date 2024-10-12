@@ -41,9 +41,11 @@ func newMigratorCmd() *migratorCmd {
 
 	flags := cc.cmd.PersistentFlags()
 	flags.StringVarP(&cc.baseCmd.configFile, "kubeconfig", "", "",
-		"kube-config file")
-	flags.DurationVarP(&cc.baseCmd.interval, "interval", "", time.Second,
-		"interval between each Kube API requests")
+		"path to the kubeconfig file")
+	flags.StringVarP(&cc.baseCmd.context, "context", "", "",
+		"the name of the kubeconfig context")
+	flags.DurationVarP(&cc.baseCmd.interval, "interval", "", time.Millisecond*500,
+		"interval between each kube API requests")
 	flags.Int64VarP(&cc.baseCmd.listLimit, "list-limit", "", 30,
 		"limit for each kube API list requests")
 	flags.BoolVarP(&cc.autoYes, "yes", "", false,

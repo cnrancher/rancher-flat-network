@@ -56,7 +56,7 @@ func (cc *backupCmd) run() error {
 		return fmt.Errorf("output file not specified")
 	}
 
-	cfg, err := kubeconfig.GetNonInteractiveClientConfig(cc.configFile).ClientConfig()
+	cfg, err := kubeconfig.GetNonInteractiveClientConfigWithContext(cc.configFile, cc.context).ClientConfig()
 	if err != nil {
 		logrus.Fatalf("Error building kubeconfig: %v", err)
 	}
@@ -87,6 +87,9 @@ func (cc *backupCmd) run() error {
 			return fmt.Errorf("failed to backup FlatNetwork V2 resources: %w", err)
 		}
 	}
+	logrus.Infof("-----------------------------")
+	logrus.Infof("Output CRD resources backup to %q", cc.output)
+	logrus.Infof("You can use '%v restore' or 'kubectl create' to restore", os.Args[0])
 	logrus.Infof("Done")
 	return nil
 }
