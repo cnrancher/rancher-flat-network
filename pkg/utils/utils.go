@@ -5,14 +5,18 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"runtime"
 	"strconv"
 	"strings"
+	"time"
 
+	nested "github.com/antonfisher/nested-logrus-formatter"
 	flv1 "github.com/cnrancher/rancher-flat-network/pkg/apis/flatnetwork.pandaria.io/v1"
 	nettypes "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	"github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus/hooks/writer"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -148,5 +152,62 @@ func Scanf(ctx context.Context, format string, a ...any) (int, error) {
 		return n, nil
 	case <-ctx.Done():
 		return 0, ctx.Err()
+	}
+}
+
+func CheckFileExistsPrompt(
+	ctx context.Context, name string, autoYes bool,
+) error {
+	_, err := os.Stat(name)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			return err
+		}
+		return nil
+	}
+	var s string
+	fmt.Printf("File %q already exists! Overwrite? [y/N] ", name)
+	if autoYes {
+		fmt.Println("y")
+	} else {
+		if _, err := Scanf(ctx, "%s", &s); err != nil {
+			return err
+		}
+		if len(s) == 0 || s[0] != 'y' && s[0] != 'Y' {
+			return fmt.Errorf("file %q already exists", name)
+		}
+	}
+
+	return nil
+}
+
+func SetupLogrus(debug bool) {
+	logrus.SetFormatter(&nested.Formatter{
+		HideKeys:        false,
+		TimestampFormat: time.DateTime,
+	})
+	logrus.SetOutput(io.Discard)
+	logrus.AddHook(&writer.Hook{
+		// Send logs with level higher than warning to stderr.
+		Writer: os.Stderr,
+		LogLevels: []logrus.Level{
+			logrus.PanicLevel,
+			logrus.FatalLevel,
+			logrus.ErrorLevel,
+			logrus.WarnLevel,
+		},
+	})
+	logrus.AddHook(&writer.Hook{
+		// Send info, debug and trace logs to stdout.
+		Writer: os.Stdout,
+		LogLevels: []logrus.Level{
+			logrus.TraceLevel,
+			logrus.InfoLevel,
+			logrus.DebugLevel,
+		},
+	})
+	if debug {
+		logrus.SetLevel(logrus.DebugLevel)
+		logrus.Debugf("debug output enabled")
 	}
 }

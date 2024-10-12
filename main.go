@@ -7,11 +7,8 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"io"
 	"os"
-	"time"
 
-	nested "github.com/antonfisher/nested-logrus-formatter"
 	"github.com/cnrancher/rancher-flat-network/pkg/admission"
 	"github.com/cnrancher/rancher-flat-network/pkg/controller/endpoints"
 	"github.com/cnrancher/rancher-flat-network/pkg/controller/endpointslice"
@@ -28,7 +25,6 @@ import (
 	"github.com/rancher/wrangler/v3/pkg/kubeconfig"
 	"github.com/rancher/wrangler/v3/pkg/signals"
 	"github.com/sirupsen/logrus"
-	"github.com/sirupsen/logrus/hooks/writer"
 )
 
 var (
@@ -46,33 +42,6 @@ var (
 )
 
 func init() {
-	logrus.SetFormatter(&nested.Formatter{
-		HideKeys:        false,
-		TimestampFormat: time.DateTime,
-		// TimestampFormat: time.RFC3339Nano,
-		FieldsOrder: []string{"GID", "POD", "SVC", "IP", "SUBNET"},
-	})
-	logrus.SetOutput(io.Discard)
-	logrus.AddHook(&writer.Hook{
-		// Send logs with level higher than warning to stderr.
-		Writer: os.Stderr,
-		LogLevels: []logrus.Level{
-			logrus.PanicLevel,
-			logrus.FatalLevel,
-			logrus.ErrorLevel,
-			logrus.WarnLevel,
-		},
-	})
-	logrus.AddHook(&writer.Hook{
-		// Send info, debug and trace logs to stdout.
-		Writer: os.Stdout,
-		LogLevels: []logrus.Level{
-			logrus.TraceLevel,
-			logrus.InfoLevel,
-			logrus.DebugLevel,
-		},
-	})
-
 	if utils.GitCommit != "" {
 		versionString = fmt.Sprintf("%v - %v", utils.Version, utils.GitCommit)
 	} else {
@@ -92,6 +61,7 @@ func main() {
 	flag.BoolVar(&version, "v", false, "Output version")
 	flag.IntVar(&worker, "worker", 5, "Worker number (1-50)")
 	flag.Parse()
+	utils.SetupLogrus(debug)
 
 	if worker > 50 || worker < 1 {
 		logrus.Warnf("invalid worker num: %v, should be 1-50, set to default: 5", worker)

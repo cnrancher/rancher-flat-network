@@ -84,3 +84,12 @@ issues:
     text: "Expect WriteFile permissions to be 0600 or less"
     linters:
       - gosec
+  # Permit cobra args as unused parameter
+  - path: 'migrator/commands/*'
+    text: "unused-parameter: parameter 'cmd' seems to be unused"
+    linters:
+      - revive
+  - path: 'migrator/commands/*'
+    text: "unused-parameter: parameter 'args' seems to be unused"
+    linters:
+      - revive

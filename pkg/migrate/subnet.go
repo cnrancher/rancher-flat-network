@@ -1,4 +1,4 @@
-package upgrade
+package migrate
 
 import (
 	"context"
@@ -7,7 +7,7 @@ import (
 	"net"
 	"time"
 
-	"github.com/cnrancher/rancher-flat-network/pkg/upgrade/types"
+	"github.com/cnrancher/rancher-flat-network/pkg/migrate/types"
 	"github.com/sirupsen/logrus"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -18,7 +18,71 @@ import (
 	flv1 "github.com/cnrancher/rancher-flat-network/pkg/apis/flatnetwork.pandaria.io/v1"
 )
 
-func (m *migrator) migrateSubnet(ctx context.Context) error {
+// listV1Subnet list all Macvlan (V1) subnet resources
+func (m *migrator) listV1Subnet(ctx context.Context) ([]metav1.Object, error) {
+	listOptions := metav1.ListOptions{
+		Limit: m.listLimit,
+	}
+	var (
+		macvlanSubnets = []metav1.Object{}
+		listResult     *unstructured.UnstructuredList
+		err            error
+	)
+	for listResult == nil || listOptions.Continue != "" {
+		listResult, err = m.dynamicClientSet.Resource(macvlanSubnetResource()).List(ctx, listOptions)
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				logrus.Warnf("skip backup MacvlanSubnet resource: macvlan.cluster.cattle.io CRD not found")
+				return nil, nil
+			}
+			return nil, fmt.Errorf("failed to list MacvlanSubnet resource: %w", err)
+		}
+		for i := 0; i < len(listResult.Items); i++ {
+			subnet := &types.MacvlanSubnet{}
+			err := runtime.DefaultUnstructuredConverter.
+				FromUnstructured(listResult.Items[i].Object, subnet)
+			if err != nil {
+				return nil, fmt.Errorf("failed to convert unstruct object to macvlan.cluster.cattle.io/v1 MacvlanSubnet: %w", err)
+			}
+			macvlanSubnets = append(macvlanSubnets, subnet)
+		}
+		listOptions.Continue = listResult.GetContinue()
+		time.Sleep(m.interval)
+	}
+
+	return macvlanSubnets, nil
+}
+
+// listV1Subnet list all FlatNetwork (V2) subnet resources
+func (m *migrator) listV2Subnet(_ context.Context) ([]metav1.Object, error) {
+	listOptions := metav1.ListOptions{
+		Limit: m.listLimit,
+	}
+	var (
+		flatnetworkSubnets = []metav1.Object{}
+		listResult         *flv1.FlatNetworkSubnetList
+		err                error
+	)
+	for listResult == nil || listOptions.Continue != "" {
+		listResult, err = m.wctx.FlatNetwork.FlatNetworkSubnet().List(flv1.SubnetNamespace, listOptions)
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				logrus.Warnf("skip backup FlatNetworkSubnet resource: flatnetwork.pandaria.io CRD not found")
+				return nil, nil
+			}
+			return nil, fmt.Errorf("failed to list FlatNetworkSubnet resource: %w", err)
+		}
+		for i := 0; i < len(listResult.Items); i++ {
+			flatnetworkSubnets = append(flatnetworkSubnets, listResult.Items[i].DeepCopy())
+		}
+		listOptions.Continue = listResult.GetContinue()
+		time.Sleep(m.interval)
+	}
+
+	return flatnetworkSubnets, nil
+}
+
+func (m *migrator) migrateSubnets(ctx context.Context) error {
 	listOptions := metav1.ListOptions{
 		Limit: m.listLimit,
 	}

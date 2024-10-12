@@ -116,7 +116,7 @@ func (h *handler) setWorkloadAndProjectLabel(flatNetworkIP *flv1.FlatNetworkIP, 
 					if err != nil {
 						return
 					}
-					if j.OwnerReferences == nil || len(j.OwnerReferences) == 0 {
+					if len(j.OwnerReferences) == 0 {
 						flatNetworkIP.Labels[flv1.LabelWorkloadSelector] = fmt.Sprintf("%s-%s-%s", "job", pod.Namespace, j.Name)
 						return
 					}
