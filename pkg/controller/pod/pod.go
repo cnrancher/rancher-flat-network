@@ -208,11 +208,18 @@ func (h *handler) updatePodLabel(pod *corev1.Pod, ip *flv1.FlatNetworkIP) error 
 	annotationSubnet := pod.Annotations[flv1.AnnotationSubnet]
 	annotationMac := pod.Annotations[flv1.AnnotationMac]
 
+	subnet, err := h.subnetCache.Get(flv1.SubnetNamespace, annotationSubnet)
+	if err != nil {
+		return fmt.Errorf("failed to get subnet %q from cache: %w",
+			annotationSubnet, err)
+	}
+
 	labels := map[string]string{}
 	labels[flv1.LabelSubnet] = annotationSubnet
 	labels[flv1.LabelSelectedIP] = ""
 	labels[flv1.LabelSelectedMac] = ""
 	labels[flv1.LabelFlatNetworkIPType] = flv1.AllocateModeSpecific
+	labels[flv1.LabelFlatMode] = subnet.Spec.FlatMode
 
 	if ip.Status.Addr != nil {
 		// IPv6 address contains invalid char ':'

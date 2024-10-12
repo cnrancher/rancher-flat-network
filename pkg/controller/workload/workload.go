@@ -88,7 +88,10 @@ func syncWorkload[T Workload](_ string, w T) (T, error) {
 		return w, nil
 	}
 
-	isFlatNetworkEnabled, labels := getTemplateFlatNetworkLabel(w)
+	isFlatNetworkEnabled, labels, err := getTemplateFlatNetworkLabel(w)
+	if err != nil {
+		return w, fmt.Errorf("getTemplateFlatNetworkLabel: %w", err)
+	}
 	if !isFlatNetworkEnabled {
 		logrus.WithFields(fieldsWorkload(w)).
 			Debugf("skip update workload as flat-network not enabled")
@@ -111,10 +114,10 @@ func syncWorkload[T Workload](_ string, w T) (T, error) {
 
 func getTemplateFlatNetworkLabel(
 	w metav1.Object,
-) (isFlatNetworkEnabled bool, labels map[string]string) {
+) (isFlatNetworkEnabled bool, labels map[string]string, err error) {
 	m := GetTemplateObjectMeta(w)
 	if m == nil {
-		return isFlatNetworkEnabled, labels
+		return isFlatNetworkEnabled, labels, nil
 	}
 	if m.Annotations == nil {
 		m.Annotations = map[string]string{}
@@ -122,8 +125,8 @@ func getTemplateFlatNetworkLabel(
 	a := m.Annotations
 
 	var (
-		ipType string
-		subnet string
+		ipType     string
+		subnetName string
 	)
 	switch a[flv1.AnnotationIP] {
 	case flv1.AllocateModeAuto:
@@ -132,14 +135,24 @@ func getTemplateFlatNetworkLabel(
 	default:
 		ipType = flv1.AllocateModeSpecific
 	}
-	subnet = a[flv1.AnnotationSubnet]
-	isFlatNetworkEnabled = (ipType != "" && subnet != "")
+	subnetName = a[flv1.AnnotationSubnet]
+	isFlatNetworkEnabled = (ipType != "" && subnetName != "")
 
 	labels = map[string]string{
 		flv1.LabelFlatNetworkIPType: ipType,
-		flv1.LabelSubnet:            subnet,
+		flv1.LabelSubnet:            subnetName,
 	}
-	return isFlatNetworkEnabled, labels
+	if !isFlatNetworkEnabled {
+		return isFlatNetworkEnabled, labels, nil
+	}
+
+	subnet, err := workloadHandler.subnetCache.Get(flv1.SubnetNamespace, subnetName)
+	if err != nil {
+		return isFlatNetworkEnabled, labels, fmt.Errorf(
+			"failed to get subnet %q from cache: %w", subnetName, err)
+	}
+	labels[flv1.LabelFlatMode] = subnet.Spec.FlatMode
+	return isFlatNetworkEnabled, labels, nil
 }
 
 func (h *handler) updateWorkloadLabel(

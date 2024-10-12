@@ -21,6 +21,7 @@ const (
 	// Specification for Labels
 	LabelSelectedIP        = "flatnetwork.pandaria.io/selectedIP"
 	LabelSubnet            = "flatnetwork.pandaria.io/subnet"
+	LabelFlatMode          = "flatnetwork.pandaria.io/flatMode"
 	LabelFlatNetworkIPType = "flatnetwork.pandaria.io/flatNetworkIPType"
 	LabelSelectedMac       = "flatnetwork.pandaria.io/selectedMac"
 
