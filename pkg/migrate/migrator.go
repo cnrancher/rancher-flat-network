@@ -11,6 +11,7 @@ import (
 	flv1 "github.com/cnrancher/rancher-flat-network/pkg/apis/flatnetwork.pandaria.io/v1"
 	"github.com/cnrancher/rancher-flat-network/pkg/controller/wrangler"
 	"github.com/sirupsen/logrus"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -118,6 +119,13 @@ func (m *migrator) BackupV2(ctx context.Context, w io.Writer) error {
 	if crd != nil {
 		objs = append(objs, crd)
 	}
+	ns, err := m.getV2Namespace(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get %q CRD: %w", v2SubnetCRD, err)
+	}
+	if ns != nil {
+		objs = append(objs, ns)
+	}
 	subnets, err := m.listV2Subnets(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to list flatnetworksubnets.flatnetwork.pandaria.io: %w", err)
@@ -185,6 +193,13 @@ func (m *migrator) Restore(ctx context.Context, filePath string) error {
 		}
 		var err error
 		switch o.GetKind() {
+		case "Namespace":
+			ns := corev1.Namespace{}
+			err = yaml.Unmarshal([]byte(s), &ns)
+			if err != nil {
+				return fmt.Errorf("failed to unmarshal %v %v: %w", o.GetKind(), o.GetName(), err)
+			}
+			_, err = m.wctx.Core.Namespace().Create(&ns)
 		case "CustomResourceDefinition":
 			_, err = m.dynamicClientSet.Resource(crdResource()).Create(
 				ctx, &o, metav1.CreateOptions{})
