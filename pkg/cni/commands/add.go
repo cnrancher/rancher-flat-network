@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"strings"
 	"time"
 
 	"github.com/cnrancher/rancher-flat-network/pkg/cni/common"
@@ -268,9 +269,15 @@ func Add(args *skel.CmdArgs) error {
 	if subnet.Spec.RouteSettings.AddClusterCIDR {
 		logrus.Debugf("adding kube config clusterCIDR %q route to pod NS",
 			n.FlatNetworkConfig.ClusterCIDR)
-		err = route.AddPodKubeCIDRRoutes(netns, n.FlatNetworkConfig.ClusterCIDR)
-		if err != nil {
-			return fmt.Errorf("failed to add ClusterCIDR route: %w", err)
+		cidrs := strings.Split(n.FlatNetworkConfig.ClusterCIDR, ",")
+		for _, cidr := range cidrs {
+			if cidr == "" {
+				continue
+			}
+			err = route.AddPodKubeCIDRRoutes(netns, cidr)
+			if err != nil {
+				return fmt.Errorf("failed to add ClusterCIDR route: %w", err)
+			}
 		}
 	}
 
@@ -278,9 +285,15 @@ func Add(args *skel.CmdArgs) error {
 	if subnet.Spec.RouteSettings.AddServiceCIDR {
 		logrus.Debugf("adding kube config serviceCIDR %q route to pod NS",
 			n.FlatNetworkConfig.ServiceCIDR)
-		err = route.AddPodKubeCIDRRoutes(netns, n.FlatNetworkConfig.ServiceCIDR)
-		if err != nil {
-			return fmt.Errorf("failed to add ServiceCIDR route: %w", err)
+		cidrs := strings.Split(n.FlatNetworkConfig.ServiceCIDR, ",")
+		for _, cidr := range cidrs {
+			if cidr == "" {
+				continue
+			}
+			err = route.AddPodKubeCIDRRoutes(netns, cidr)
+			if err != nil {
+				return fmt.Errorf("failed to add ServiceCIDR route: %w", err)
+			}
 		}
 	}
 
