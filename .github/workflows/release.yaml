@@ -26,10 +26,14 @@ jobs:
       with:
         fetch-depth: 0
         ref: ${{ github.ref_name}}
+    - name: Install Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: 1.22.x
     - name: Lint
       uses: golangci/golangci-lint-action@v6
       with:
-        version: v1.59
+        version: v1.61
     - name: Verify
       run: |
         make verify
