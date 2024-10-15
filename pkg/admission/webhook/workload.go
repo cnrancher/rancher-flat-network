@@ -17,7 +17,6 @@ import (
 	flv1 "github.com/cnrancher/rancher-flat-network/pkg/apis/flatnetwork.pandaria.io/v1"
 	"github.com/cnrancher/rancher-flat-network/pkg/common"
 	"github.com/cnrancher/rancher-flat-network/pkg/ipcalc"
-	"github.com/cnrancher/rancher-flat-network/pkg/utils"
 	nettypes "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 )
 
@@ -376,8 +375,6 @@ func (h *Handler) validateMACsInUsed(
 		return nil
 	}
 	usedMAC := subnet.Status.DeepCopy().UsedMAC
-	logrus.Infof("XXXX anno macs %v", utils.Print(macs))
-	logrus.Infof("XXXX usedMac %v", utils.Print(usedMAC))
 	slices.Sort(usedMAC)
 	if flatnetworkIPs == nil {
 		flatnetworkIPs = []flv1.FlatNetworkIP{}
@@ -390,10 +387,8 @@ func (h *Handler) validateMACsInUsed(
 		if !ok {
 			continue
 		}
-		logrus.Infof("XXXX index %v", index)
 		usedMAC = append(usedMAC[:index], usedMAC[index+1:]...)
 	}
-	logrus.Infof("XXXX filted usedMac %v", utils.Print(usedMAC))
 	for _, mac := range macs {
 		if _, ok := slices.BinarySearch(usedMAC, mac); ok {
 			return fmt.Errorf("MAC %q already used by other pods", mac)
