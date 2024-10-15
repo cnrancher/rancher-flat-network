@@ -5,8 +5,8 @@ run:
   tests: false
   allow-parallel-runners: true
 
-# output:
-#   format: github-actions
+output:
+  format: github-actions
 
 linters:
   disable-all: true
@@ -67,6 +67,9 @@ linters-settings:
         alias: utilruntime
       - pkg: sigs.k8s.io/controller-runtime/pkg/client
         alias: runtimeclient
+  gosec:
+    excludes:
+      - G115 # https://github.com/moby/moby/issues/48358#issuecomment-2323339603
 
 issues:
   exclude-files:

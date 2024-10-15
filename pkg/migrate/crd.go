@@ -42,7 +42,7 @@ func (m *migrator) getV2SubnetCRD(ctx context.Context) (metav1.Object, error) {
 	return result, nil
 }
 
-func (m *migrator) getV2Namespace(ctx context.Context) (metav1.Object, error) {
+func (m *migrator) getV2Namespace(_ context.Context) (metav1.Object, error) {
 	result, err := m.wctx.Core.Namespace().Get(flv1.SubnetNamespace, metav1.GetOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
