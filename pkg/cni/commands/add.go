@@ -203,6 +203,12 @@ func Add(args *skel.CmdArgs) error {
 		if err == nil {
 			return
 		}
+		if subnet.Spec.RouteSettings.AddPodIPToHost {
+			err = route.DelFlatNetworkRouteFromHost(flatNetworkIP.Status.Addr)
+			if err != nil {
+				logrus.Errorf("DelFlatNetworkRouteFromHost failed: %v", err)
+			}
+		}
 		if err := ipam.ExecDel(n.IPAM.Type, ipamConf); err != nil {
 			logrus.Errorf("ipam.ExecDel failed on IPAM type %v in default NS: %v",
 				n.IPAM.Type, err)

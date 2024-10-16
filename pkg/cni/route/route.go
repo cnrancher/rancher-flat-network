@@ -212,6 +212,8 @@ func UpdatePodDefaultGateway(
 			if len(gateway) != 0 {
 				// User specified gateway may not reachable
 				replaced.Gw = gateway
+			} else {
+				replaced.Gw = nil
 			}
 			logrus.Debugf("request to replace default route %v", utils.Print(replaced))
 			if err := netlink.RouteReplace(&replaced); err != nil {
