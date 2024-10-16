@@ -204,6 +204,10 @@ func UpdatePodDefaultGateway(
 				// Only replace default routes...
 				continue
 			}
+			if !sameAddressFamily(&r, flatNetworkIP) {
+				// Only replace same address family routes
+				continue
+			}
 
 			replaced := r
 			// change dev to flatNetwork interface
@@ -252,6 +256,18 @@ func isDefaultRoute(r *netlink.Route) bool {
 	}
 	// If the route destination is 0.0.0.0 or ::, the route is a default route
 	if r.Dst.IP.Equal(net.ParseIP("0.0.0.0")) || r.Dst.IP.Equal(net.ParseIP("::")) {
+		return true
+	}
+	return false
+}
+
+func sameAddressFamily(r *netlink.Route, ip net.IP) bool {
+	switch r.Family {
+	case netlink.FAMILY_V4:
+		return ip.To4() != nil
+	case netlink.FAMILY_V6:
+		return ip.To4() == nil
+	case netlink.FAMILY_ALL:
 		return true
 	}
 	return false
