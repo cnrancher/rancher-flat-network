@@ -1,8 +1,6 @@
 # Rancher FlatNetwork V2
 
-Manager flatnetwork (Macvlan & IPvlan) workloads in Rancher.
-
-> **This chart is currently in experimental status and may not stable to use in production.**
+Manage flat network (Macvlan & IPvlan) workloads in Rancher.
 
 It is recommended to install this chart in `System` project.
 
