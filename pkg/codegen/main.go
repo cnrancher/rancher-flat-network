@@ -117,7 +117,7 @@ func main() {
 		data = append(data, []byte("---\n")...)
 		data = append(data, b...)
 	}
-	if err := saveCRDYaml("rancher-flat-network", string(data)); err != nil {
+	if err := saveCRDYaml("rancher-flat-network-crd", string(data)); err != nil {
 		panic(err)
 	}
 }

@@ -1,1 +1,1 @@
-# Rancher FlatNetwork Chart Template
+# Rancher FlatNetwork Charts
