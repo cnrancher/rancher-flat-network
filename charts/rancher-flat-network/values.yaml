@@ -44,7 +44,6 @@ flatNetworkCNI:
 multus:
   cni:
     version: "1.0.0"
-    kubeconfig: ""
   image:
     repository: "cnrancher/hardened-multus-cni"
     tag: "v4.1.3"

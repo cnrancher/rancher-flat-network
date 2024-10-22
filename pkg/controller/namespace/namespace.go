@@ -24,7 +24,7 @@ const (
 	netAttatchDefName = "rancher-flat-network"
 
 	arpPolicyEnv       = "FLAT_NETWORK_CNI_ARP_POLICY"
-	proxyARPEnv        = "FLAT_CNI_PROXY_ARP"
+	proxyARPEnv        = "FLAT_NETWORK_CNI_PROXY_ARP"
 	clusterCIDREnv     = "FLAT_NETWORK_CLUSTER_CIDR"
 	serviceCIDREnv     = "FLAT_NETWORK_SERVICE_CIDR"
 	defaultClusterCIDR = "10.42.0.0/16"
