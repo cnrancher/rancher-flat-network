@@ -10,6 +10,7 @@ maintainers:
 - email: starry.wang@suse.com
   name: StarryWang
 annotations:
+  catalog.cattle.io/auto-install: rancher-flat-network-crd=match
   catalog.cattle.io/certified: rancher
   catalog.cattle.io/display-name: Rancher FlatNetwork V2
   catalog.cattle.io/kube-version: '>= 1.25.0-0'
