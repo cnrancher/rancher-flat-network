@@ -19,11 +19,11 @@ require (
 	github.com/vishvananda/netlink v1.3.0
 	github.com/vishvananda/netns v0.0.4
 	gopkg.in/k8snetworkplumbingwg/multus-cni.v4 v4.0.2
-	k8s.io/api v0.30.5
-	k8s.io/apiextensions-apiserver v0.30.5
-	k8s.io/apimachinery v0.30.5
-	k8s.io/client-go v0.30.5
-	k8s.io/kubernetes v1.30.5
+	k8s.io/api v0.30.6
+	k8s.io/apiextensions-apiserver v0.30.6
+	k8s.io/apimachinery v0.30.6
+	k8s.io/client-go v0.30.6
+	k8s.io/kubernetes v1.30.6
 	sigs.k8s.io/yaml v1.4.0
 )
 
@@ -79,7 +79,7 @@ require (
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	k8s.io/code-generator v0.30.5 // indirect
+	k8s.io/code-generator v0.30.6 // indirect
 	k8s.io/gengo v0.0.0-20240228010128-51d4e06bde70 // indirect
 	k8s.io/gengo/v2 v2.0.0-20240228010128-51d4e06bde70 // indirect
 	k8s.io/klog/v2 v2.120.1 // indirect
