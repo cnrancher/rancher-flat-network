@@ -9,10 +9,10 @@
   </p>
 </div>
 
-Rancher Flat-Network Operator (based on [Wrangler V2](https://github.com/rancher/wrangler/)) & CNI plugin for managing
+Rancher Flat-Network Operator (based on [Rancher Wrangler](https://github.com/rancher/wrangler/)) & CNI plugin for managing
 pods using the flat-networks (Macvlan/IPvlan).
 
-## Current Progress
+## Features
 
 ### Operator
 
@@ -36,30 +36,14 @@ pods using the flat-networks (Macvlan/IPvlan).
 
 ## Usage
 
-### Operator
+Helm chart of rancher-flat-network V2 is available in `https://github.com/cnrancher/pandaria` repository.
 
-To build and run this flat-network operator manually:
+Example workloads are available in [docs](./docs/) directory.
 
-1. Prepare a clean Kubernetes cluster for testing purpose.
-
-1. Apply CRDs.
-
-    ```console
-    $ kubectl apply -f ./charts/rancher-flat-network/templates/crd.yaml
-    ```
-
-1. Build and run flat-network operator.
-
-    ```console
-    $ go build . && ./rancher-flat-network-operator --webhook-server=false
-    ```
-
-1. Example workloads are available in [docs](./docs/) directory, run following command to create example subnet & workloads for test.
-
-    ```console
-    $ kubectl apply -f ./docs/macvlan
-    $ kubectl apply -f ./docs/ipvlan
-    ```
+```console
+$ kubectl apply -f ./docs/macvlan
+$ kubectl apply -f ./docs/ipvlan
+```
 
 Environment variables for operator:
 
