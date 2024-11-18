@@ -1,12 +1,13 @@
 run:
   timeout: 5m
-  go: "1.22"
+  go: "1.23"
   skip-files:
   tests: false
   allow-parallel-runners: true
 
 output:
-  format: github-actions
+  formats:
+    - format: colored-line-number
 
 linters:
   disable-all: true
