@@ -16,7 +16,7 @@ flatNetworkOperator:
   cattleResyncDefault: ""
   cattleDevMode: ""
   limits:
-    memory: "512M"
+    memory: "512Mi"
     cpu: "100m"
   image:
     repository: "cnrancher/rancher-flat-network-operator"
