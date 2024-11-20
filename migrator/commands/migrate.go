@@ -12,14 +12,15 @@ import (
 
 type migrateCmd struct {
 	*baseCmd
-	workloadKinds string
+	workloadKinds  string
+	migrateService bool
 }
 
 func newMigrateCmd() *migrateCmd {
 	cc := &migrateCmd{}
 	cc.baseCmd = newBaseCmd(&cobra.Command{
 		Use:     "migrate",
-		Short:   "Migrate Rancher Macvlan (V1) CRD & Workloads to FlatNetwork V2",
+		Short:   "Migrate Rancher Macvlan (V1) CRD & Workloads & Services to FlatNetwork V2",
 		Long:    "",
 		Example: "rancher-flat-network-migrator migrate",
 		PreRun: func(cmd *cobra.Command, args []string) {
@@ -36,6 +37,7 @@ func newMigrateCmd() *migrateCmd {
 	flags := cc.baseCmd.cmd.Flags()
 	flags.StringVarP(&cc.workloadKinds, "workload", "", "deployment,daemonset,statefulset,cronjob,job",
 		"workload kinds to migrate, separated by comma")
+	flags.BoolVarP(&cc.migrateService, "migrate-service", "", true, "migrate macvlan v1 services to v2")
 
 	return cc
 }
@@ -51,11 +53,12 @@ func (cc *migrateCmd) run() error {
 	}
 
 	m := migrate.NewResourceMigrator(&migrate.MigratorOpts{
-		Config:        cfg,
-		WorkloadKinds: cc.workloadKinds,
-		Interval:      cc.baseCmd.interval,
-		ListLimit:     cc.baseCmd.listLimit,
-		AutoYes:       cc.baseCmd.autoYes,
+		Config:          cfg,
+		WorkloadKinds:   cc.workloadKinds,
+		MigrateServices: cc.migrateService,
+		Interval:        cc.baseCmd.interval,
+		ListLimit:       cc.baseCmd.listLimit,
+		AutoYes:         cc.baseCmd.autoYes,
 	})
 	if err := m.Run(signalContext); err != nil {
 		return fmt.Errorf("failed to migrate resource: %w", err)

@@ -24,6 +24,7 @@ type Migrator interface {
 	Run(context.Context) error
 	BackupV1(context.Context, io.Writer) error
 	BackupV2(context.Context, io.Writer) error
+	BackupV1Service(context.Context, io.Writer) error
 	Restore(context.Context, string) error
 	Clean(context.Context) error
 }
@@ -32,6 +33,7 @@ type migrator struct {
 	wctx             *wrangler.Context
 	dynamicClientSet *dynamic.DynamicClient
 	workloadKinds    []string
+	migrateServices  bool
 	interval         time.Duration
 	listLimit        int64
 	autoYes          bool
@@ -40,11 +42,12 @@ type migrator struct {
 var _ Migrator = &migrator{}
 
 type MigratorOpts struct {
-	Config        *rest.Config
-	WorkloadKinds string
-	Interval      time.Duration
-	ListLimit     int64
-	AutoYes       bool
+	Config          *rest.Config
+	WorkloadKinds   string
+	MigrateServices bool
+	Interval        time.Duration
+	ListLimit       int64
+	AutoYes         bool
 }
 
 func NewResourceMigrator(
@@ -68,6 +71,7 @@ func NewResourceMigrator(
 		wctx:             wctx,
 		dynamicClientSet: dc,
 		workloadKinds:    kinds,
+		migrateServices:  opts.MigrateServices,
 		interval:         opts.Interval,
 		listLimit:        limit,
 		autoYes:          opts.AutoYes,
@@ -86,6 +90,12 @@ func (m *migrator) Run(ctx context.Context) error {
 		if err := m.migrateWorkload(ctx, v); err != nil {
 			return fmt.Errorf("failed to migrate %v: %w",
 				v, err)
+		}
+	}
+
+	if m.migrateServices {
+		if err := m.migrateService(ctx); err != nil {
+			return fmt.Errorf("failed to migrate service: %w", err)
 		}
 	}
 	return nil
@@ -131,6 +141,17 @@ func (m *migrator) BackupV2(ctx context.Context, w io.Writer) error {
 		return fmt.Errorf("failed to list flatnetworksubnets.flatnetwork.pandaria.io: %w", err)
 	}
 	objs = append(objs, subnets...)
+	return saveYAML(objs, w)
+}
+
+func (m *migrator) BackupV1Service(ctx context.Context, w io.Writer) error {
+	logrus.Infof("Start backup macvlan V1 services")
+	var objs = []metav1.Object{}
+	services, err := m.listV1Service(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to list corev1.Service: %w", err)
+	}
+	objs = append(objs, services...)
 	return saveYAML(objs, w)
 }
 
@@ -213,6 +234,13 @@ func (m *migrator) Restore(ctx context.Context, filePath string) error {
 		case "MacvlanSubnet":
 			_, err = m.dynamicClientSet.Resource(macvlanSubnetResource()).
 				Namespace(o.GetNamespace()).Create(ctx, &o, metav1.CreateOptions{})
+		case "Service":
+			svc := corev1.Service{}
+			err = yaml.Unmarshal([]byte(s), &svc)
+			if err != nil {
+				return fmt.Errorf("failed to unmarshal %v %v: %w", o.GetKind(), o.GetName(), err)
+			}
+			_, err = m.wctx.Core.Service().Create(&svc)
 		default:
 			logrus.Warnf("skip kind %v", o.GetKind())
 		}

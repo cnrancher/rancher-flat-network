@@ -14,16 +14,17 @@ import (
 type backupCmd struct {
 	*baseCmd
 
-	backupV1 bool
-	backupV2 bool
-	output   string
+	backupV1        bool
+	backupV2        bool
+	backupV1Service bool
+	output          string
 }
 
 func newBackupCmd() *backupCmd {
 	cc := &backupCmd{}
 	cc.baseCmd = newBaseCmd(&cobra.Command{
 		Use:     "backup",
-		Short:   "Backup Macvlan (V1) & FlatNetwork (V2) subnet CRD resources",
+		Short:   "Backup Macvlan (V1) & FlatNetwork (V2) subnet CRD and Service resources",
 		Long:    "",
 		Example: "rancher-flat-network-migrator backup",
 		PreRun: func(cmd *cobra.Command, args []string) {
@@ -42,6 +43,8 @@ func newBackupCmd() *backupCmd {
 		"backup V1 ('macvlansubnets.macvlan.cluster.cattle.io') CRD resources")
 	flags.BoolVarP(&cc.backupV2, "v2", "", true,
 		"backup V2 ('flatnetworksubnets.flatnetwork.pandaria.io') CRD resources")
+	flags.BoolVarP(&cc.backupV1Service, "v1-service", "", true,
+		"backup V1 macvlan service resources")
 	flags.StringVarP(&cc.output, "output", "o", "flat-network-backup-output.yaml", "backup output file")
 
 	return cc
@@ -87,6 +90,12 @@ func (cc *backupCmd) run() error {
 			return fmt.Errorf("failed to backup FlatNetwork V2 resources: %w", err)
 		}
 	}
+	if cc.backupV1Service {
+		if err := m.BackupV1Service(signalContext, file); err != nil {
+			return fmt.Errorf("failed to backup Rancher Macvlan V1 services: %w", err)
+		}
+	}
+
 	logrus.Infof("-----------------------------")
 	logrus.Infof("Output CRD resources backup to %q", cc.output)
 	logrus.Infof("You can use '%v restore' or 'kubectl create' to restore", os.Args[0])

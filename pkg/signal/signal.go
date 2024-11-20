@@ -35,7 +35,7 @@ func SetupSignalContext() context.Context {
 		<-shutdownHandler
 
 		// second signal. Exit directly.
-		logrus.Warnf("registry-jobs was forced to stop.")
+		logrus.Warnf("Forced stop.")
 		os.Exit(130)
 	}()
 

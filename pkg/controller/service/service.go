@@ -69,6 +69,9 @@ func (h *handler) syncService(_ string, svc *corev1.Service) (*corev1.Service, e
 	case utils.IsFlatNetworkService(svc):
 		// sync flat-network service created by operator or user manually.
 		return h.handleFlatNetworkService(svc)
+	case utils.IsMacvlanV1Service(svc):
+		// Skip Macvlan V1 services
+		return svc, nil
 	default:
 		// sync other non-flat-network services.
 		return h.handleDefaultService(svc)

@@ -76,7 +76,34 @@ const (
 	FlatNetworkServiceNameSuffix = "-flat-network"
 
 	NetAttatchDefName = "rancher-flat-network"
+
+	V1NetAttachDefName = "static-macvlan-cni-attach"
+
+	clusterIPNone = "None"
 )
+
+func IsMacvlanV1Service(svc *corev1.Service) bool {
+	if !strings.HasSuffix(svc.Name, "-macvlan") {
+		return false
+	}
+	if svc.Spec.Type != "ClusterIP" {
+		return false
+	}
+	if len(svc.Spec.ClusterIPs) != 0 {
+		if svc.Spec.ClusterIPs[0] != clusterIPNone {
+			return false
+		}
+	} else if svc.Spec.ClusterIP != clusterIPNone {
+		return false
+	}
+	if svc.Annotations == nil {
+		return false
+	}
+	if svc.Annotations[nettypes.NetworkAttachmentAnnot] != V1NetAttachDefName {
+		return false
+	}
+	return true
+}
 
 // Check if this service is a flat-network service.
 //
@@ -92,10 +119,10 @@ func IsFlatNetworkService(svc *corev1.Service) bool {
 		return false
 	}
 	if len(svc.Spec.ClusterIPs) != 0 {
-		if svc.Spec.ClusterIPs[0] != "None" {
+		if svc.Spec.ClusterIPs[0] != clusterIPNone {
 			return false
 		}
-	} else if svc.Spec.ClusterIP != "None" {
+	} else if svc.Spec.ClusterIP != clusterIPNone {
 		return false
 	}
 	if svc.Annotations == nil {
