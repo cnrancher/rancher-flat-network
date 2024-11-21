@@ -14,6 +14,7 @@ import (
 
 const (
 	PodIfaceEth0 = "eth0"
+	PodIfaceEth1 = "eth1"
 )
 
 // getPodNativeIP returns IP on Pod iface eth0

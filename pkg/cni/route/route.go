@@ -10,6 +10,7 @@ import (
 	"github.com/vishvananda/netlink/nl"
 
 	flv1 "github.com/cnrancher/rancher-flat-network/pkg/apis/flatnetwork.pandaria.io/v1"
+	"github.com/cnrancher/rancher-flat-network/pkg/cni/common"
 	"github.com/cnrancher/rancher-flat-network/pkg/utils"
 )
 
@@ -143,6 +144,11 @@ func AddPodFlatNetworkCustomRoutes(podNS ns.NetNS, customRoutes []flv1.Route) er
 	}
 	err := podNS.Do(func(_ ns.NetNS) error {
 		for _, r := range customRoutes {
+			if r.Dev == common.PodIfaceEth1 {
+				// eth1 route is managed by ipam
+				continue
+			}
+
 			link, err := netlink.LinkByName(r.Dev)
 			if err != nil {
 				return fmt.Errorf("failed to get link %q in pod: %w",
@@ -244,6 +250,35 @@ func UpdatePodDefaultGateway(
 		logrus.Debugf("pod route list: %v", utils.Print(routes))
 	}
 	return nil
+}
+
+// PrintRoutes prints routes when **DEBUG LOG LEVEL** enabled.
+func PrintRoutes() {
+	if !logrus.IsLevelEnabled(logrus.DebugLevel) {
+		return
+	}
+
+	routes, err := netlink.RouteList(nil, netlink.FAMILY_ALL)
+	if err != nil {
+		logrus.Errorf("failed to list route: %v", err)
+		return
+	}
+
+	for _, r := range routes {
+		if r.Dst == nil {
+			if r.Family == netlink.FAMILY_V6 {
+				_, r.Dst, _ = net.ParseCIDR("::/0")
+			} else {
+				_, r.Dst, _ = net.ParseCIDR("0.0.0.0/0")
+			}
+		}
+		link, err := netlink.LinkByIndex(r.LinkIndex)
+		if err != nil {
+			logrus.Errorf("failed to get link by index %v: %v", r.LinkIndex, err)
+		}
+		logrus.Debugf("dev[%v] dst[%v] gw[%v] metrics[%v]",
+			link.Attrs().Name, r.Dst.String(), r.Gw.String(), r.Priority)
+	}
 }
 
 func isDefaultRoute(r *netlink.Route) bool {

@@ -186,7 +186,7 @@ func Add(args *skel.CmdArgs) error {
 	}()
 
 	// run the IPAM plugin and get back the config to apply
-	ipamConf, err := mergeIPAMConfig(n, flatNetworkIP, subnet)
+	ipamConf, err := mergeIPAMConfig(args.IfName, n, flatNetworkIP, subnet)
 	if err != nil {
 		return fmt.Errorf("failed to merge IPAM config on netConf [%v]: %w",
 			utils.Print(n), err)
@@ -247,6 +247,9 @@ func Add(args *skel.CmdArgs) error {
 			return fmt.Errorf("configure ip failed, error: %v, interface: %s, result: %+v",
 				err, args.IfName, result)
 		}
+
+		logrus.Debugf("routes after executing ipam.ConfigureIface:")
+		route.PrintRoutes()
 
 		if n.FlatNetworkConfig.ARPPolicy == arpingPolicy {
 			logrus.Debugf("sending arping request: %s", args.IfName)

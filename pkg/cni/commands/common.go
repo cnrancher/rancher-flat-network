@@ -24,7 +24,8 @@ func loadCNINetConf(bytes []byte) (*types.NetConf, error) {
 }
 
 func mergeIPAMConfig(
-	netConf *types.NetConf, flatNetworkIP *flv1.FlatNetworkIP, subnet *flv1.FlatNetworkSubnet,
+	ifName string, netConf *types.NetConf,
+	flatNetworkIP *flv1.FlatNetworkIP, subnet *flv1.FlatNetworkSubnet,
 ) ([]byte, error) {
 	address := flatNetworkIP.Status.Addr
 	_, n, err := net.ParseCIDR(subnet.Spec.CIDR)
@@ -57,7 +58,7 @@ func mergeIPAMConfig(
 		}
 	}
 
-	if len(routes) != 0 {
+	if len(routes) != 0 && ifName != common.PodIfaceEth0 {
 		rs := []*cnitypes.Route{}
 		for _, v := range routes {
 			if v.Dev != "" && v.Dev == common.PodIfaceEth0 {
@@ -77,7 +78,7 @@ func mergeIPAMConfig(
 		netConf.IPAM.Routes = rs
 	}
 	logrus.Debugf("merged IPAM addresses: %v", utils.Print(netConf.IPAM))
-	return json.Marshal(netConf)
+	return json.MarshalIndent(netConf, "", "  ")
 }
 
 func get6to4CIDR(ip net.IP, size int) string {
