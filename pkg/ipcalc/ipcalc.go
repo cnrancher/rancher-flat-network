@@ -338,8 +338,8 @@ func CheckNetworkConflict(cidr1, cidr2 string) error {
 			cidr2, err)
 	}
 	if ip1.Equal(ip2) {
-		return fmt.Errorf("network [%v] already used in another subnet CIDR [%v]: %w",
-			cidr1, cidr2, ErrNetworkConflict)
+		return fmt.Errorf("network [%v] already used: %w",
+			cidr1, ErrNetworkConflict)
 	}
 	if n1.Contains(ip2) {
 		return fmt.Errorf("network [%v] contains CIDR [%v]: %w",
@@ -361,11 +361,12 @@ func CheckIPRangesConflict(ranges1, ranges2 []flv1.IPRange) error {
 	for _, r1 := range ranges1 {
 		for _, r2 := range ranges2 {
 			if err := ipRangeConflict(r1, r2); err != nil {
-				return fmt.Errorf("failed to validate range conflict on [%v] [%v]: %w",
-					r1, r2, err)
+				return fmt.Errorf("range [%v] conflict with [%v]: %w",
+					r1.String(), r2.String(), err)
 			}
 		}
 	}
+
 	return nil
 }
 
@@ -380,10 +381,11 @@ func ipRangeConflict(r1, r2 flv1.IPRange) error {
 	if b1 == nil || b2 == nil {
 		return fmt.Errorf("invalid IP Range provided: %v", utils.Print(r2))
 	}
-	if bytes.Compare(a1, b1) >= 0 && bytes.Compare(a2, b2) <= 0 {
+	ranges := []flv1.IPRange{r2}
+	if IPInRanges(a1, ranges) {
 		return ErrIPRangesConflict
 	}
-	if bytes.Compare(b1, a1) >= 0 && bytes.Compare(b2, a2) <= 0 {
+	if IPInRanges(a2, ranges) {
 		return ErrIPRangesConflict
 	}
 	return nil

@@ -120,10 +120,6 @@ func CheckSubnetConflict(
 	if len(subnets) == 0 {
 		return nil
 	}
-	networkIP, _, err := net.ParseCIDR(subnet.Spec.CIDR)
-	if err != nil {
-		return fmt.Errorf("failed to parse CIDR %q: %w", subnet.Spec.CIDR, err)
-	}
 	for _, s := range subnets {
 		if s == nil {
 			continue
@@ -132,29 +128,27 @@ func CheckSubnetConflict(
 			continue
 		}
 		if s.Spec.FlatMode != subnet.Spec.FlatMode {
-			continue
+			continue // skip using different flatMode
 		}
-
-		ip, _, err := net.ParseCIDR(s.Spec.CIDR)
-		if err != nil {
-			return fmt.Errorf("failed to parse CIDR %q of subnet %q: %w",
-				s.Spec.CIDR, s.Name, err)
+		if s.Spec.VLAN != subnet.Spec.VLAN {
+			continue // skip using different VLAN
 		}
-		if !ip.Equal(networkIP) {
-			continue
-		}
-		// Subnet are using a same network IP, may have a potential conflict
-		if len(subnet.Spec.Ranges) == 0 {
-			return fmt.Errorf("subnet CIDR conflict: %q already used by subnet [%v]",
-				subnet.Spec.CIDR, s.Name)
-		}
-		if err := ipcalc.CheckIPRangesConflict(subnet.Spec.Ranges, s.Spec.Ranges); err != nil {
-			return fmt.Errorf("subnet CIDR conflict: range conflict with subnet [%v]: %w",
-				subnet.Name, err)
-		}
-
 		if err := ipcalc.CheckNetworkConflict(s.Spec.CIDR, subnet.Spec.CIDR); err != nil {
-			return fmt.Errorf("subnet [%v] and [%v] have potential conflicts: %w",
+			if len(s.Spec.Ranges) != 0 && len(subnet.Spec.Ranges) != 0 {
+				err := ipcalc.CheckIPRangesConflict(subnet.Spec.Ranges, s.Spec.Ranges)
+				if err != nil {
+					// Subnets using same CIDR and with conflict ranges,
+					// return ip range conflicts.
+					return fmt.Errorf("range conflict with subnet [%v]: %w",
+						s.Name, err)
+				}
+				// Subnets using the same CIDR but different ranges, pass.
+				return nil
+			}
+
+			// Subnet using same CIDR and not providing ranges,
+			// return CIDR conflict.
+			return fmt.Errorf("subnet [%v] and [%v] have potential CIDR conflicts: %w",
 				s.Name, subnet.Name, err)
 		}
 	}

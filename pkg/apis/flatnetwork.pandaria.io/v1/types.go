@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"fmt"
 	"net"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -188,4 +189,13 @@ type RouteSettings struct {
 type IPRange struct {
 	From net.IP `json:"from"`
 	To   net.IP `json:"to"`
+}
+
+func (r *IPRange) String() string {
+	if r == nil {
+		return "<nil>"
+	}
+
+	return fmt.Sprintf("'%v'-'%v'",
+		r.From.String(), r.To.String())
 }

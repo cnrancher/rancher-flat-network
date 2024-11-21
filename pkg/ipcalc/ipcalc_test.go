@@ -673,33 +673,70 @@ func Test_ipRangeConflict(t *testing.T) {
 	assert.ErrorContains(t, ipRangeConflict(r1, r2), "invalid")
 
 	r1 = flv1.IPRange{
-		From: net.ParseIP("192.168.10.110"),
-		To:   net.ParseIP("192.168.10.200"),
+		From: net.ParseIP("192.168.10.10"),
+		To:   net.ParseIP("192.168.10.20"),
 	}
 	r2 = flv1.IPRange{}
 	assert.ErrorContains(t, ipRangeConflict(r1, r2), "invalid")
 
 	r2 = flv1.IPRange{
-		From: net.ParseIP("192.168.10.110"),
-		To:   net.ParseIP("192.168.10.110"),
+		From: net.ParseIP("192.168.10.10"),
+		To:   net.ParseIP("192.168.10.10"),
 	}
 	assert.ErrorIs(t, ipRangeConflict(r1, r2), ErrIPRangesConflict)
 
 	r2 = flv1.IPRange{
-		From: net.ParseIP("192.168.10.110"),
-		To:   net.ParseIP("192.168.10.200"),
+		From: net.ParseIP("192.168.10.10"),
+		To:   net.ParseIP("192.168.10.20"),
 	}
 	assert.ErrorIs(t, ipRangeConflict(r1, r2), ErrIPRangesConflict)
 
 	r2 = flv1.IPRange{
-		From: net.ParseIP("192.168.10.200"),
-		To:   net.ParseIP("192.168.10.200"),
+		From: net.ParseIP("192.168.10.20"),
+		To:   net.ParseIP("192.168.10.20"),
+	}
+	assert.ErrorIs(t, ipRangeConflict(r1, r2), ErrIPRangesConflict)
+
+	r2 = flv1.IPRange{
+		From: net.ParseIP("192.168.10.15"),
+		To:   net.ParseIP("192.168.10.20"),
+	}
+	assert.ErrorIs(t, ipRangeConflict(r1, r2), ErrIPRangesConflict)
+
+	r2 = flv1.IPRange{
+		From: net.ParseIP("192.168.10.15"),
+		To:   net.ParseIP("192.168.10.25"),
 	}
 	assert.ErrorIs(t, ipRangeConflict(r1, r2), ErrIPRangesConflict)
 
 	r2 = flv1.IPRange{
 		From: net.ParseIP("192.168.10.1"),
-		To:   net.ParseIP("192.168.10.100"),
+		To:   net.ParseIP("192.168.10.9"),
 	}
 	assert.ErrorIs(t, ipRangeConflict(r1, r2), nil)
+
+	r2 = flv1.IPRange{
+		From: net.ParseIP("192.168.10.21"),
+		To:   net.ParseIP("192.168.10.30"),
+	}
+	assert.ErrorIs(t, ipRangeConflict(r1, r2), nil)
+}
+
+func Test_CheckIPRangesConflict(t *testing.T) {
+	assert := assert.New(t)
+	r1 := []flv1.IPRange{
+		{
+			From: net.ParseIP(""),
+			To:   net.ParseIP(""),
+		},
+	}
+	r2 := []flv1.IPRange{
+		{
+			From: net.ParseIP(""),
+			To:   net.ParseIP(""),
+		},
+	}
+
+	CheckIPRangesConflict(r1, r2)
+	assert.Empty(nil)
 }

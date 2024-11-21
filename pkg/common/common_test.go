@@ -5,8 +5,10 @@ import (
 	"testing"
 
 	flv1 "github.com/cnrancher/rancher-flat-network/pkg/apis/flatnetwork.pandaria.io/v1"
+	"github.com/cnrancher/rancher-flat-network/pkg/ipcalc"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func Test_checkSubnetFlatMode(t *testing.T) {
@@ -54,10 +56,18 @@ func Test_checkSubnetFlatMode(t *testing.T) {
 			Gateway:  net.IPv4(192, 168, 12, 1),
 		},
 	}
+	// All subnets on eth0.10 are using same flatMode: macvlan
 	assert.Nil(t, CheckSubnetFlatMode(subnet, subnets))
 
+	// eth0.10 already used by macvlan
 	subnet.Spec.FlatMode = flv1.FlatModeIPvlan
-	assert.NotNil(t, CheckSubnetFlatMode(subnet, subnets))
+	subnet.Spec.Mode = "l2"
+	subnet.Spec.IPvlanFlag = "bridge"
+	err := CheckSubnetFlatMode(subnet, subnets)
+	assert.ErrorContains(t, err, "already using master iface [eth0.10]")
+
+	subnet.Spec.VLAN = 20
+	assert.Nil(t, CheckSubnetFlatMode(subnet, subnets))
 }
 
 func Test_CheckPodAnnotationIPs(t *testing.T) {
@@ -110,4 +120,111 @@ func Test_CheckPodAnnotationMACs(t *testing.T) {
 	macs, err = CheckPodAnnotationMACs("aa:bb:cc:dd:ef:01-aa:bb:cc:dd:ef:02-aa:bb:cc:dd:ef:03:aa")
 	assert.Empty(t, macs)
 	assert.NotNil(t, err)
+}
+
+func Test_CheckSubnetConflict(t *testing.T) {
+	assert := assert.New(t)
+	var err error
+
+	subnets := []*flv1.FlatNetworkSubnet{
+		{
+			ObjectMeta: v1.ObjectMeta{
+				Name: "t1",
+			},
+			Spec: flv1.SubnetSpec{
+				FlatMode: "macvlan",
+				Master:   "eth0",
+				VLAN:     10,
+				CIDR:     "192.168.1.0/24",
+				Mode:     "bridge",
+				Ranges: []flv1.IPRange{
+					{
+						From: net.ParseIP("192.168.1.10"),
+						To:   net.ParseIP("192.168.1.20"),
+					},
+				},
+			},
+		},
+		{
+			ObjectMeta: v1.ObjectMeta{
+				Name: "t2",
+			},
+			Spec: flv1.SubnetSpec{
+				FlatMode: "macvlan",
+				Master:   "eth0",
+				VLAN:     20,
+				CIDR:     "192.168.1.0/24",
+				Mode:     "bridge",
+				Ranges:   []flv1.IPRange{},
+			},
+		},
+	}
+
+	s1 := &flv1.FlatNetworkSubnet{
+		ObjectMeta: v1.ObjectMeta{
+			Name: "a1",
+		},
+		Spec: flv1.SubnetSpec{
+			FlatMode: "macvlan",
+			Master:   "eth0",
+			VLAN:     10,
+			CIDR:     "192.168.1.0/24",
+			Mode:     "bridge",
+			Ranges:   []flv1.IPRange{},
+		},
+	}
+	// default range is 192.168.1.1 - 192.168.1.254
+	err = CheckSubnetConflict(s1, subnets)
+	assert.ErrorIs(err, ipcalc.ErrNetworkConflict) // should return CIDR conflict
+	t.Log(err)
+
+	// add range 192.168.1.10 - 192.168.1.20
+	s1.Spec.Ranges = append(s1.Spec.Ranges, flv1.IPRange{
+		From: net.ParseIP("192.168.1.10"),
+		To:   net.ParseIP("192.168.1.20"),
+	})
+	err = CheckSubnetConflict(s1, subnets)
+	assert.ErrorIs(err, ipcalc.ErrIPRangesConflict) // should return ip ranges conflict
+	t.Log(err)
+
+	s1.Spec.Ranges[0].From = net.ParseIP("192.168.1.15") // 192.168.1.15 - 192.168.1.20
+	err = CheckSubnetConflict(s1, subnets)
+	assert.ErrorIs(err, ipcalc.ErrIPRangesConflict) // should return ip ranges conflict
+	t.Log(err)
+
+	s1.Spec.Ranges[0].To = net.ParseIP("192.168.1.25") // 192.168.1.15 - 192.168.1.25
+	err = CheckSubnetConflict(s1, subnets)
+	assert.ErrorIs(err, ipcalc.ErrIPRangesConflict) // should return ip ranges conflict
+	t.Log(err)
+
+	s1.Spec.Ranges[0].From = net.ParseIP("192.168.1.20") // 192.168.1.20 - 192.168.1.25
+	err = CheckSubnetConflict(s1, subnets)
+	assert.ErrorIs(err, ipcalc.ErrIPRangesConflict) // should return ip ranges conflict
+	t.Log(err)
+
+	s1.Spec.Ranges[0].From = net.ParseIP("192.168.1.100")
+	s1.Spec.Ranges[0].To = net.ParseIP("192.168.1.200") // 192.168.1.100 - 192.168.1.200
+	err = CheckSubnetConflict(s1, subnets)
+	assert.Nil(err) // should not return error
+	t.Log(err)
+
+	s1.Spec.Ranges[0].From = net.ParseIP("192.168.1.0")
+	s1.Spec.Ranges[0].To = net.ParseIP("192.168.1.9") // 192.168.1.0 - 192.168.1.9
+	err = CheckSubnetConflict(s1, subnets)
+	assert.Nil(err) // should not return error
+	t.Log(err)
+
+	s1.Spec.Ranges[0].From = net.ParseIP("192.168.1.15")
+	s1.Spec.Ranges[0].To = net.ParseIP("192.168.1.25") // 192.168.1.0 - 192.168.1.9
+	s1.Spec.VLAN = 5                                   // using diff VLAN ID
+	err = CheckSubnetConflict(s1, subnets)
+	assert.Nil(err) // should not return error
+	t.Log(err)
+
+	s1.Spec.VLAN = 20 // using same VLAN ID with t2
+	err = CheckSubnetConflict(s1, subnets)
+	// subnet t2 does not have custom ip range specified,
+	// should return CIDR conflict.
+	assert.ErrorIs(err, ipcalc.ErrNetworkConflict)
+	t.Log(err)
 }
