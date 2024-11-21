@@ -112,7 +112,7 @@ func (m *migrator) BackupV1(ctx context.Context, w io.Writer) error {
 	if crd != nil {
 		objs = append(objs, crd)
 	}
-	subnets, err := m.listV1Subnets(ctx)
+	subnets, err := m.listV1Resources(ctx, macvlanSubnetResource())
 	if err != nil {
 		return fmt.Errorf("failed to list %v: %w", v1SubnetCRD, err)
 	}
@@ -261,7 +261,7 @@ func (m *migrator) Restore(ctx context.Context, filePath string) error {
 }
 
 func (m *migrator) Clean(ctx context.Context) error {
-	ips, err := m.listV1IPs(ctx)
+	ips, err := m.listV1Resources(ctx, macvlanIPResource())
 	if err != nil {
 		if !apierrors.IsNotFound(err) {
 			return fmt.Errorf("failed to list %q: %w", v1IPCRD, err)
@@ -282,15 +282,11 @@ func (m *migrator) Clean(ctx context.Context) error {
 		return fmt.Errorf("unable to cleanup: pods are still using Macvlan V1")
 	}
 
-	subnets, err := m.listV1Subnets(ctx)
+	subnets, err := m.listV1Resources(ctx, macvlanSubnetResource())
 	if err != nil {
 		if !apierrors.IsNotFound(err) {
 			return fmt.Errorf("failed to list %q: %w", v1SubnetCRD, err)
 		}
-	}
-	if len(subnets) == 0 {
-		logrus.Infof("%q resources already cleaned up", v1SubnetCRD)
-		return nil
 	}
 	for _, s := range subnets {
 		if err := m.deleteV1Subnet(ctx, s.GetNamespace(), s.GetName()); err != nil {
