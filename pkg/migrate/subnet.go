@@ -19,6 +19,41 @@ import (
 	flv1 "github.com/cnrancher/rancher-flat-network/pkg/apis/flatnetwork.pandaria.io/v1"
 )
 
+// listV1IPs list all Macvlan (V1) ip resources
+func (m *migrator) listV1IPs(ctx context.Context) ([]metav1.Object, error) {
+	listOptions := metav1.ListOptions{
+		Limit: m.listLimit,
+	}
+	var (
+		macvlanIPs = []metav1.Object{}
+		listResult *unstructured.UnstructuredList
+		err        error
+	)
+
+	for listResult == nil || listOptions.Continue != "" {
+		listResult, err = m.dynamicClientSet.Resource(macvlanIPResource()).List(ctx, listOptions)
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				logrus.Warnf("skip MacvlanSubnet resource: %q CRD not found", v1SubnetCRD)
+				return nil, nil
+			}
+			return nil, fmt.Errorf("failed to list MacvlanSubnet resource: %w", err)
+		}
+		for i := 0; i < len(listResult.Items); i++ {
+			macvlanIP := &types.MacvlanIP{}
+			err := runtime.DefaultUnstructuredConverter.
+				FromUnstructured(listResult.Items[i].Object, macvlanIP)
+			if err != nil {
+				return nil, fmt.Errorf("failed to convert unstruct object to macvlan.cluster.cattle.io/v1 MacvlanIP: %w", err)
+			}
+			macvlanIPs = append(macvlanIPs, macvlanIP)
+		}
+		listOptions.Continue = listResult.GetContinue()
+		time.Sleep(m.interval)
+	}
+	return macvlanIPs, nil
+}
+
 // listV1Subnets list all Macvlan (V1) subnet resources
 func (m *migrator) listV1Subnets(ctx context.Context) ([]metav1.Object, error) {
 	listOptions := metav1.ListOptions{
@@ -55,7 +90,7 @@ func (m *migrator) listV1Subnets(ctx context.Context) ([]metav1.Object, error) {
 }
 
 func (m *migrator) deleteV1Subnet(ctx context.Context, ns, name string) error {
-	fmt.Printf("%q: %v will be deleted, continue? [Y/n]", v1SubnetCRD, name)
+	fmt.Printf("%q: subnet [%v] will be deleted, continue? [Y/n]", v1SubnetCRD, name)
 	var s string
 	if m.autoYes {
 		fmt.Println("y")
@@ -79,29 +114,38 @@ func (m *migrator) deleteV1Subnet(ctx context.Context, ns, name string) error {
 }
 
 func (m *migrator) deleteV1CRD(ctx context.Context) error {
-	fmt.Printf("%q CRD will be deleted, continue? [Y/n]", v1SubnetCRD)
-	var s string
-	if m.autoYes {
-		fmt.Println("y")
-	} else {
-		if _, err := utils.Scanf(ctx, "%s", &s); err != nil {
-			return err
-		}
-		if len(s) != 0 && s[0] != 'y' && s[0] != 'Y' {
-			return fmt.Errorf("abort by user")
-		}
+	crds := []string{
+		v1IPCRD,
+		v1SubnetCRD,
 	}
 
-	err := m.dynamicClientSet.Resource(crdResource()).
-		Delete(ctx, v1SubnetCRD, metav1.DeleteOptions{})
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			logrus.Infof("%v already deleted", v1SubnetCRD)
-			return nil
+	for _, crd := range crds {
+		logrus.Infof("-----------------------------------")
+		fmt.Printf("%q CRD will be deleted, continue? [Y/n]", crd)
+		var s string
+		if m.autoYes {
+			fmt.Println("y")
+		} else {
+			if _, err := utils.Scanf(ctx, "%s", &s); err != nil {
+				return err
+			}
+			if len(s) != 0 && s[0] != 'y' && s[0] != 'Y' {
+				return fmt.Errorf("abort by user")
+			}
 		}
-		return fmt.Errorf("failed to delete CRD %v: %w", v1SubnetCRD, err)
+
+		err := m.dynamicClientSet.Resource(crdResource()).
+			Delete(ctx, crd, metav1.DeleteOptions{})
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				logrus.Infof("%v already deleted", crd)
+				return nil
+			}
+			return fmt.Errorf("failed to delete CRD %v: %w", crd, err)
+		}
+		logrus.Infof("delete %v", crd)
 	}
-	logrus.Infof("delete %v", v1SubnetCRD)
+
 	return nil
 }
 
@@ -278,6 +322,14 @@ func macvlanSubnetResource() schema.GroupVersionResource {
 		Group:    "macvlan.cluster.cattle.io",
 		Version:  "v1",
 		Resource: "macvlansubnets",
+	}
+}
+
+func macvlanIPResource() schema.GroupVersionResource {
+	return schema.GroupVersionResource{
+		Group:    "macvlan.cluster.cattle.io",
+		Version:  "v1",
+		Resource: "macvlanips",
 	}
 }
 

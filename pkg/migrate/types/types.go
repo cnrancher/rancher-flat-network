@@ -38,3 +38,21 @@ type PodDefaultGateway struct {
 	Enable      bool   `json:"enable,omitempty"`
 	ServiceCIDR string `json:"serviceCidr,omitempty"`
 }
+
+///////////////////
+
+// MacvlanIP is a specification for a MacvlanIP resource
+type MacvlanIP struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+
+	Spec MacvlanIPSpec `json:"spec"`
+}
+
+// MacvlanIPSpec is the spec for a MacvlanIP resource
+type MacvlanIPSpec struct {
+	Subnet string `json:"subnet"`
+	PodID  string `json:"podId"`
+	CIDR   string `json:"cidr"`
+	MAC    string `json:"mac"`
+}

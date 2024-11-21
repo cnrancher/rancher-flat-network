@@ -16,7 +16,7 @@ func newCleanCmd() *cleanCmd {
 	cc := &cleanCmd{}
 	cc.baseCmd = newBaseCmd(&cobra.Command{
 		Use:     "clean",
-		Short:   "Cleanup Macvlan (V1) CRD resources",
+		Short:   "Cleanup Macvlan V1 CRD (macvlanip & macvlansubnets) resources",
 		Long:    "",
 		Example: "rancher-flat-network-migrator clean",
 		PreRun: func(cmd *cobra.Command, args []string) {

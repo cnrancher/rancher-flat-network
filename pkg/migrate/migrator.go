@@ -10,6 +10,7 @@ import (
 
 	flv1 "github.com/cnrancher/rancher-flat-network/pkg/apis/flatnetwork.pandaria.io/v1"
 	"github.com/cnrancher/rancher-flat-network/pkg/controller/wrangler"
+	"github.com/cnrancher/rancher-flat-network/pkg/migrate/types"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -260,17 +261,40 @@ func (m *migrator) Restore(ctx context.Context, filePath string) error {
 }
 
 func (m *migrator) Clean(ctx context.Context) error {
+	ips, err := m.listV1IPs(ctx)
+	if err != nil {
+		if !apierrors.IsNotFound(err) {
+			return fmt.Errorf("failed to list %q: %w", v1IPCRD, err)
+		}
+	}
+	if len(ips) != 0 {
+		logrus.Warnf("unable to cleanup macvlanIP Resources: some pods still using Macvlan V1")
+		logrus.Warnf("pods using Macvlan V1:")
+		for _, ip := range ips {
+			ip, _ := ip.(*types.MacvlanIP)
+			if ip == nil {
+				continue
+			}
+			logrus.Warnf("POD [%v/%v]: subnet [%v]",
+				ip.Namespace, ip.Name, ip.Spec.Subnet)
+		}
+		logrus.Warnf("please ensure no workloads are using Macvlan V1 before cleanup CRDs")
+		return fmt.Errorf("unable to cleanup: pods are still using Macvlan V1")
+	}
+
 	subnets, err := m.listV1Subnets(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to list %q: %w", v1SubnetCRD, err)
+		if !apierrors.IsNotFound(err) {
+			return fmt.Errorf("failed to list %q: %w", v1SubnetCRD, err)
+		}
 	}
 	if len(subnets) == 0 {
 		logrus.Infof("%q resources already cleaned up", v1SubnetCRD)
-	} else {
-		for _, s := range subnets {
-			if err := m.deleteV1Subnet(ctx, s.GetNamespace(), s.GetName()); err != nil {
-				return err
-			}
+		return nil
+	}
+	for _, s := range subnets {
+		if err := m.deleteV1Subnet(ctx, s.GetNamespace(), s.GetName()); err != nil {
+			return err
 		}
 	}
 	if err := m.deleteV1CRD(ctx); err != nil {

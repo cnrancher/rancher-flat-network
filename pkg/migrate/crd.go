@@ -13,6 +13,7 @@ import (
 
 const (
 	v1SubnetCRD = "macvlansubnets.macvlan.cluster.cattle.io"
+	v1IPCRD     = "macvlanips.macvlan.cluster.cattle.io"
 	v2SubnetCRD = "flatnetworksubnets.flatnetwork.pandaria.io"
 )
 
