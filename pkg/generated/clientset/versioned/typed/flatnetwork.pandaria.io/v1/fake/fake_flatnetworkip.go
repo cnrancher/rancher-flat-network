@@ -41,22 +41,24 @@ var flatnetworkipsKind = v1.SchemeGroupVersion.WithKind("FlatNetworkIP")
 
 // Get takes name of the flatNetworkIP, and returns the corresponding flatNetworkIP object, and an error if there is any.
 func (c *FakeFlatNetworkIPs) Get(ctx context.Context, name string, options metav1.GetOptions) (result *v1.FlatNetworkIP, err error) {
+	emptyResult := &v1.FlatNetworkIP{}
 	obj, err := c.Fake.
-		Invokes(testing.NewGetAction(flatnetworkipsResource, c.ns, name), &v1.FlatNetworkIP{})
+		Invokes(testing.NewGetActionWithOptions(flatnetworkipsResource, c.ns, name, options), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1.FlatNetworkIP), err
 }
 
 // List takes label and field selectors, and returns the list of FlatNetworkIPs that match those selectors.
 func (c *FakeFlatNetworkIPs) List(ctx context.Context, opts metav1.ListOptions) (result *v1.FlatNetworkIPList, err error) {
+	emptyResult := &v1.FlatNetworkIPList{}
 	obj, err := c.Fake.
-		Invokes(testing.NewListAction(flatnetworkipsResource, flatnetworkipsKind, c.ns, opts), &v1.FlatNetworkIPList{})
+		Invokes(testing.NewListActionWithOptions(flatnetworkipsResource, flatnetworkipsKind, c.ns, opts), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 
 	label, _, _ := testing.ExtractFromListOptions(opts)
@@ -75,40 +77,43 @@ func (c *FakeFlatNetworkIPs) List(ctx context.Context, opts metav1.ListOptions) 
 // Watch returns a watch.Interface that watches the requested flatNetworkIPs.
 func (c *FakeFlatNetworkIPs) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
 	return c.Fake.
-		InvokesWatch(testing.NewWatchAction(flatnetworkipsResource, c.ns, opts))
+		InvokesWatch(testing.NewWatchActionWithOptions(flatnetworkipsResource, c.ns, opts))
 
 }
 
 // Create takes the representation of a flatNetworkIP and creates it.  Returns the server's representation of the flatNetworkIP, and an error, if there is any.
 func (c *FakeFlatNetworkIPs) Create(ctx context.Context, flatNetworkIP *v1.FlatNetworkIP, opts metav1.CreateOptions) (result *v1.FlatNetworkIP, err error) {
+	emptyResult := &v1.FlatNetworkIP{}
 	obj, err := c.Fake.
-		Invokes(testing.NewCreateAction(flatnetworkipsResource, c.ns, flatNetworkIP), &v1.FlatNetworkIP{})
+		Invokes(testing.NewCreateActionWithOptions(flatnetworkipsResource, c.ns, flatNetworkIP, opts), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1.FlatNetworkIP), err
 }
 
 // Update takes the representation of a flatNetworkIP and updates it. Returns the server's representation of the flatNetworkIP, and an error, if there is any.
 func (c *FakeFlatNetworkIPs) Update(ctx context.Context, flatNetworkIP *v1.FlatNetworkIP, opts metav1.UpdateOptions) (result *v1.FlatNetworkIP, err error) {
+	emptyResult := &v1.FlatNetworkIP{}
 	obj, err := c.Fake.
-		Invokes(testing.NewUpdateAction(flatnetworkipsResource, c.ns, flatNetworkIP), &v1.FlatNetworkIP{})
+		Invokes(testing.NewUpdateActionWithOptions(flatnetworkipsResource, c.ns, flatNetworkIP, opts), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1.FlatNetworkIP), err
 }
 
 // UpdateStatus was generated because the type contains a Status member.
 // Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeFlatNetworkIPs) UpdateStatus(ctx context.Context, flatNetworkIP *v1.FlatNetworkIP, opts metav1.UpdateOptions) (*v1.FlatNetworkIP, error) {
+func (c *FakeFlatNetworkIPs) UpdateStatus(ctx context.Context, flatNetworkIP *v1.FlatNetworkIP, opts metav1.UpdateOptions) (result *v1.FlatNetworkIP, err error) {
+	emptyResult := &v1.FlatNetworkIP{}
 	obj, err := c.Fake.
-		Invokes(testing.NewUpdateSubresourceAction(flatnetworkipsResource, "status", c.ns, flatNetworkIP), &v1.FlatNetworkIP{})
+		Invokes(testing.NewUpdateSubresourceActionWithOptions(flatnetworkipsResource, "status", c.ns, flatNetworkIP, opts), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1.FlatNetworkIP), err
 }
@@ -123,7 +128,7 @@ func (c *FakeFlatNetworkIPs) Delete(ctx context.Context, name string, opts metav
 
 // DeleteCollection deletes a collection of objects.
 func (c *FakeFlatNetworkIPs) DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error {
-	action := testing.NewDeleteCollectionAction(flatnetworkipsResource, c.ns, listOpts)
+	action := testing.NewDeleteCollectionActionWithOptions(flatnetworkipsResource, c.ns, opts, listOpts)
 
 	_, err := c.Fake.Invokes(action, &v1.FlatNetworkIPList{})
 	return err
@@ -131,11 +136,12 @@ func (c *FakeFlatNetworkIPs) DeleteCollection(ctx context.Context, opts metav1.D
 
 // Patch applies the patch and returns the patched flatNetworkIP.
 func (c *FakeFlatNetworkIPs) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *v1.FlatNetworkIP, err error) {
+	emptyResult := &v1.FlatNetworkIP{}
 	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceAction(flatnetworkipsResource, c.ns, name, pt, data, subresources...), &v1.FlatNetworkIP{})
+		Invokes(testing.NewPatchSubresourceActionWithOptions(flatnetworkipsResource, c.ns, name, pt, data, opts, subresources...), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1.FlatNetworkIP), err
 }

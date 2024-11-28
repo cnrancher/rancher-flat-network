@@ -20,8 +20,8 @@ package v1
 
 import (
 	v1 "github.com/cnrancher/rancher-flat-network/pkg/apis/flatnetwork.pandaria.io/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/client-go/listers"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -38,25 +38,17 @@ type FlatNetworkIPLister interface {
 
 // flatNetworkIPLister implements the FlatNetworkIPLister interface.
 type flatNetworkIPLister struct {
-	indexer cache.Indexer
+	listers.ResourceIndexer[*v1.FlatNetworkIP]
 }
 
 // NewFlatNetworkIPLister returns a new FlatNetworkIPLister.
 func NewFlatNetworkIPLister(indexer cache.Indexer) FlatNetworkIPLister {
-	return &flatNetworkIPLister{indexer: indexer}
-}
-
-// List lists all FlatNetworkIPs in the indexer.
-func (s *flatNetworkIPLister) List(selector labels.Selector) (ret []*v1.FlatNetworkIP, err error) {
-	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1.FlatNetworkIP))
-	})
-	return ret, err
+	return &flatNetworkIPLister{listers.New[*v1.FlatNetworkIP](indexer, v1.Resource("flatnetworkip"))}
 }
 
 // FlatNetworkIPs returns an object that can list and get FlatNetworkIPs.
 func (s *flatNetworkIPLister) FlatNetworkIPs(namespace string) FlatNetworkIPNamespaceLister {
-	return flatNetworkIPNamespaceLister{indexer: s.indexer, namespace: namespace}
+	return flatNetworkIPNamespaceLister{listers.NewNamespaced[*v1.FlatNetworkIP](s.ResourceIndexer, namespace)}
 }
 
 // FlatNetworkIPNamespaceLister helps list and get FlatNetworkIPs.
@@ -74,26 +66,5 @@ type FlatNetworkIPNamespaceLister interface {
 // flatNetworkIPNamespaceLister implements the FlatNetworkIPNamespaceLister
 // interface.
 type flatNetworkIPNamespaceLister struct {
-	indexer   cache.Indexer
-	namespace string
-}
-
-// List lists all FlatNetworkIPs in the indexer for a given namespace.
-func (s flatNetworkIPNamespaceLister) List(selector labels.Selector) (ret []*v1.FlatNetworkIP, err error) {
-	err = cache.ListAllByNamespace(s.indexer, s.namespace, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1.FlatNetworkIP))
-	})
-	return ret, err
-}
-
-// Get retrieves the FlatNetworkIP from the indexer for a given namespace and name.
-func (s flatNetworkIPNamespaceLister) Get(name string) (*v1.FlatNetworkIP, error) {
-	obj, exists, err := s.indexer.GetByKey(s.namespace + "/" + name)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return nil, errors.NewNotFound(v1.Resource("flatnetworkip"), name)
-	}
-	return obj.(*v1.FlatNetworkIP), nil
+	listers.ResourceIndexer[*v1.FlatNetworkIP]
 }

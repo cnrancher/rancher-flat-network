@@ -20,14 +20,13 @@ package v1
 
 import (
 	"context"
-	"time"
 
 	v1 "github.com/cnrancher/rancher-flat-network/pkg/apis/flatnetwork.pandaria.io/v1"
 	scheme "github.com/cnrancher/rancher-flat-network/pkg/generated/clientset/versioned/scheme"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
-	rest "k8s.io/client-go/rest"
+	gentype "k8s.io/client-go/gentype"
 )
 
 // FlatNetworkSubnetsGetter has a method to return a FlatNetworkSubnetInterface.
@@ -40,6 +39,7 @@ type FlatNetworkSubnetsGetter interface {
 type FlatNetworkSubnetInterface interface {
 	Create(ctx context.Context, flatNetworkSubnet *v1.FlatNetworkSubnet, opts metav1.CreateOptions) (*v1.FlatNetworkSubnet, error)
 	Update(ctx context.Context, flatNetworkSubnet *v1.FlatNetworkSubnet, opts metav1.UpdateOptions) (*v1.FlatNetworkSubnet, error)
+	// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
 	UpdateStatus(ctx context.Context, flatNetworkSubnet *v1.FlatNetworkSubnet, opts metav1.UpdateOptions) (*v1.FlatNetworkSubnet, error)
 	Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error
@@ -52,144 +52,18 @@ type FlatNetworkSubnetInterface interface {
 
 // flatNetworkSubnets implements FlatNetworkSubnetInterface
 type flatNetworkSubnets struct {
-	client rest.Interface
-	ns     string
+	*gentype.ClientWithList[*v1.FlatNetworkSubnet, *v1.FlatNetworkSubnetList]
 }
 
 // newFlatNetworkSubnets returns a FlatNetworkSubnets
 func newFlatNetworkSubnets(c *FlatnetworkV1Client, namespace string) *flatNetworkSubnets {
 	return &flatNetworkSubnets{
-		client: c.RESTClient(),
-		ns:     namespace,
+		gentype.NewClientWithList[*v1.FlatNetworkSubnet, *v1.FlatNetworkSubnetList](
+			"flatnetworksubnets",
+			c.RESTClient(),
+			scheme.ParameterCodec,
+			namespace,
+			func() *v1.FlatNetworkSubnet { return &v1.FlatNetworkSubnet{} },
+			func() *v1.FlatNetworkSubnetList { return &v1.FlatNetworkSubnetList{} }),
 	}
-}
-
-// Get takes name of the flatNetworkSubnet, and returns the corresponding flatNetworkSubnet object, and an error if there is any.
-func (c *flatNetworkSubnets) Get(ctx context.Context, name string, options metav1.GetOptions) (result *v1.FlatNetworkSubnet, err error) {
-	result = &v1.FlatNetworkSubnet{}
-	err = c.client.Get().
-		Namespace(c.ns).
-		Resource("flatnetworksubnets").
-		Name(name).
-		VersionedParams(&options, scheme.ParameterCodec).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// List takes label and field selectors, and returns the list of FlatNetworkSubnets that match those selectors.
-func (c *flatNetworkSubnets) List(ctx context.Context, opts metav1.ListOptions) (result *v1.FlatNetworkSubnetList, err error) {
-	var timeout time.Duration
-	if opts.TimeoutSeconds != nil {
-		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
-	}
-	result = &v1.FlatNetworkSubnetList{}
-	err = c.client.Get().
-		Namespace(c.ns).
-		Resource("flatnetworksubnets").
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Timeout(timeout).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// Watch returns a watch.Interface that watches the requested flatNetworkSubnets.
-func (c *flatNetworkSubnets) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
-	var timeout time.Duration
-	if opts.TimeoutSeconds != nil {
-		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
-	}
-	opts.Watch = true
-	return c.client.Get().
-		Namespace(c.ns).
-		Resource("flatnetworksubnets").
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Timeout(timeout).
-		Watch(ctx)
-}
-
-// Create takes the representation of a flatNetworkSubnet and creates it.  Returns the server's representation of the flatNetworkSubnet, and an error, if there is any.
-func (c *flatNetworkSubnets) Create(ctx context.Context, flatNetworkSubnet *v1.FlatNetworkSubnet, opts metav1.CreateOptions) (result *v1.FlatNetworkSubnet, err error) {
-	result = &v1.FlatNetworkSubnet{}
-	err = c.client.Post().
-		Namespace(c.ns).
-		Resource("flatnetworksubnets").
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Body(flatNetworkSubnet).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// Update takes the representation of a flatNetworkSubnet and updates it. Returns the server's representation of the flatNetworkSubnet, and an error, if there is any.
-func (c *flatNetworkSubnets) Update(ctx context.Context, flatNetworkSubnet *v1.FlatNetworkSubnet, opts metav1.UpdateOptions) (result *v1.FlatNetworkSubnet, err error) {
-	result = &v1.FlatNetworkSubnet{}
-	err = c.client.Put().
-		Namespace(c.ns).
-		Resource("flatnetworksubnets").
-		Name(flatNetworkSubnet.Name).
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Body(flatNetworkSubnet).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// UpdateStatus was generated because the type contains a Status member.
-// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *flatNetworkSubnets) UpdateStatus(ctx context.Context, flatNetworkSubnet *v1.FlatNetworkSubnet, opts metav1.UpdateOptions) (result *v1.FlatNetworkSubnet, err error) {
-	result = &v1.FlatNetworkSubnet{}
-	err = c.client.Put().
-		Namespace(c.ns).
-		Resource("flatnetworksubnets").
-		Name(flatNetworkSubnet.Name).
-		SubResource("status").
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Body(flatNetworkSubnet).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// Delete takes name of the flatNetworkSubnet and deletes it. Returns an error if one occurs.
-func (c *flatNetworkSubnets) Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error {
-	return c.client.Delete().
-		Namespace(c.ns).
-		Resource("flatnetworksubnets").
-		Name(name).
-		Body(&opts).
-		Do(ctx).
-		Error()
-}
-
-// DeleteCollection deletes a collection of objects.
-func (c *flatNetworkSubnets) DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error {
-	var timeout time.Duration
-	if listOpts.TimeoutSeconds != nil {
-		timeout = time.Duration(*listOpts.TimeoutSeconds) * time.Second
-	}
-	return c.client.Delete().
-		Namespace(c.ns).
-		Resource("flatnetworksubnets").
-		VersionedParams(&listOpts, scheme.ParameterCodec).
-		Timeout(timeout).
-		Body(&opts).
-		Do(ctx).
-		Error()
-}
-
-// Patch applies the patch and returns the patched flatNetworkSubnet.
-func (c *flatNetworkSubnets) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *v1.FlatNetworkSubnet, err error) {
-	result = &v1.FlatNetworkSubnet{}
-	err = c.client.Patch(pt).
-		Namespace(c.ns).
-		Resource("flatnetworksubnets").
-		Name(name).
-		SubResource(subresources...).
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Body(data).
-		Do(ctx).
-		Into(result)
-	return
 }

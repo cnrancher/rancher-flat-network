@@ -20,8 +20,8 @@ package v1
 
 import (
 	v1 "github.com/cnrancher/rancher-flat-network/pkg/apis/flatnetwork.pandaria.io/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/client-go/listers"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -38,25 +38,17 @@ type FlatNetworkSubnetLister interface {
 
 // flatNetworkSubnetLister implements the FlatNetworkSubnetLister interface.
 type flatNetworkSubnetLister struct {
-	indexer cache.Indexer
+	listers.ResourceIndexer[*v1.FlatNetworkSubnet]
 }
 
 // NewFlatNetworkSubnetLister returns a new FlatNetworkSubnetLister.
 func NewFlatNetworkSubnetLister(indexer cache.Indexer) FlatNetworkSubnetLister {
-	return &flatNetworkSubnetLister{indexer: indexer}
-}
-
-// List lists all FlatNetworkSubnets in the indexer.
-func (s *flatNetworkSubnetLister) List(selector labels.Selector) (ret []*v1.FlatNetworkSubnet, err error) {
-	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1.FlatNetworkSubnet))
-	})
-	return ret, err
+	return &flatNetworkSubnetLister{listers.New[*v1.FlatNetworkSubnet](indexer, v1.Resource("flatnetworksubnet"))}
 }
 
 // FlatNetworkSubnets returns an object that can list and get FlatNetworkSubnets.
 func (s *flatNetworkSubnetLister) FlatNetworkSubnets(namespace string) FlatNetworkSubnetNamespaceLister {
-	return flatNetworkSubnetNamespaceLister{indexer: s.indexer, namespace: namespace}
+	return flatNetworkSubnetNamespaceLister{listers.NewNamespaced[*v1.FlatNetworkSubnet](s.ResourceIndexer, namespace)}
 }
 
 // FlatNetworkSubnetNamespaceLister helps list and get FlatNetworkSubnets.
@@ -74,26 +66,5 @@ type FlatNetworkSubnetNamespaceLister interface {
 // flatNetworkSubnetNamespaceLister implements the FlatNetworkSubnetNamespaceLister
 // interface.
 type flatNetworkSubnetNamespaceLister struct {
-	indexer   cache.Indexer
-	namespace string
-}
-
-// List lists all FlatNetworkSubnets in the indexer for a given namespace.
-func (s flatNetworkSubnetNamespaceLister) List(selector labels.Selector) (ret []*v1.FlatNetworkSubnet, err error) {
-	err = cache.ListAllByNamespace(s.indexer, s.namespace, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1.FlatNetworkSubnet))
-	})
-	return ret, err
-}
-
-// Get retrieves the FlatNetworkSubnet from the indexer for a given namespace and name.
-func (s flatNetworkSubnetNamespaceLister) Get(name string) (*v1.FlatNetworkSubnet, error) {
-	obj, exists, err := s.indexer.GetByKey(s.namespace + "/" + name)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return nil, errors.NewNotFound(v1.Resource("flatnetworksubnet"), name)
-	}
-	return obj.(*v1.FlatNetworkSubnet), nil
+	listers.ResourceIndexer[*v1.FlatNetworkSubnet]
 }
