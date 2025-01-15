@@ -178,8 +178,7 @@ func Test_CheckSubnetConflict(t *testing.T) {
 	assert.ErrorIs(err, ipcalc.ErrNetworkConflict) // should return CIDR conflict
 	t.Log(err)
 
-	// add range 192.168.1.10 - 192.168.1.20
-	s1.Spec.Ranges = append(s1.Spec.Ranges, flv1.IPRange{
+	s1.Spec.Ranges = append(s1.Spec.Ranges, flv1.IPRange{ // 192.168.1.10 - 192.168.1.20
 		From: net.ParseIP("192.168.1.10"),
 		To:   net.ParseIP("192.168.1.20"),
 	})
@@ -197,7 +196,30 @@ func Test_CheckSubnetConflict(t *testing.T) {
 	assert.ErrorIs(err, ipcalc.ErrIPRangesConflict) // should return ip ranges conflict
 	t.Log(err)
 
+	s1.Spec.Ranges[0].From = net.ParseIP("192.168.1.5") // 192.168.1.5 - 192.168.1.10
+	s1.Spec.Ranges[0].To = net.ParseIP("192.168.1.10")
+	err = CheckSubnetConflict(s1, subnets)
+	assert.ErrorIs(err, ipcalc.ErrIPRangesConflict) // should return ip ranges conflict
+	t.Log(err)
+
 	s1.Spec.Ranges[0].From = net.ParseIP("192.168.1.20") // 192.168.1.20 - 192.168.1.25
+	s1.Spec.Ranges[0].To = net.ParseIP("192.168.1.25")
+	err = CheckSubnetConflict(s1, subnets)
+	assert.ErrorIs(err, ipcalc.ErrIPRangesConflict) // should return ip ranges conflict
+	t.Log(err)
+
+	s1.Spec.Ranges[0].From = net.ParseIP("192.168.1.5") // 192.168.1.5 - 192.168.1.25
+	err = CheckSubnetConflict(s1, subnets)
+	assert.ErrorIs(err, ipcalc.ErrIPRangesConflict) // should return ip ranges conflict
+	t.Log(err)
+
+	// revert the test ranges.
+	err = CheckSubnetConflict(subnets[0], []*flv1.FlatNetworkSubnet{s1})
+	assert.ErrorIs(err, ipcalc.ErrIPRangesConflict) // should return ip ranges conflict
+	t.Log(err)
+
+	s1.Spec.Ranges[0].From = net.ParseIP("192.168.1.13") // 192.168.1.13 - 192.168.1.16
+	s1.Spec.Ranges[0].To = net.ParseIP("192.168.1.16")
 	err = CheckSubnetConflict(s1, subnets)
 	assert.ErrorIs(err, ipcalc.ErrIPRangesConflict) // should return ip ranges conflict
 	t.Log(err)

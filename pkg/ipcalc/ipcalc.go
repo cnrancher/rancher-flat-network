@@ -381,11 +381,25 @@ func ipRangeConflict(r1, r2 flv1.IPRange) error {
 	if b1 == nil || b2 == nil {
 		return fmt.Errorf("invalid IP Range provided: %v", utils.Print(r2))
 	}
-	ranges := []flv1.IPRange{r2}
-	if IPInRanges(a1, ranges) {
+	// Check whether a1 or a2 is in range [b1 - b2]
+	ranges := []flv1.IPRange{
+		{
+			From: b1,
+			To:   b2,
+		},
+	}
+	if IPInRanges(a1, ranges) || IPInRanges(a2, ranges) {
 		return ErrIPRangesConflict
 	}
-	if IPInRanges(a2, ranges) {
+
+	// Also need to check whether b1 or b2 is in range [a1 - a2]
+	ranges = []flv1.IPRange{
+		{
+			From: a1,
+			To:   a2,
+		},
+	}
+	if IPInRanges(b1, ranges) || IPInRanges(b2, ranges) {
 		return ErrIPRangesConflict
 	}
 	return nil
