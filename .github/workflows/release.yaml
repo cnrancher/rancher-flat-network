@@ -54,7 +54,7 @@ jobs:
         make image-push
       env:
         TAG: ${{ github.ref_name }}
-        REPO: ${{ vars.PUBLIC_REGISTRY }}/${{ vars.PUBLIC_REGISTRY_REPO }}
+        REPO: ${{ vars.TCR_REGISTRY }}/${{ vars.PUBLIC_REGISTRY_REPO }}
     - name: Upload Charts
       env:
         TAG: ${{ github.ref_name }}
