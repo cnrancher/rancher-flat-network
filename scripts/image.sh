@@ -36,16 +36,19 @@ set -x
 docker buildx build -f package/operator/Dockerfile \
     --builder ${BUILDER} --build-arg LOGLEVEL_VERSION=${LOGLEVEL_VERSION} \
     -t "${REPO}/rancher-flat-network-operator:${TAG}" \
+    --sbom=true --provenance=true \
     --platform=${TARGET_PLATFORMS} ${BUILDX_OPTIONS} .
 
 docker buildx build -f package/cni/Dockerfile \
     --builder ${BUILDER} --build-arg STATIC_IPAM_VERSION=${STATIC_IPAM_VERSION} \
     -t "${REPO}/rancher-flat-network-cni:${TAG}" \
+    --sbom=true --provenance=true \
     --platform=${TARGET_PLATFORMS} ${BUILDX_OPTIONS} .
 
 docker buildx build -f package/deploy/Dockerfile \
     --builder ${BUILDER} --build-arg KUBECTL_VERSION=${KUBECTL_VERSION} \
     -t "${REPO}/rancher-flat-network-deploy:${TAG}" \
+    --sbom=true --provenance=true \
     --platform=${TARGET_PLATFORMS} ${BUILDX_OPTIONS} .
 
 echo "Image: Done"
