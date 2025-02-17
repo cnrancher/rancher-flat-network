@@ -8,7 +8,7 @@ on:
 
 jobs:
   ci:
-    runs-on: ubuntu-latest
+    runs-on: org-cnrancher-runner-dind-x64
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -26,10 +26,10 @@ jobs:
           version: v1.64
       - name: Verify
         run: |
-          make verify
+          ./scripts/verify.sh
       - name: Test
         run: |
-          make test
+          ./scripts/test.sh
       - name: Build
         env:
           TAG: ${{ github.ref_name }}
@@ -41,7 +41,7 @@ jobs:
           args: build --clean --snapshot
       - name: Image Build
         run: |
-          make image
+          ./scripts/image.sh
         env:
           TAG: dev
-          REPO: ${{ vars.PUBLIC_REGISTRY }}/${{ vars.PUBLIC_REGISTRY_REPO }}
+          REPO: ${{ vars.TCR_REGISTRY }}/${{ vars.PUBLIC_REGISTRY_REPO }}
