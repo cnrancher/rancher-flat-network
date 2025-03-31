@@ -18,7 +18,7 @@ require (
 	github.com/stretchr/testify v1.10.0
 	github.com/vishvananda/netlink v1.3.0
 	github.com/vishvananda/netns v0.0.5
-	gopkg.in/k8snetworkplumbingwg/multus-cni.v4 v4.1.4
+	gopkg.in/k8snetworkplumbingwg/multus-cni.v4 v4.2.0
 	k8s.io/api v0.31.7
 	k8s.io/apiextensions-apiserver v0.31.7
 	k8s.io/apimachinery v0.31.7
