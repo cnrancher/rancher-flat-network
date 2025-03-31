@@ -1,14 +1,8 @@
 module github.com/cnrancher/rancher-flat-network
 
-go 1.23
+go 1.24
 
-toolchain go1.23.3
-
-// Avoid mod conlict with multus-cni.v4
 replace k8s.io/client-go => k8s.io/client-go v0.31.6
-
-// CVE
-replace golang.org/x/net => golang.org/x/net v0.33.0
 
 require (
 	github.com/antonfisher/nested-logrus-formatter v1.3.1
