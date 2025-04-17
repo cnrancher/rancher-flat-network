@@ -1,5 +1,5 @@
 /*
-Copyright 2024 SUSE Rancher
+Copyright 2025 SUSE Rancher
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,13 +19,13 @@ limitations under the License.
 package v1
 
 import (
-	"context"
+	context "context"
 	time "time"
 
-	flatnetworkpandariaiov1 "github.com/cnrancher/rancher-flat-network/pkg/apis/flatnetwork.pandaria.io/v1"
+	apisflatnetworkpandariaiov1 "github.com/cnrancher/rancher-flat-network/pkg/apis/flatnetwork.pandaria.io/v1"
 	versioned "github.com/cnrancher/rancher-flat-network/pkg/generated/clientset/versioned"
 	internalinterfaces "github.com/cnrancher/rancher-flat-network/pkg/generated/informers/externalversions/internalinterfaces"
-	v1 "github.com/cnrancher/rancher-flat-network/pkg/generated/listers/flatnetwork.pandaria.io/v1"
+	flatnetworkpandariaiov1 "github.com/cnrancher/rancher-flat-network/pkg/generated/listers/flatnetwork.pandaria.io/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -36,7 +36,7 @@ import (
 // FlatNetworkSubnets.
 type FlatNetworkSubnetInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1.FlatNetworkSubnetLister
+	Lister() flatnetworkpandariaiov1.FlatNetworkSubnetLister
 }
 
 type flatNetworkSubnetInformer struct {
@@ -71,7 +71,7 @@ func NewFilteredFlatNetworkSubnetInformer(client versioned.Interface, namespace 
 				return client.FlatnetworkV1().FlatNetworkSubnets(namespace).Watch(context.TODO(), options)
 			},
 		},
-		&flatnetworkpandariaiov1.FlatNetworkSubnet{},
+		&apisflatnetworkpandariaiov1.FlatNetworkSubnet{},
 		resyncPeriod,
 		indexers,
 	)
@@ -82,9 +82,9 @@ func (f *flatNetworkSubnetInformer) defaultInformer(client versioned.Interface, 
 }
 
 func (f *flatNetworkSubnetInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&flatnetworkpandariaiov1.FlatNetworkSubnet{}, f.defaultInformer)
+	return f.factory.InformerFor(&apisflatnetworkpandariaiov1.FlatNetworkSubnet{}, f.defaultInformer)
 }
 
-func (f *flatNetworkSubnetInformer) Lister() v1.FlatNetworkSubnetLister {
-	return v1.NewFlatNetworkSubnetLister(f.Informer().GetIndexer())
+func (f *flatNetworkSubnetInformer) Lister() flatnetworkpandariaiov1.FlatNetworkSubnetLister {
+	return flatnetworkpandariaiov1.NewFlatNetworkSubnetLister(f.Informer().GetIndexer())
 }

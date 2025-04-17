@@ -1,5 +1,5 @@
 /*
-Copyright 2024 SUSE Rancher
+Copyright 2025 SUSE Rancher
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,8 +19,8 @@ limitations under the License.
 package versioned
 
 import (
-	"fmt"
-	"net/http"
+	fmt "fmt"
+	http "net/http"
 
 	flatnetworkv1 "github.com/cnrancher/rancher-flat-network/pkg/generated/clientset/versioned/typed/flatnetwork.pandaria.io/v1"
 	discovery "k8s.io/client-go/discovery"

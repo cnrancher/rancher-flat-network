@@ -1,5 +1,5 @@
 /*
-Copyright 2024 SUSE Rancher
+Copyright 2025 SUSE Rancher
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,129 +19,34 @@ limitations under the License.
 package fake
 
 import (
-	"context"
-
 	v1 "github.com/cnrancher/rancher-flat-network/pkg/apis/flatnetwork.pandaria.io/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	labels "k8s.io/apimachinery/pkg/labels"
-	types "k8s.io/apimachinery/pkg/types"
-	watch "k8s.io/apimachinery/pkg/watch"
-	testing "k8s.io/client-go/testing"
+	flatnetworkpandariaiov1 "github.com/cnrancher/rancher-flat-network/pkg/generated/clientset/versioned/typed/flatnetwork.pandaria.io/v1"
+	gentype "k8s.io/client-go/gentype"
 )
 
-// FakeFlatNetworkSubnets implements FlatNetworkSubnetInterface
-type FakeFlatNetworkSubnets struct {
+// fakeFlatNetworkSubnets implements FlatNetworkSubnetInterface
+type fakeFlatNetworkSubnets struct {
+	*gentype.FakeClientWithList[*v1.FlatNetworkSubnet, *v1.FlatNetworkSubnetList]
 	Fake *FakeFlatnetworkV1
-	ns   string
 }
 
-var flatnetworksubnetsResource = v1.SchemeGroupVersion.WithResource("flatnetworksubnets")
-
-var flatnetworksubnetsKind = v1.SchemeGroupVersion.WithKind("FlatNetworkSubnet")
-
-// Get takes name of the flatNetworkSubnet, and returns the corresponding flatNetworkSubnet object, and an error if there is any.
-func (c *FakeFlatNetworkSubnets) Get(ctx context.Context, name string, options metav1.GetOptions) (result *v1.FlatNetworkSubnet, err error) {
-	emptyResult := &v1.FlatNetworkSubnet{}
-	obj, err := c.Fake.
-		Invokes(testing.NewGetActionWithOptions(flatnetworksubnetsResource, c.ns, name, options), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
+func newFakeFlatNetworkSubnets(fake *FakeFlatnetworkV1, namespace string) flatnetworkpandariaiov1.FlatNetworkSubnetInterface {
+	return &fakeFlatNetworkSubnets{
+		gentype.NewFakeClientWithList[*v1.FlatNetworkSubnet, *v1.FlatNetworkSubnetList](
+			fake.Fake,
+			namespace,
+			v1.SchemeGroupVersion.WithResource("flatnetworksubnets"),
+			v1.SchemeGroupVersion.WithKind("FlatNetworkSubnet"),
+			func() *v1.FlatNetworkSubnet { return &v1.FlatNetworkSubnet{} },
+			func() *v1.FlatNetworkSubnetList { return &v1.FlatNetworkSubnetList{} },
+			func(dst, src *v1.FlatNetworkSubnetList) { dst.ListMeta = src.ListMeta },
+			func(list *v1.FlatNetworkSubnetList) []*v1.FlatNetworkSubnet {
+				return gentype.ToPointerSlice(list.Items)
+			},
+			func(list *v1.FlatNetworkSubnetList, items []*v1.FlatNetworkSubnet) {
+				list.Items = gentype.FromPointerSlice(items)
+			},
+		),
+		fake,
 	}
-	return obj.(*v1.FlatNetworkSubnet), err
-}
-
-// List takes label and field selectors, and returns the list of FlatNetworkSubnets that match those selectors.
-func (c *FakeFlatNetworkSubnets) List(ctx context.Context, opts metav1.ListOptions) (result *v1.FlatNetworkSubnetList, err error) {
-	emptyResult := &v1.FlatNetworkSubnetList{}
-	obj, err := c.Fake.
-		Invokes(testing.NewListActionWithOptions(flatnetworksubnetsResource, flatnetworksubnetsKind, c.ns, opts), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-
-	label, _, _ := testing.ExtractFromListOptions(opts)
-	if label == nil {
-		label = labels.Everything()
-	}
-	list := &v1.FlatNetworkSubnetList{ListMeta: obj.(*v1.FlatNetworkSubnetList).ListMeta}
-	for _, item := range obj.(*v1.FlatNetworkSubnetList).Items {
-		if label.Matches(labels.Set(item.Labels)) {
-			list.Items = append(list.Items, item)
-		}
-	}
-	return list, err
-}
-
-// Watch returns a watch.Interface that watches the requested flatNetworkSubnets.
-func (c *FakeFlatNetworkSubnets) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
-	return c.Fake.
-		InvokesWatch(testing.NewWatchActionWithOptions(flatnetworksubnetsResource, c.ns, opts))
-
-}
-
-// Create takes the representation of a flatNetworkSubnet and creates it.  Returns the server's representation of the flatNetworkSubnet, and an error, if there is any.
-func (c *FakeFlatNetworkSubnets) Create(ctx context.Context, flatNetworkSubnet *v1.FlatNetworkSubnet, opts metav1.CreateOptions) (result *v1.FlatNetworkSubnet, err error) {
-	emptyResult := &v1.FlatNetworkSubnet{}
-	obj, err := c.Fake.
-		Invokes(testing.NewCreateActionWithOptions(flatnetworksubnetsResource, c.ns, flatNetworkSubnet, opts), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1.FlatNetworkSubnet), err
-}
-
-// Update takes the representation of a flatNetworkSubnet and updates it. Returns the server's representation of the flatNetworkSubnet, and an error, if there is any.
-func (c *FakeFlatNetworkSubnets) Update(ctx context.Context, flatNetworkSubnet *v1.FlatNetworkSubnet, opts metav1.UpdateOptions) (result *v1.FlatNetworkSubnet, err error) {
-	emptyResult := &v1.FlatNetworkSubnet{}
-	obj, err := c.Fake.
-		Invokes(testing.NewUpdateActionWithOptions(flatnetworksubnetsResource, c.ns, flatNetworkSubnet, opts), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1.FlatNetworkSubnet), err
-}
-
-// UpdateStatus was generated because the type contains a Status member.
-// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeFlatNetworkSubnets) UpdateStatus(ctx context.Context, flatNetworkSubnet *v1.FlatNetworkSubnet, opts metav1.UpdateOptions) (result *v1.FlatNetworkSubnet, err error) {
-	emptyResult := &v1.FlatNetworkSubnet{}
-	obj, err := c.Fake.
-		Invokes(testing.NewUpdateSubresourceActionWithOptions(flatnetworksubnetsResource, "status", c.ns, flatNetworkSubnet, opts), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1.FlatNetworkSubnet), err
-}
-
-// Delete takes name of the flatNetworkSubnet and deletes it. Returns an error if one occurs.
-func (c *FakeFlatNetworkSubnets) Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error {
-	_, err := c.Fake.
-		Invokes(testing.NewDeleteActionWithOptions(flatnetworksubnetsResource, c.ns, name, opts), &v1.FlatNetworkSubnet{})
-
-	return err
-}
-
-// DeleteCollection deletes a collection of objects.
-func (c *FakeFlatNetworkSubnets) DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error {
-	action := testing.NewDeleteCollectionActionWithOptions(flatnetworksubnetsResource, c.ns, opts, listOpts)
-
-	_, err := c.Fake.Invokes(action, &v1.FlatNetworkSubnetList{})
-	return err
-}
-
-// Patch applies the patch and returns the patched flatNetworkSubnet.
-func (c *FakeFlatNetworkSubnets) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *v1.FlatNetworkSubnet, err error) {
-	emptyResult := &v1.FlatNetworkSubnet{}
-	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceActionWithOptions(flatnetworksubnetsResource, c.ns, name, pt, data, opts, subresources...), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1.FlatNetworkSubnet), err
 }

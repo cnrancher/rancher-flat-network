@@ -1,5 +1,5 @@
 /*
-Copyright 2024 SUSE Rancher
+Copyright 2025 SUSE Rancher
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,9 +19,9 @@ limitations under the License.
 package v1
 
 import (
-	"context"
+	context "context"
 
-	v1 "github.com/cnrancher/rancher-flat-network/pkg/apis/flatnetwork.pandaria.io/v1"
+	flatnetworkpandariaiov1 "github.com/cnrancher/rancher-flat-network/pkg/apis/flatnetwork.pandaria.io/v1"
 	scheme "github.com/cnrancher/rancher-flat-network/pkg/generated/clientset/versioned/scheme"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -37,33 +37,36 @@ type FlatNetworkSubnetsGetter interface {
 
 // FlatNetworkSubnetInterface has methods to work with FlatNetworkSubnet resources.
 type FlatNetworkSubnetInterface interface {
-	Create(ctx context.Context, flatNetworkSubnet *v1.FlatNetworkSubnet, opts metav1.CreateOptions) (*v1.FlatNetworkSubnet, error)
-	Update(ctx context.Context, flatNetworkSubnet *v1.FlatNetworkSubnet, opts metav1.UpdateOptions) (*v1.FlatNetworkSubnet, error)
+	Create(ctx context.Context, flatNetworkSubnet *flatnetworkpandariaiov1.FlatNetworkSubnet, opts metav1.CreateOptions) (*flatnetworkpandariaiov1.FlatNetworkSubnet, error)
+	Update(ctx context.Context, flatNetworkSubnet *flatnetworkpandariaiov1.FlatNetworkSubnet, opts metav1.UpdateOptions) (*flatnetworkpandariaiov1.FlatNetworkSubnet, error)
 	// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-	UpdateStatus(ctx context.Context, flatNetworkSubnet *v1.FlatNetworkSubnet, opts metav1.UpdateOptions) (*v1.FlatNetworkSubnet, error)
+	UpdateStatus(ctx context.Context, flatNetworkSubnet *flatnetworkpandariaiov1.FlatNetworkSubnet, opts metav1.UpdateOptions) (*flatnetworkpandariaiov1.FlatNetworkSubnet, error)
 	Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error
-	Get(ctx context.Context, name string, opts metav1.GetOptions) (*v1.FlatNetworkSubnet, error)
-	List(ctx context.Context, opts metav1.ListOptions) (*v1.FlatNetworkSubnetList, error)
+	Get(ctx context.Context, name string, opts metav1.GetOptions) (*flatnetworkpandariaiov1.FlatNetworkSubnet, error)
+	List(ctx context.Context, opts metav1.ListOptions) (*flatnetworkpandariaiov1.FlatNetworkSubnetList, error)
 	Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *v1.FlatNetworkSubnet, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *flatnetworkpandariaiov1.FlatNetworkSubnet, err error)
 	FlatNetworkSubnetExpansion
 }
 
 // flatNetworkSubnets implements FlatNetworkSubnetInterface
 type flatNetworkSubnets struct {
-	*gentype.ClientWithList[*v1.FlatNetworkSubnet, *v1.FlatNetworkSubnetList]
+	*gentype.ClientWithList[*flatnetworkpandariaiov1.FlatNetworkSubnet, *flatnetworkpandariaiov1.FlatNetworkSubnetList]
 }
 
 // newFlatNetworkSubnets returns a FlatNetworkSubnets
 func newFlatNetworkSubnets(c *FlatnetworkV1Client, namespace string) *flatNetworkSubnets {
 	return &flatNetworkSubnets{
-		gentype.NewClientWithList[*v1.FlatNetworkSubnet, *v1.FlatNetworkSubnetList](
+		gentype.NewClientWithList[*flatnetworkpandariaiov1.FlatNetworkSubnet, *flatnetworkpandariaiov1.FlatNetworkSubnetList](
 			"flatnetworksubnets",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			namespace,
-			func() *v1.FlatNetworkSubnet { return &v1.FlatNetworkSubnet{} },
-			func() *v1.FlatNetworkSubnetList { return &v1.FlatNetworkSubnetList{} }),
+			func() *flatnetworkpandariaiov1.FlatNetworkSubnet { return &flatnetworkpandariaiov1.FlatNetworkSubnet{} },
+			func() *flatnetworkpandariaiov1.FlatNetworkSubnetList {
+				return &flatnetworkpandariaiov1.FlatNetworkSubnetList{}
+			},
+		),
 	}
 }

@@ -1,5 +1,5 @@
 /*
-Copyright 2024 SUSE Rancher
+Copyright 2025 SUSE Rancher
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,10 +19,10 @@ limitations under the License.
 package v1
 
 import (
-	v1 "github.com/cnrancher/rancher-flat-network/pkg/apis/flatnetwork.pandaria.io/v1"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/listers"
-	"k8s.io/client-go/tools/cache"
+	flatnetworkpandariaiov1 "github.com/cnrancher/rancher-flat-network/pkg/apis/flatnetwork.pandaria.io/v1"
+	labels "k8s.io/apimachinery/pkg/labels"
+	listers "k8s.io/client-go/listers"
+	cache "k8s.io/client-go/tools/cache"
 )
 
 // FlatNetworkSubnetLister helps list FlatNetworkSubnets.
@@ -30,7 +30,7 @@ import (
 type FlatNetworkSubnetLister interface {
 	// List lists all FlatNetworkSubnets in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1.FlatNetworkSubnet, err error)
+	List(selector labels.Selector) (ret []*flatnetworkpandariaiov1.FlatNetworkSubnet, err error)
 	// FlatNetworkSubnets returns an object that can list and get FlatNetworkSubnets.
 	FlatNetworkSubnets(namespace string) FlatNetworkSubnetNamespaceLister
 	FlatNetworkSubnetListerExpansion
@@ -38,17 +38,17 @@ type FlatNetworkSubnetLister interface {
 
 // flatNetworkSubnetLister implements the FlatNetworkSubnetLister interface.
 type flatNetworkSubnetLister struct {
-	listers.ResourceIndexer[*v1.FlatNetworkSubnet]
+	listers.ResourceIndexer[*flatnetworkpandariaiov1.FlatNetworkSubnet]
 }
 
 // NewFlatNetworkSubnetLister returns a new FlatNetworkSubnetLister.
 func NewFlatNetworkSubnetLister(indexer cache.Indexer) FlatNetworkSubnetLister {
-	return &flatNetworkSubnetLister{listers.New[*v1.FlatNetworkSubnet](indexer, v1.Resource("flatnetworksubnet"))}
+	return &flatNetworkSubnetLister{listers.New[*flatnetworkpandariaiov1.FlatNetworkSubnet](indexer, flatnetworkpandariaiov1.Resource("flatnetworksubnet"))}
 }
 
 // FlatNetworkSubnets returns an object that can list and get FlatNetworkSubnets.
 func (s *flatNetworkSubnetLister) FlatNetworkSubnets(namespace string) FlatNetworkSubnetNamespaceLister {
-	return flatNetworkSubnetNamespaceLister{listers.NewNamespaced[*v1.FlatNetworkSubnet](s.ResourceIndexer, namespace)}
+	return flatNetworkSubnetNamespaceLister{listers.NewNamespaced[*flatnetworkpandariaiov1.FlatNetworkSubnet](s.ResourceIndexer, namespace)}
 }
 
 // FlatNetworkSubnetNamespaceLister helps list and get FlatNetworkSubnets.
@@ -56,15 +56,15 @@ func (s *flatNetworkSubnetLister) FlatNetworkSubnets(namespace string) FlatNetwo
 type FlatNetworkSubnetNamespaceLister interface {
 	// List lists all FlatNetworkSubnets in the indexer for a given namespace.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1.FlatNetworkSubnet, err error)
+	List(selector labels.Selector) (ret []*flatnetworkpandariaiov1.FlatNetworkSubnet, err error)
 	// Get retrieves the FlatNetworkSubnet from the indexer for a given namespace and name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v1.FlatNetworkSubnet, error)
+	Get(name string) (*flatnetworkpandariaiov1.FlatNetworkSubnet, error)
 	FlatNetworkSubnetNamespaceListerExpansion
 }
 
 // flatNetworkSubnetNamespaceLister implements the FlatNetworkSubnetNamespaceLister
 // interface.
 type flatNetworkSubnetNamespaceLister struct {
-	listers.ResourceIndexer[*v1.FlatNetworkSubnet]
+	listers.ResourceIndexer[*flatnetworkpandariaiov1.FlatNetworkSubnet]
 }

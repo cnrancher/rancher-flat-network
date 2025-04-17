@@ -1,5 +1,5 @@
 /*
-Copyright 2024 SUSE Rancher
+Copyright 2025 SUSE Rancher
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,9 +19,9 @@ limitations under the License.
 package v1
 
 import (
-	"context"
+	context "context"
 
-	v1 "github.com/cnrancher/rancher-flat-network/pkg/apis/flatnetwork.pandaria.io/v1"
+	flatnetworkpandariaiov1 "github.com/cnrancher/rancher-flat-network/pkg/apis/flatnetwork.pandaria.io/v1"
 	scheme "github.com/cnrancher/rancher-flat-network/pkg/generated/clientset/versioned/scheme"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -37,33 +37,34 @@ type FlatNetworkIPsGetter interface {
 
 // FlatNetworkIPInterface has methods to work with FlatNetworkIP resources.
 type FlatNetworkIPInterface interface {
-	Create(ctx context.Context, flatNetworkIP *v1.FlatNetworkIP, opts metav1.CreateOptions) (*v1.FlatNetworkIP, error)
-	Update(ctx context.Context, flatNetworkIP *v1.FlatNetworkIP, opts metav1.UpdateOptions) (*v1.FlatNetworkIP, error)
+	Create(ctx context.Context, flatNetworkIP *flatnetworkpandariaiov1.FlatNetworkIP, opts metav1.CreateOptions) (*flatnetworkpandariaiov1.FlatNetworkIP, error)
+	Update(ctx context.Context, flatNetworkIP *flatnetworkpandariaiov1.FlatNetworkIP, opts metav1.UpdateOptions) (*flatnetworkpandariaiov1.FlatNetworkIP, error)
 	// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-	UpdateStatus(ctx context.Context, flatNetworkIP *v1.FlatNetworkIP, opts metav1.UpdateOptions) (*v1.FlatNetworkIP, error)
+	UpdateStatus(ctx context.Context, flatNetworkIP *flatnetworkpandariaiov1.FlatNetworkIP, opts metav1.UpdateOptions) (*flatnetworkpandariaiov1.FlatNetworkIP, error)
 	Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error
-	Get(ctx context.Context, name string, opts metav1.GetOptions) (*v1.FlatNetworkIP, error)
-	List(ctx context.Context, opts metav1.ListOptions) (*v1.FlatNetworkIPList, error)
+	Get(ctx context.Context, name string, opts metav1.GetOptions) (*flatnetworkpandariaiov1.FlatNetworkIP, error)
+	List(ctx context.Context, opts metav1.ListOptions) (*flatnetworkpandariaiov1.FlatNetworkIPList, error)
 	Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *v1.FlatNetworkIP, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *flatnetworkpandariaiov1.FlatNetworkIP, err error)
 	FlatNetworkIPExpansion
 }
 
 // flatNetworkIPs implements FlatNetworkIPInterface
 type flatNetworkIPs struct {
-	*gentype.ClientWithList[*v1.FlatNetworkIP, *v1.FlatNetworkIPList]
+	*gentype.ClientWithList[*flatnetworkpandariaiov1.FlatNetworkIP, *flatnetworkpandariaiov1.FlatNetworkIPList]
 }
 
 // newFlatNetworkIPs returns a FlatNetworkIPs
 func newFlatNetworkIPs(c *FlatnetworkV1Client, namespace string) *flatNetworkIPs {
 	return &flatNetworkIPs{
-		gentype.NewClientWithList[*v1.FlatNetworkIP, *v1.FlatNetworkIPList](
+		gentype.NewClientWithList[*flatnetworkpandariaiov1.FlatNetworkIP, *flatnetworkpandariaiov1.FlatNetworkIPList](
 			"flatnetworkips",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			namespace,
-			func() *v1.FlatNetworkIP { return &v1.FlatNetworkIP{} },
-			func() *v1.FlatNetworkIPList { return &v1.FlatNetworkIPList{} }),
+			func() *flatnetworkpandariaiov1.FlatNetworkIP { return &flatnetworkpandariaiov1.FlatNetworkIP{} },
+			func() *flatnetworkpandariaiov1.FlatNetworkIPList { return &flatnetworkpandariaiov1.FlatNetworkIPList{} },
+		),
 	}
 }

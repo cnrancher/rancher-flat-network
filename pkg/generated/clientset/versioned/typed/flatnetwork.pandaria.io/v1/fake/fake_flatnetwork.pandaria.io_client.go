@@ -1,5 +1,5 @@
 /*
-Copyright 2024 SUSE Rancher
+Copyright 2025 SUSE Rancher
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -29,11 +29,11 @@ type FakeFlatnetworkV1 struct {
 }
 
 func (c *FakeFlatnetworkV1) FlatNetworkIPs(namespace string) v1.FlatNetworkIPInterface {
-	return &FakeFlatNetworkIPs{c, namespace}
+	return newFakeFlatNetworkIPs(c, namespace)
 }
 
 func (c *FakeFlatnetworkV1) FlatNetworkSubnets(namespace string) v1.FlatNetworkSubnetInterface {
-	return &FakeFlatNetworkSubnets{c, namespace}
+	return newFakeFlatNetworkSubnets(c, namespace)
 }
 
 // RESTClient returns a RESTClient that is used to communicate

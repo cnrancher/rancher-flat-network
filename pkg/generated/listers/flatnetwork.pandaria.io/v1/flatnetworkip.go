@@ -1,5 +1,5 @@
 /*
-Copyright 2024 SUSE Rancher
+Copyright 2025 SUSE Rancher
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,10 +19,10 @@ limitations under the License.
 package v1
 
 import (
-	v1 "github.com/cnrancher/rancher-flat-network/pkg/apis/flatnetwork.pandaria.io/v1"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/listers"
-	"k8s.io/client-go/tools/cache"
+	flatnetworkpandariaiov1 "github.com/cnrancher/rancher-flat-network/pkg/apis/flatnetwork.pandaria.io/v1"
+	labels "k8s.io/apimachinery/pkg/labels"
+	listers "k8s.io/client-go/listers"
+	cache "k8s.io/client-go/tools/cache"
 )
 
 // FlatNetworkIPLister helps list FlatNetworkIPs.
@@ -30,7 +30,7 @@ import (
 type FlatNetworkIPLister interface {
 	// List lists all FlatNetworkIPs in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1.FlatNetworkIP, err error)
+	List(selector labels.Selector) (ret []*flatnetworkpandariaiov1.FlatNetworkIP, err error)
 	// FlatNetworkIPs returns an object that can list and get FlatNetworkIPs.
 	FlatNetworkIPs(namespace string) FlatNetworkIPNamespaceLister
 	FlatNetworkIPListerExpansion
@@ -38,17 +38,17 @@ type FlatNetworkIPLister interface {
 
 // flatNetworkIPLister implements the FlatNetworkIPLister interface.
 type flatNetworkIPLister struct {
-	listers.ResourceIndexer[*v1.FlatNetworkIP]
+	listers.ResourceIndexer[*flatnetworkpandariaiov1.FlatNetworkIP]
 }
 
 // NewFlatNetworkIPLister returns a new FlatNetworkIPLister.
 func NewFlatNetworkIPLister(indexer cache.Indexer) FlatNetworkIPLister {
-	return &flatNetworkIPLister{listers.New[*v1.FlatNetworkIP](indexer, v1.Resource("flatnetworkip"))}
+	return &flatNetworkIPLister{listers.New[*flatnetworkpandariaiov1.FlatNetworkIP](indexer, flatnetworkpandariaiov1.Resource("flatnetworkip"))}
 }
 
 // FlatNetworkIPs returns an object that can list and get FlatNetworkIPs.
 func (s *flatNetworkIPLister) FlatNetworkIPs(namespace string) FlatNetworkIPNamespaceLister {
-	return flatNetworkIPNamespaceLister{listers.NewNamespaced[*v1.FlatNetworkIP](s.ResourceIndexer, namespace)}
+	return flatNetworkIPNamespaceLister{listers.NewNamespaced[*flatnetworkpandariaiov1.FlatNetworkIP](s.ResourceIndexer, namespace)}
 }
 
 // FlatNetworkIPNamespaceLister helps list and get FlatNetworkIPs.
@@ -56,15 +56,15 @@ func (s *flatNetworkIPLister) FlatNetworkIPs(namespace string) FlatNetworkIPName
 type FlatNetworkIPNamespaceLister interface {
 	// List lists all FlatNetworkIPs in the indexer for a given namespace.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1.FlatNetworkIP, err error)
+	List(selector labels.Selector) (ret []*flatnetworkpandariaiov1.FlatNetworkIP, err error)
 	// Get retrieves the FlatNetworkIP from the indexer for a given namespace and name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v1.FlatNetworkIP, error)
+	Get(name string) (*flatnetworkpandariaiov1.FlatNetworkIP, error)
 	FlatNetworkIPNamespaceListerExpansion
 }
 
 // flatNetworkIPNamespaceLister implements the FlatNetworkIPNamespaceLister
 // interface.
 type flatNetworkIPNamespaceLister struct {
-	listers.ResourceIndexer[*v1.FlatNetworkIP]
+	listers.ResourceIndexer[*flatnetworkpandariaiov1.FlatNetworkIP]
 }
