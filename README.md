@@ -36,8 +36,6 @@ pods using the flat-networks (Macvlan/IPvlan).
 
 ## Usage
 
-Helm Chart of FlatNetwork V2: <https://github.com/cnrancher/pandaria-catalog/>.
-
 Example workloads are available in [docs](./docs/) directory.
 
 ```console
