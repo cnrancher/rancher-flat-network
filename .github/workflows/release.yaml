@@ -98,7 +98,7 @@ jobs:
     - name: Hangar Sign
       uses: cnrancher/hangar/.github/actions/hangar-sign@main
       with:
-        version: v1.9.0-beta.14
+        version: v1.9.2
         images: |
           ${{ vars.TCR_REGISTRY }}/${{ vars.PUBLIC_REGISTRY_REPO }}/rancher-flat-network-operator:${{ github.ref_name }}
           ${{ vars.TCR_REGISTRY }}/${{ vars.PUBLIC_REGISTRY_REPO }}/rancher-flat-network-cni:${{ github.ref_name }}
