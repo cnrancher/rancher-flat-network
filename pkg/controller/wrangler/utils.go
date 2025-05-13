@@ -2,7 +2,6 @@ package wrangler
 
 import (
 	"fmt"
-	"reflect"
 	"strings"
 	"sync"
 
@@ -40,9 +39,20 @@ func serverSupportsIngressV1(k8sClient kubernetes.Interface) bool {
 	return false
 }
 
-const (
-	mutexLocked = 1
-)
+type ipAllocatingMutex struct {
+	m        sync.Mutex
+	isLocked bool
+}
+
+func (m *ipAllocatingMutex) lock() {
+	m.isLocked = true
+	m.m.Lock()
+}
+
+func (m *ipAllocatingMutex) unlock() {
+	m.m.Unlock()
+	m.isLocked = false
+}
 
 var (
 	ipAllocateMap       = sync.Map{}
@@ -55,10 +65,10 @@ func IPAllocateLock(subnet string) func() {
 	ipAllocateLockMutex.Lock()
 	defer ipAllocateLockMutex.Unlock()
 
-	value, _ := ipAllocateMap.LoadOrStore(subnet, &sync.Mutex{})
-	mtx := value.(*sync.Mutex)
-	mtx.Lock()
-	return func() { mtx.Unlock() }
+	value, _ := ipAllocateMap.LoadOrStore(subnet, &ipAllocatingMutex{})
+	mtx := value.(*ipAllocatingMutex)
+	mtx.lock()
+	return func() { mtx.unlock() }
 }
 
 // IsIPAllocating checks whether the subnet is locked
@@ -70,12 +80,10 @@ func IsIPAllocating(subnet string) bool {
 	if !ok {
 		return false
 	}
-	mu, ok := o.(*sync.Mutex)
+	mu, ok := o.(*ipAllocatingMutex)
 	if mu == nil || !ok {
 		return false
 	}
 
-	state := reflect.ValueOf(mu).Elem().FieldByName("state")
-	isLocked := (state.Int() & mutexLocked) == mutexLocked
-	return isLocked
+	return mu.isLocked
 }
