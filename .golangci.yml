@@ -93,6 +93,10 @@ linters:
           - revive
         path: migrator/commands/*
         text: 'unused-parameter: parameter ''args'' seems to be unused'
+      - linters:
+          - revive
+        path: pkg/*
+        text: avoid meaningless package names
     paths:
       - zz_generated_*
       - third_party$

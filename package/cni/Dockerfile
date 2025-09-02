@@ -1,7 +1,7 @@
-FROM registry.suse.com/bci/bci-base:15.6
+FROM registry.suse.com/bci/bci-base:15.7
 
 ARG TARGETARCH
-ARG STATIC_IPAM_VERSION=v1.5.1
+ARG STATIC_IPAM_VERSION=v1.8.0
 RUN zypper -n install vim curl tar gzip && \
     zypper -n clean -a && rm -rf /tmp/* /var/tmp/* /usr/share/doc/packages/* && \
     mkdir -p /tmp/bin /opt/cni/bin /etc/rancher/flat-network/ && \
