@@ -13,8 +13,8 @@ import (
 	"gopkg.in/k8snetworkplumbingwg/multus-cni.v4/pkg/types"
 	corev1 "k8s.io/api/core/v1"
 	discoveryv1 "k8s.io/api/discovery/v1"
+	"k8s.io/endpointslice"
 	"k8s.io/kubernetes/pkg/api/v1/endpoints"
-	podutil "k8s.io/kubernetes/pkg/api/v1/pod"
 )
 
 type EndpointReource struct {
@@ -269,7 +269,7 @@ func getPodEndpointSubset(
 	}
 	for i := range svc.Spec.Ports {
 		// Check whether pod has the ports needed by service and add them to endpoints
-		portNumber, err := podutil.FindPort(pod, &svc.Spec.Ports[i])
+		portNumber, err := endpointslice.FindPort(pod, &svc.Spec.Ports[i])
 		if err != nil {
 			logrus.Warnf("update endpoint: failed to find pod port: %v, skip...", err)
 			continue
