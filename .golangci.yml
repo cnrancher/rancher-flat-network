@@ -97,6 +97,10 @@ linters:
           - revive
         path: pkg/*
         text: avoid meaningless package names
+      - linters:
+          - prealloc
+        path: pkg/*
+        text: Consider preallocating
     paths:
       - zz_generated_*
       - third_party$
