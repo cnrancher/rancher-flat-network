@@ -62,6 +62,8 @@ func (s *Server) loglevel(rw http.ResponseWriter, req *http.Request) {
 	}
 
 	if req.Method == http.MethodPost {
+		// Fix issue G120: Parsing form data without limiting request body size can allow memory exhaustion (use http.MaxBytesReader) (gosec)
+		req.Body = http.MaxBytesReader(rw, req.Body, 1024*1024)
 		if err := req.ParseForm(); err != nil {
 			rw.WriteHeader(http.StatusInternalServerError)
 			rw.Write([]byte(fmt.Sprintf("Failed to parse form: %v\n", err)))
