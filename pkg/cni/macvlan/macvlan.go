@@ -102,7 +102,7 @@ func ModeToString(mode netlink.MacvlanMode) (string, error) {
 	case netlink.MACVLAN_MODE_PASSTHRU:
 		return "passthru", nil
 	default:
-		return "", fmt.Errorf("unknown macvlan mode: %q", mode)
+		return "", fmt.Errorf("unknown macvlan mode: %v", mode)
 	}
 }
 
